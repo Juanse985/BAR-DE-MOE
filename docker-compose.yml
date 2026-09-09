@@ -1,0 +1,82 @@
+name: bar-de-moe
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: barmoe-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-barmoe}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-barmoe}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"          # expuesto solo para inspeccionar con DBeaver / pgAdmin
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-barmoe} -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [barmoe]
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    container_name: barmoe-auth
+    environment:
+      ENV: ${ENV:-dev}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-barmoe}:${POSTGRES_PASSWORD:-barmoe}@postgres:5432/auth_db
+      JWT_SECRET: ${JWT_SECRET:-cambiar-este-secreto-en-produccion}
+      INACTIVIDAD_SEGUNDOS: ${INACTIVIDAD_SEGUNDOS:-180}
+      MAX_INTENTOS_LOGIN: ${MAX_INTENTOS_LOGIN:-3}
+      PERMITIR_MULTISESION: ${PERMITIR_MULTISESION:-false}
+      ADMIN_USUARIO: ${ADMIN_USUARIO:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin2026}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Sin `ports`: el servicio NO se publica al host. Solo el gateway lo alcanza.
+    networks: [barmoe]
+
+  parametrizacion-service:
+    build:
+      context: .
+      dockerfile: services/parametrizacion-service/Dockerfile
+    container_name: barmoe-parametrizacion
+    environment:
+      ENV: ${ENV:-dev}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-barmoe}:${POSTGRES_PASSWORD:-barmoe}@postgres:5432/parametrizacion_db
+      JWT_SECRET: ${JWT_SECRET:-cambiar-este-secreto-en-produccion}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [barmoe]
+
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    container_name: barmoe-gateway
+    environment:
+      ENV: ${ENV:-dev}
+      JWT_SECRET: ${JWT_SECRET:-cambiar-este-secreto-en-produccion}
+      AUTH_URL: http://auth-service:8000
+      PARAMETRIZACION_URL: http://parametrizacion-service:8000
+      ORIGENES_PERMITIDOS: ${ORIGENES_PERMITIDOS:-http://localhost:5173,http://localhost:3000}
+    ports:
+      - "8000:8000"          # única puerta de entrada de la plataforma
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      parametrizacion-service:
+        condition: service_healthy
+    networks: [barmoe]
+
+volumes:
+  postgres_data:
+
+networks:
+  barmoe:
+    driver: bridge
