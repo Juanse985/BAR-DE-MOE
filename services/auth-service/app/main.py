@@ -162,8 +162,12 @@ def actualizar(
     usuario = db.get(Usuario, usuario_id)
     if usuario is None:
         raise ErrorApp("NO_ENCONTRADO", "El usuario no existe.", 404)
-    for campo, valor in datos.model_dump(exclude_unset=True).items():
+    cambios = datos.model_dump(exclude_unset=True)
+    for campo, valor in cambios.items():
         setattr(usuario, campo, valor)
+    if cambios.get("estado") == "INACTIVO":
+        for sesion in servicio.sesiones_activas(db, usuario.id):
+            servicio.cerrar_sesion(db, sesion, "USUARIO_INACTIVO")
     db.commit()
     db.refresh(usuario)
     return usuario

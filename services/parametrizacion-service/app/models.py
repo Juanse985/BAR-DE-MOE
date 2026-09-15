@@ -24,8 +24,8 @@ class Sede(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     nombre: Mapped[str] = mapped_column(String(120), unique=True, index=True)
-    direccion: Mapped[str | None] = mapped_column(String(200))
-    telefono: Mapped[str | None] = mapped_column(String(30))
+    direccion: Mapped[str] = mapped_column(String(200), nullable=True)
+    telefono: Mapped[str] = mapped_column(String(30), nullable=True)
     activa: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     creada_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora_utc)
 
@@ -53,7 +53,7 @@ class TipoProducto(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     nombre: Mapped[str] = mapped_column(String(80), unique=True, index=True)
-    descripcion: Mapped[str | None] = mapped_column(String(200))
+    descripcion: Mapped[str] = mapped_column(String(200), nullable=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
@@ -63,8 +63,8 @@ class Proveedor(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     nit: Mapped[str] = mapped_column(String(20), unique=True, index=True)
     nombre: Mapped[str] = mapped_column(String(120), index=True)
-    contacto: Mapped[str | None] = mapped_column(String(120))
-    telefono: Mapped[str | None] = mapped_column(String(30))
+    contacto: Mapped[str] = mapped_column(String(120), nullable=True)
+    telefono: Mapped[str] = mapped_column(String(30), nullable=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 

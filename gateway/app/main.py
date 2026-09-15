@@ -11,10 +11,12 @@ Responsabilidades:
 Los microservicios NO se publican en la red del host: solo el gateway.
 """
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from barmoe_common.app import crear_app
 
@@ -128,3 +130,6 @@ async def proxy(servicio: str, ruta: str, request: Request):
         content=respuesta.json() if respuesta.content else None,
         headers={"X-Request-Id": request_id},
     )
+
+
+app.mount("/", StaticFiles(directory=Path(__file__).resolve().parents[1] / "frontend", html=True), name="frontend")

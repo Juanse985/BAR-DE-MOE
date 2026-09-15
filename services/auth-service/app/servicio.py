@@ -126,6 +126,11 @@ def validar_sesion(db: Session, jti: str, usuario_id: int) -> tuple[Sesion, floa
         raise ErrorApp("SESION_CERRADA", "La sesión no está activa.", 401)
     if sesion.usuario_id != usuario_id:
         raise ErrorApp("TOKEN_INVALIDO", "El token no corresponde a la sesión.", 401)
+    usuario = db.get(Usuario, usuario_id)
+    if usuario is None or usuario.estado != "ACTIVO":
+        cerrar_sesion(db, sesion, "USUARIO_INACTIVO")
+        db.commit()
+        raise ErrorApp("USUARIO_INACTIVO", "El usuario no está habilitado.", 403)
     if esta_inactiva(sesion):
         cerrar_sesion(db, sesion, "INACTIVIDAD")
         db.commit()
@@ -207,6 +212,7 @@ def crear_usuario(db: Session, datos, admin: Usuario | None = None) -> Usuario:
         usuario=datos.usuario,
         password_hash=hashear_password(datos.password),
         estado="ACTIVO",
+        debe_cambiar_password=True,
     )
     db.add(usuario)
     db.flush()
