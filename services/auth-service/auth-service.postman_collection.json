@@ -1,0 +1,153 @@
+{
+  "info": {
+    "name": "Auth Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000" },
+    { "key": "admin_token", "value": "" },
+    { "key": "user_token", "value": "" },
+    { "key": "user_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login admin",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "var data = pm.response.json();",
+              "pm.collectionVariables.set('admin_token', data.access_token);"
+            ]}
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"Admin123!\"\n}" }
+          }
+        },
+        {
+          "name": "Ver mi perfil",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/auth/me"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/auth/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Usuarios (admin)",
+      "item": [
+        {
+          "name": "Crear usuario",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "var data = pm.response.json();",
+              "if (data.id) { pm.collectionVariables.set('user_id', data.id); }"
+            ]}
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": "{{base_url}}/users",
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"juan\",\n  \"email\": \"juan@example.com\",\n  \"password\": \"ClaveJuan123\",\n  \"rol\": \"usuario\"\n}" }
+          }
+        },
+        {
+          "name": "Listar usuarios",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/users"
+          }
+        },
+        {
+          "name": "Obtener usuario por id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/users/{{user_id}}"
+          }
+        },
+        {
+          "name": "Actualizar usuario",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": "{{base_url}}/users/{{user_id}}",
+            "body": { "mode": "raw", "raw": "{\n  \"activo\": false\n}" }
+          }
+        },
+        {
+          "name": "Resetear password de usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": "{{base_url}}/users/{{user_id}}/reset-password",
+            "body": { "mode": "raw", "raw": "{\n  \"password_nueva\": \"ClaveNueva123\"\n}" }
+          }
+        },
+        {
+          "name": "Eliminar usuario (solo admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/users/{{user_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mi cuenta",
+      "item": [
+        {
+          "name": "Cambiar mi password",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": "{{base_url}}/users/me/password",
+            "body": { "mode": "raw", "raw": "{\n  \"password_actual\": \"Admin123!\",\n  \"password_nueva\": \"NuevaClave123\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auditoría (admin)",
+      "item": [
+        {
+          "name": "Consultar auditoría",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{base_url}}/audit"
+          }
+        }
+      ]
+    }
+  ]
+}

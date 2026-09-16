@@ -1,69 +1,50 @@
-"""Modelo de datos del auth-service.
+import enum
+from datetime import datetime
 
-Campos de Usuario tomados literalmente del tablero de levantamiento:
-cédula, nombre, sede, perfil, usuario, contraseña y estado (activo/inactivo).
-"""
-from datetime import UTC, datetime
+from sqlalchemy import Column, String, Boolean, Integer, DateTime, Enum, ForeignKey, Text
+from sqlalchemy.orm import relationship
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from barmoe_common.auditoria import Auditoria  # noqa: F401  (crea la tabla auditoria)
-from barmoe_common.db import Base
+from app.database import Base
 
 
-def ahora_utc() -> datetime:
-    return datetime.now(UTC)
+class RolEnum(str, enum.Enum):
+    admin = "admin"
+    usuario = "usuario"
 
 
-PERFILES = ("ADMINISTRADOR", "CAJERO", "MESERO")
-ESTADOS = ("ACTIVO", "INACTIVO")
-
-
-class Usuario(Base):
+class User(Base):
     __tablename__ = "usuarios"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    cedula: Mapped[str] = mapped_column(String(20), unique=True, index=True)
-    nombre: Mapped[str] = mapped_column(String(120))
-    sede_id: Mapped[int | None] = mapped_column(Integer, index=True)
-    perfil: Mapped[str] = mapped_column(String(20), index=True)
-    usuario: Mapped[str] = mapped_column(String(60), unique=True, index=True)
-    password_hash: Mapped[str] = mapped_column(String(120))
-    estado: Mapped[str] = mapped_column(String(10), default="ACTIVO", index=True)
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, index=True, nullable=False)
+    email = Column(String(120), unique=True, index=True, nullable=False)
+    hashed_password = Column(String(255), nullable=False)
+    rol = Column(Enum(RolEnum), default=RolEnum.usuario, nullable=False)
+    activo = Column(Boolean, default=True, nullable=False)
 
-    # RNF-09 · bloqueo por reintentos
-    intentos_fallidos: Mapped[int] = mapped_column(Integer, default=0)
-    bloqueado: Mapped[bool] = mapped_column(Boolean, default=False)
+    # HU-002: bloqueo por intentos fallidos
+    intentos_fallidos = Column(Integer, default=0, nullable=False)
+    bloqueado_hasta = Column(DateTime, nullable=True)
 
-    # Fuerza el cambio de contraseña tras un restablecimiento del administrador
-    debe_cambiar_password: Mapped[bool] = mapped_column(Boolean, default=False)
+    # HU-003 y HU-004: sesión única + cierre por inactividad
+    session_id = Column(String(64), nullable=True)
+    ultima_actividad = Column(DateTime, nullable=True)
 
-    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora_utc)
-    actualizado_en: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=ahora_utc, onupdate=ahora_utc
-    )
+    creado_en = Column(DateTime, default=datetime.utcnow)
+    actualizado_en = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    sesiones: Mapped[list["Sesion"]] = relationship(back_populates="usuario_rel")
+    auditorias = relationship("Auditoria", back_populates="usuario")
 
 
-class Sesion(Base):
-    """Una fila por sesión emitida.
+class Auditoria(Base):
+    __tablename__ = "auditoria"
 
-    Sostiene dos requisitos del tablero:
-      · RNF-10 sesión única  -> no puede haber dos filas activas del mismo usuario
-      · RNF-03 inactividad   -> `ultima_actividad` se refresca en cada request
-    """
+    id = Column(Integer, primary_key=True, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    username = Column(String(50), nullable=True)  # se guarda aparte por si el usuario se elimina
+    accion = Column(String(50), nullable=False)
+    detalle = Column(Text, nullable=True)
+    ip = Column(String(45), nullable=True)
+    fecha = Column(DateTime, default=datetime.utcnow, index=True)
 
-    __tablename__ = "sesiones"
-
-    jti: Mapped[str] = mapped_column(String(40), primary_key=True)
-    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), index=True)
-    activa: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
-    creada_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora_utc)
-    ultima_actividad: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora_utc)
-    cerrada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    motivo_cierre: Mapped[str | None] = mapped_column(String(30))
-    ip: Mapped[str | None] = mapped_column(String(45))
-
-    usuario_rel: Mapped[Usuario] = relationship(back_populates="sesiones")
+    usuario = relationship("User", back_populates="auditorias")

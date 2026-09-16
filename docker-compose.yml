@@ -25,6 +25,8 @@ services:
       context: .
       dockerfile: services/auth-service/Dockerfile
     container_name: barmoe-auth
+    ports:
+      - "8001:8000"  
     environment:
       ENV: ${ENV:-dev}
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-barmoe}:${POSTGRES_PASSWORD:-barmoe}@postgres:5432/auth_db

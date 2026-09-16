@@ -1,202 +1,139 @@
-"""auth-service — M1 Seguridad y gestión de usuarios.
+from typing import List, Optional
 
-Cubre del tablero: campos del usuario, tres perfiles, cifrado de contraseñas,
-bloqueo por reintentos, sesión única, inactividad de 3 minutos, cambio de
-contraseña por administrador y por usuario, y trazabilidad de cada acción.
-"""
-from contextlib import asynccontextmanager
-
-from fastapi import APIRouter, Depends, FastAPI, Request
-from sqlalchemy import select
+from fastapi import FastAPI, Depends, Request
 from sqlalchemy.orm import Session
 
-from barmoe_common.app import crear_app
-from barmoe_common.db import Base, crear_session_factory, dependencia_db
-from barmoe_common.deps import UsuarioActual, construir_autenticacion
-from barmoe_common.errors import ErrorApp
+from app.database import Base, engine, get_db
+from app.dependencies import get_current_user, get_admin_user
+from app import schemas, servicio
+from app.models import User, RolEnum
+from app.config import settings
 
-from . import servicio
-from .config import config
-from .models import Usuario
-from .schemas import (
-    CambioPassword,
-    LoginEntrada,
-    LoginSalida,
-    RestablecerPassword,
-    SesionValidada,
-    UsuarioActualizar,
-    UsuarioCrear,
-    UsuarioSalida,
-)
+Base.metadata.create_all(bind=engine)
 
-SessionLocal = crear_session_factory(config.DATABASE_URL)
-get_db = dependencia_db(SessionLocal)
-usuario_token, requiere_perfil = construir_autenticacion(config.JWT_SECRET, config.JWT_ALGORITMO)
-
-@asynccontextmanager
-async def ciclo_de_vida(_: FastAPI):
-    """Crea las tablas y siembra el administrador inicial al arrancar."""
-    Base.metadata.create_all(bind=SessionLocal.engine)
-    with SessionLocal() as db:
-        servicio.asegurar_admin_inicial(db)
-    yield
+app = FastAPI(title="Auth Service", version="1.0.0")
 
 
-app = crear_app(
-    config,
-    titulo="Bar de Moe · auth-service",
-    descripcion="M1 · Seguridad y gestión de usuarios. DATHEON S.A.S.",
-    lifespan=ciclo_de_vida,
-)
+@app.on_event("startup")
+def crear_admin_inicial():
+    """Si no existe ningún admin, crea uno con las credenciales de config.py."""
+    from app.security import hash_password
+
+    db = next(get_db())
+    existe_admin = db.query(User).filter(User.rol == RolEnum.admin).first()
+    if not existe_admin:
+        admin = User(
+            username=settings.default_admin_username,
+            email=settings.default_admin_email,
+            hashed_password=hash_password(settings.default_admin_password),
+            rol=RolEnum.admin,
+        )
+        db.add(admin)
+        db.commit()
+    db.close()
 
 
-def _ip(request: Request) -> str | None:
+def get_client_ip(request: Request) -> Optional[str]:
     return request.client.host if request.client else None
 
 
-def usuario_db(
-    token: UsuarioActual = Depends(usuario_token),
-    db: Session = Depends(get_db),
-) -> Usuario:
-    """Convierte el token en la fila real del usuario."""
-    usuario = db.get(Usuario, token.id)
-    if usuario is None or usuario.estado != "ACTIVO":
-        raise ErrorApp("USUARIO_INACTIVO", "El usuario no está habilitado.", 403)
-    return usuario
+@app.get("/health", tags=["Salud"])
+def health(db: Session = Depends(get_db)):
+    """Usado por el HEALTHCHECK del Dockerfile. Verifica que la app y la BD respondan."""
+    from sqlalchemy import text
+
+    db.execute(text("SELECT 1"))
+    return {"status": "ok"}
 
 
-# =====================================================================  AUTH
-auth = APIRouter(prefix="/auth", tags=["autenticación"])
+# ---------------- AUTH: HU-001, HU-002, HU-003, HU-004 ----------------
+
+@app.post("/auth/login", response_model=schemas.TokenRespuesta, tags=["Auth"])
+def login(datos: schemas.LoginRequest, request: Request, db: Session = Depends(get_db)):
+    return servicio.autenticar_usuario(db, datos.username, datos.password, get_client_ip(request))
 
 
-@auth.post("/login", response_model=LoginSalida, summary="Iniciar sesión")
-def login(datos: LoginEntrada, request: Request, db: Session = Depends(get_db)):
-    token, expira, usuario = servicio.login(db, datos.usuario, datos.password, _ip(request))
-    return LoginSalida(
-        access_token=token,
-        expira_en=expira,
-        inactividad_segundos=config.INACTIVIDAD_SEGUNDOS,
-        usuario=UsuarioSalida.model_validate(usuario),
-    )
+@app.post("/auth/logout", tags=["Auth"])
+def logout(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    servicio.cerrar_sesion(db, user, get_client_ip(request))
+    return {"mensaje": "Sesión cerrada correctamente"}
 
 
-@auth.post("/logout", summary="Cerrar sesión")
-def logout(token: UsuarioActual = Depends(usuario_token), db: Session = Depends(get_db)):
-    servicio.logout(db, token.jti)
-    return {"mensaje": "Sesión cerrada."}
+@app.get("/auth/me", response_model=schemas.UsuarioRespuesta, tags=["Auth"])
+def perfil_propio(user: User = Depends(get_current_user)):
+    return user
 
 
-@auth.post("/validar-sesion", response_model=SesionValidada,
-           summary="Validar sesión (uso interno del gateway)")
-def validar_sesion(token: UsuarioActual = Depends(usuario_token), db: Session = Depends(get_db)):
-    _, segundos_inactivo = servicio.validar_sesion(db, token.jti, token.id)
-    return SesionValidada(
-        usuario_id=token.id,
-        usuario=token.usuario,
-        perfil=token.perfil,
-        sede_id=token.sede_id,
-        segundos_inactivo=round(segundos_inactivo, 2),
-    )
+# ---------------- HU-005: cambio de password propio ----------------
 
-
-@auth.get("/me", response_model=UsuarioSalida, summary="Datos del usuario en sesión")
-def me(usuario: Usuario = Depends(usuario_db)):
-    return usuario
-
-
-@auth.post("/cambiar-password", summary="Cambiar la propia contraseña")
-def cambiar_password(
-    datos: CambioPassword,
-    usuario: Usuario = Depends(usuario_db),
+@app.patch("/users/me/password", tags=["Usuarios"])
+def cambiar_mi_password(
+    datos: schemas.CambioPasswordPropio,
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    servicio.cambiar_password(db, usuario, datos.password_actual, datos.password_nueva)
-    return {"mensaje": "Contraseña actualizada."}
+    servicio.cambiar_password_propio(db, user, datos)
+    return {"mensaje": "Contraseña actualizada correctamente"}
 
 
-# =================================================================  USUARIOS
-usuarios = APIRouter(prefix="/usuarios", tags=["usuarios"])
-solo_admin = requiere_perfil("ADMINISTRADOR")
+# ---------------- HU-007: gestión de usuarios (CRUD, solo admin) ----------------
 
-
-@usuarios.post("", response_model=UsuarioSalida, status_code=201, summary="Crear usuario")
-def crear(
-    datos: UsuarioCrear,
-    _: UsuarioActual = Depends(solo_admin),
-    admin: Usuario = Depends(usuario_db),
+@app.post("/users", response_model=schemas.UsuarioRespuesta, status_code=201, tags=["Usuarios"])
+def crear_usuario(
+    datos: schemas.UsuarioCrear,
+    admin: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
     return servicio.crear_usuario(db, datos, admin)
 
 
-@usuarios.get("", response_model=list[UsuarioSalida], summary="Listar usuarios")
-def listar(
-    _: UsuarioActual = Depends(solo_admin),
-    db: Session = Depends(get_db),
-    sede_id: int | None = None,
-    perfil: str | None = None,
-):
-    consulta = select(Usuario)
-    if sede_id is not None:
-        consulta = consulta.where(Usuario.sede_id == sede_id)
-    if perfil:
-        consulta = consulta.where(Usuario.perfil == perfil)
-    return list(db.scalars(consulta.order_by(Usuario.nombre)))
+@app.get("/users", response_model=List[schemas.UsuarioRespuesta], tags=["Usuarios"])
+def listar_usuarios(admin: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    return servicio.listar_usuarios(db)
 
 
-@usuarios.get("/{usuario_id}", response_model=UsuarioSalida, summary="Consultar usuario")
-def obtener(usuario_id: int, _: UsuarioActual = Depends(solo_admin), db: Session = Depends(get_db)):
-    usuario = db.get(Usuario, usuario_id)
-    if usuario is None:
-        raise ErrorApp("NO_ENCONTRADO", "El usuario no existe.", 404)
-    return usuario
+@app.get("/users/{user_id}", response_model=schemas.UsuarioRespuesta, tags=["Usuarios"])
+def obtener_usuario(user_id: int, admin: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    return servicio.obtener_usuario(db, user_id)
 
 
-@usuarios.patch("/{usuario_id}", response_model=UsuarioSalida, summary="Actualizar usuario")
-def actualizar(
-    usuario_id: int,
-    datos: UsuarioActualizar,
-    _: UsuarioActual = Depends(solo_admin),
+@app.put("/users/{user_id}", response_model=schemas.UsuarioRespuesta, tags=["Usuarios"])
+def actualizar_usuario(
+    user_id: int,
+    datos: schemas.UsuarioActualizar,
+    admin: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
-    usuario = db.get(Usuario, usuario_id)
-    if usuario is None:
-        raise ErrorApp("NO_ENCONTRADO", "El usuario no existe.", 404)
-    for campo, valor in datos.model_dump(exclude_unset=True).items():
-        setattr(usuario, campo, valor)
-    db.commit()
-    db.refresh(usuario)
-    return usuario
+    return servicio.actualizar_usuario(db, user_id, datos, admin)
 
 
-@usuarios.post("/{usuario_id}/restablecer-password", summary="Restablecer contraseña (admin)")
-def restablecer(
-    usuario_id: int,
-    datos: RestablecerPassword,
-    _: UsuarioActual = Depends(solo_admin),
-    admin: Usuario = Depends(usuario_db),
+@app.delete("/users/{user_id}", status_code=204, tags=["Usuarios"])
+def eliminar_usuario(user_id: int, admin: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    # Solo un admin llega aquí gracias a get_admin_user -> cumple "solo el admin borra usuarios"
+    servicio.eliminar_usuario(db, user_id, admin)
+
+
+# ---------------- HU-006: restablecer password (admin) ----------------
+
+@app.post("/users/{user_id}/reset-password", tags=["Usuarios"])
+def resetear_password(
+    user_id: int,
+    datos: schemas.ResetPasswordAdmin,
+    admin: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
-    objetivo = db.get(Usuario, usuario_id)
-    if objetivo is None:
-        raise ErrorApp("NO_ENCONTRADO", "El usuario no existe.", 404)
-    servicio.restablecer_password(db, admin, objetivo, datos.password_nueva)
-    return {"mensaje": "Contraseña restablecida. El usuario deberá cambiarla al ingresar."}
+    servicio.resetear_password_admin(db, user_id, datos, admin)
+    return {"mensaje": "Contraseña restablecida correctamente"}
 
 
-@usuarios.post("/{usuario_id}/desbloquear", summary="Desbloquear usuario (admin)")
-def desbloquear(
-    usuario_id: int,
-    _: UsuarioActual = Depends(solo_admin),
-    admin: Usuario = Depends(usuario_db),
+# ---------------- HU-008: consulta de auditoría (solo admin) ----------------
+
+@app.get("/audit", response_model=List[schemas.AuditoriaRespuesta], tags=["Auditoría"])
+def consultar_auditoria(
+    usuario_id: Optional[int] = None,
+    accion: Optional[str] = None,
+    limite: int = 100,
+    admin: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
-    objetivo = db.get(Usuario, usuario_id)
-    if objetivo is None:
-        raise ErrorApp("NO_ENCONTRADO", "El usuario no existe.", 404)
-    servicio.desbloquear(db, admin, objetivo)
-    return {"mensaje": "Usuario desbloqueado."}
-
-
-app.include_router(auth)
-app.include_router(usuarios)
+    return servicio.consultar_auditoria(db, usuario_id, accion, limite)

@@ -1,45 +1,52 @@
-"""Configuración de pruebas del auth-service.
-
-Las pruebas corren sobre SQLite en un archivo temporal: no necesitan Docker
-ni Postgres, así el CI y los portátiles del equipo van rápido.
-"""
 import os
-import tempfile
-from pathlib import Path
+import sys
 
-TMP = Path(tempfile.mkdtemp(prefix="auth-test-"))
-os.environ["DATABASE_URL"] = f"sqlite:///{TMP / 'auth_test.db'}"
-os.environ["JWT_SECRET"] = "secreto-de-pruebas"
-os.environ["MAX_INTENTOS_LOGIN"] = "3"
-os.environ["INACTIVIDAD_SEGUNDOS"] = "180"
-os.environ["ADMIN_USUARIO"] = "admin"
-os.environ["ADMIN_PASSWORD"] = "Admin2026"
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import pytest  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from fastapi.testclient import TestClient
 
-from app.config import config  # noqa: E402
-from app.main import SessionLocal, app  # noqa: E402
-from barmoe_common.db import Base  # noqa: E402
+# Base de datos de pruebas: SQLite en memoria, aislada de la BD "real"
+os.environ["DATABASE_URL"] = "sqlite:///./test_auth.db"
+
+from app.database import Base, get_db
+from app.main import app
+
+TEST_DB_URL = "sqlite:///./test_auth.db"
+engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-@pytest.fixture()
-def cliente():
-    Base.metadata.drop_all(bind=SessionLocal.engine)
+@pytest.fixture(scope="function")
+def db_session():
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    session = TestingSessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
+
+
+@pytest.fixture(scope="function")
+def client(db_session):
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as c:
         yield c
+    app.dependency_overrides.clear()
 
 
-@pytest.fixture()
-def token_admin(cliente):
-    respuesta = cliente.post(
-        "/auth/login",
-        json={"usuario": config.ADMIN_USUARIO, "password": config.ADMIN_PASSWORD},
-    )
-    assert respuesta.status_code == 200, respuesta.text
-    return respuesta.json()["access_token"]
-
-
-@pytest.fixture()
-def encabezado_admin(token_admin):
-    return {"Authorization": f"Bearer {token_admin}"}
+@pytest.fixture
+def admin_token(client):
+    # el admin por defecto se crea en el evento startup (config.py)
+    resp = client.post("/auth/login", json={"username": "admin", "password": "Admin123!"})
+    assert resp.status_code == 200, resp.text
+    return resp.json()["access_token"]

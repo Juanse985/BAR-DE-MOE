@@ -1,71 +1,65 @@
-"""Contratos de entrada y salida del auth-service."""
 from datetime import datetime
-from typing import Literal
+from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, EmailStr, Field
 
-Perfil = Literal["ADMINISTRADOR", "CAJERO", "MESERO"]
-Estado = Literal["ACTIVO", "INACTIVO"]
+from app.models import RolEnum
 
 
-# ---------- Usuarios ----------
-class UsuarioCrear(BaseModel):
-    cedula: str = Field(min_length=5, max_length=20, examples=["1032456789"])
-    nombre: str = Field(min_length=3, max_length=120, examples=["Moe Szyslak"])
-    sede_id: int | None = Field(default=None, examples=[1])
-    perfil: Perfil = Field(examples=["MESERO"])
-    usuario: str = Field(min_length=4, max_length=60, examples=["mszyslak"])
-    password: str = Field(min_length=8, max_length=72, examples=["Cerveza2026"])
+class UsuarioBase(BaseModel):
+    username: str = Field(min_length=3, max_length=50)
+    email: EmailStr
+
+
+class UsuarioCrear(UsuarioBase):
+    password: str = Field(min_length=8)
+    rol: RolEnum = RolEnum.usuario
 
 
 class UsuarioActualizar(BaseModel):
-    nombre: str | None = Field(default=None, min_length=3, max_length=120)
-    sede_id: int | None = None
-    perfil: Perfil | None = None
-    estado: Estado | None = None
+    email: Optional[EmailStr] = None
+    rol: Optional[RolEnum] = None
+    activo: Optional[bool] = None
 
 
-class UsuarioSalida(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class UsuarioRespuesta(UsuarioBase):
     id: int
-    cedula: str
-    nombre: str
-    sede_id: int | None
-    perfil: Perfil
-    usuario: str
-    estado: Estado
-    bloqueado: bool
-    debe_cambiar_password: bool
+    rol: RolEnum
+    activo: bool
     creado_en: datetime
 
-
-# ---------- Autenticación ----------
-class LoginEntrada(BaseModel):
-    usuario: str = Field(examples=["admin"])
-    password: str = Field(examples=["Admin2026"])
+    class Config:
+        from_attributes = True
 
 
-class LoginSalida(BaseModel):
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class TokenRespuesta(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    expira_en: datetime
-    inactividad_segundos: int
-    usuario: UsuarioSalida
+    expira_en_minutos: int
 
 
-class CambioPassword(BaseModel):
+class CambioPasswordPropio(BaseModel):
     password_actual: str
-    password_nueva: str = Field(min_length=8, max_length=72)
+    password_nueva: str = Field(min_length=8)
 
 
-class RestablecerPassword(BaseModel):
-    password_nueva: str = Field(min_length=8, max_length=72)
+class ResetPasswordAdmin(BaseModel):
+    password_nueva: str = Field(min_length=8)
 
 
-class SesionValidada(BaseModel):
-    usuario_id: int
-    usuario: str
-    perfil: Perfil
-    sede_id: int | None
-    segundos_inactivo: float
+class AuditoriaRespuesta(BaseModel):
+    id: int
+    usuario_id: Optional[int]
+    username: Optional[str]
+    accion: str
+    detalle: Optional[str]
+    ip: Optional[str]
+    fecha: datetime
+
+    class Config:
+        from_attributes = True
