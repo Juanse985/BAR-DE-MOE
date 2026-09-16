@@ -28,18 +28,18 @@ class Auditoria(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     fecha: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora_utc, index=True)
-    usuario_id: Mapped[int | None] = mapped_column(Integer, index=True)
-    usuario: Mapped[str | None] = mapped_column(String(60))
-    sede_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    usuario_id: Mapped[int] = mapped_column(Integer, index=True, nullable=True)
+    usuario: Mapped[str] = mapped_column(String(60), nullable=True)
+    sede_id: Mapped[int] = mapped_column(Integer, index=True, nullable=True)
     accion: Mapped[str] = mapped_column(String(60), index=True)
-    entidad: Mapped[str | None] = mapped_column(String(60))
-    entidad_id: Mapped[str | None] = mapped_column(String(60))
+    entidad: Mapped[str] = mapped_column(String(60), nullable=True)
+    entidad_id: Mapped[str] = mapped_column(String(60), nullable=True)
     resultado: Mapped[str] = mapped_column(String(20), default="OK")
-    ip: Mapped[str | None] = mapped_column(String(45))
+    ip: Mapped[str] = mapped_column(String(45), nullable=True)
     # Mismo identificador que viaja en X-Request-Id: permite seguir una
     # transacción desde el gateway hasta cada microservicio.
-    request_id: Mapped[str | None] = mapped_column(String(64), index=True)
-    detalle: Mapped[str | None] = mapped_column(Text)
+    request_id: Mapped[str] = mapped_column(String(64), index=True, nullable=True)
+    detalle: Mapped[str] = mapped_column(Text, nullable=True)
 
 
 def registrar(

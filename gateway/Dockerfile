@@ -13,6 +13,7 @@ COPY libs/common /libs/common
 RUN pip install --no-cache-dir /libs/common
 
 COPY gateway/app ./app
+COPY frontend ./frontend
 
 EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=3s --retries=5 \
