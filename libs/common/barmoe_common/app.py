@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import ConfigBase
 from .errors import registrar_manejadores
-from .middleware import RequestIdMiddleware, TiempoRespuestaMiddleware
+from .middleware import AuditoriaRechazosMiddleware, RequestIdMiddleware, TiempoRespuestaMiddleware
 
 
 def crear_app(
@@ -15,7 +15,14 @@ def crear_app(
     version: str = "0.1.0",
     lifespan=None,
     incluir_health: bool = True,
+    auditar_rechazos=None,
+    rutas_sin_auditar_rechazo: tuple[str, ...] = ("/auth/login",),
 ) -> FastAPI:
+    """Crea la app con CORS, X-Request-Id, medición del SLA y errores uniformes.
+
+    `auditar_rechazos`: fábrica de sesiones del servicio. Si se pasa, cada
+    respuesta 401/403 queda registrada en la tabla `auditoria` (control C-1).
+    """
     app = FastAPI(
         title=titulo,
         description=descripcion,
@@ -25,6 +32,16 @@ def crear_app(
         lifespan=lifespan,
     )
 
+    # Orden: el último que se agrega es el más externo. La auditoría de
+    # rechazos va por dentro de RequestId para poder guardar el X-Request-Id.
+    if auditar_rechazos is not None:
+        app.add_middleware(
+            AuditoriaRechazosMiddleware,
+            session_factory=auditar_rechazos,
+            secreto=config.JWT_SECRET,
+            algoritmo=config.JWT_ALGORITMO,
+            excluir=rutas_sin_auditar_rechazo,
+        )
     app.add_middleware(TiempoRespuestaMiddleware, sla_segundos=config.SLA_SEGUNDOS)
     app.add_middleware(RequestIdMiddleware)
     app.add_middleware(

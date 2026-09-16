@@ -2,19 +2,29 @@ name: CI
 
 on:
   push:
-    branches: [main, develop, "feat/**", "fix/**"]
+    branches: [main, develop, "feat/**", "fix/**", "dev/**"]
   pull_request:
     branches: [main, develop]
+
+env:
+  # Umbral mínimo de cobertura acordado por el equipo (Sprint 1).
+  COBERTURA_MINIMA: "70"
 
 jobs:
   pruebas:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        componente:
-          - services/auth-service
-          - services/parametrizacion-service
-          - gateway
+        include:
+          - componente: libs/common
+            paquete: barmoe_common
+          - componente: services/auth-service
+            paquete: app
+          - componente: services/parametrizacion-service
+            paquete: app
+          - componente: gateway
+            paquete: app
     steps:
       - uses: actions/checkout@v4
 
@@ -29,8 +39,21 @@ jobs:
           pip install -r requirements-dev.txt
           pip install -e libs/common
 
-      - name: Pruebas de ${{ matrix.componente }}
-        run: cd ${{ matrix.componente }} && python -m pytest -q
+      - name: Pruebas y cobertura de ${{ matrix.componente }}
+        run: |
+          cd ${{ matrix.componente }}
+          python -m pytest -q -rxX \
+            --junitxml=reporte-pruebas.xml \
+            --cov=${{ matrix.paquete }} \
+            --cov-report=term-missing \
+            --cov-fail-under=${{ env.COBERTURA_MINIMA }}
+
+      - name: Publicar el reporte de pruebas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pruebas-${{ strategy.job-index }}
+          path: ${{ matrix.componente }}/reporte-pruebas.xml
 
   estilo:
     runs-on: ubuntu-latest
@@ -40,4 +63,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install ruff==0.8.4
-      - run: ruff check services gateway libs
+      - run: ruff check services gateway libs scripts

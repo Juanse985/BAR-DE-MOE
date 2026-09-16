@@ -1,0 +1,194 @@
+{
+  "base_url": "http://localhost:8000",
+  "inicio": "2026-09-16T06:13:08",
+  "aprobado": true,
+  "pasos": [
+    {
+      "numero": 1,
+      "nombre": "Plataforma disponible (/health)",
+      "requisito": "Despliegue",
+      "esperado": "200",
+      "obtenido": "200",
+      "tiempo_servidor_ms": 14.9,
+      "tiempo_cliente_ms": 21.084793999989415,
+      "estado": "OK",
+      "nota": ""
+    },
+    {
+      "numero": 2,
+      "nombre": "Login del administrador",
+      "requisito": "HU-001 · RNF-05",
+      "esperado": "200",
+      "obtenido": "200",
+      "tiempo_servidor_ms": 298.3,
+      "tiempo_cliente_ms": 300.3485499998533,
+      "estado": "OK",
+      "nota": ""
+    },
+    {
+      "numero": 3,
+      "nombre": "Segunda sesión del mismo usuario rechazada",
+      "requisito": "HU-003 · RNF-10",
+      "esperado": "409",
+      "obtenido": "409",
+      "tiempo_servidor_ms": 281.3,
+      "tiempo_cliente_ms": 283.2759600000827,
+      "estado": "OK",
+      "nota": ""
+    },
+    {
+      "numero": 4,
+      "nombre": "Datos del usuario en sesión (/auth/me)",
+      "requisito": "HU-001",
+      "esperado": "200",
+      "obtenido": "200",
+      "tiempo_servidor_ms": 15.5,
+      "tiempo_cliente_ms": 17.383930999812947,
+      "estado": "OK",
+      "nota": ""
+    },
+    {
+      "numero": 5,
+      "nombre": "Crear sede",
+      "requisito": "HU-017 · RNF-12",
+      "esperado": "201",
+      "obtenido": "201",
+      "tiempo_servidor_ms": 22.4,
+      "tiempo_cliente_ms": 24.34189900009187,
+      "estado": "OK",
+      "nota": ""
+    },
+    {
+      "numero": 6,
+      "nombre": "Crear tipo de producto",
+      "requisito": "HU-019",
+      "esperado": "201",
+      "obtenido": "201",
+      "tiempo_servidor_ms": 20.2,
+      "tiempo_cliente_ms": 22.171021000076507,
+      "estado": "OK",
+      "nota": ""
+    },
+    {
+      "numero": 7,
+      "nombre": "Crear proveedor",
+      "requisito": "HU-019",
+      "esperado": "201",
+      "obtenido": "201",
+      "tiempo_servidor_ms": 19.7,
+      "tiempo_cliente_ms": 21.594757999991998,
+      "estado": "OK",
+      "nota": ""
+    },
+    {
+      "numero": 8,
+      "nombre": "Crear producto en la sede",
+      "requisito": "HU-020",
+      "esperado": "201",
+      "obtenido": "201",
+      "tiempo_servidor_ms": 25.6,
+      "tiempo_cliente_ms": 27.759849999938524,
+      "estado": "OK",
+      "nota": ""
+    },
+    {
+      "numero": 9,
+      "nombre": "Crear mesa en la sede",
+      "requisito": "HU-018",
+      "esperado": "201",
+      "obtenido": "201",
+      "tiempo_servidor_ms": 22.7,
+      "tiempo_cliente_ms": 24.727462000100786,
+      "estado": "OK",
+      "nota": ""
+    },
+    {
+      "numero": 10,
+      "nombre": "Consultar catálogo filtrado por sede",
+      "requisito": "HU-020",
+      "esperado": "200",
+      "obtenido": "200",
+      "tiempo_servidor_ms": 15.6,
+      "tiempo_cliente_ms": 17.49219900011667,
+      "estado": "OK",
+      "nota": ""
+    },
+    {
+      "numero": 11,
+      "nombre": "Consultar la sede creada",
+      "requisito": "HU-017",
+      "esperado": "200",
+      "obtenido": "200",
+      "tiempo_servidor_ms": 20.3,
+      "tiempo_cliente_ms": 22.80638000002,
+      "estado": "OK",
+      "nota": ""
+    },
+    {
+      "numero": 12,
+      "nombre": "Ruta protegida sin token",
+      "requisito": "HU-028 · C-1",
+      "esperado": "401",
+      "obtenido": "401",
+      "tiempo_servidor_ms": 0.3,
+      "tiempo_cliente_ms": 2.854130999821791,
+      "estado": "OK",
+      "nota": ""
+    },
+    {
+      "numero": 13,
+      "nombre": "Token falsificado",
+      "requisito": "HU-028 · C-1",
+      "esperado": "401",
+      "obtenido": "401",
+      "tiempo_servidor_ms": 4.6,
+      "tiempo_cliente_ms": 6.491160999985368,
+      "estado": "OK",
+      "nota": ""
+    },
+    {
+      "numero": 14,
+      "nombre": "Mesero no puede crear sedes",
+      "requisito": "HU-028 · C-1",
+      "esperado": "403",
+      "obtenido": "403",
+      "tiempo_servidor_ms": 11.1,
+      "tiempo_cliente_ms": 12.854158999971332,
+      "estado": "OK",
+      "nota": ""
+    },
+    {
+      "numero": 15,
+      "nombre": "Mesero no puede administrar usuarios",
+      "requisito": "HU-028 · C-1",
+      "esperado": "403",
+      "obtenido": "403",
+      "tiempo_servidor_ms": 10.5,
+      "tiempo_cliente_ms": 12.10484200009887,
+      "estado": "OK",
+      "nota": ""
+    },
+    {
+      "numero": 16,
+      "nombre": "Logout del administrador",
+      "requisito": "HU-004",
+      "esperado": "200",
+      "obtenido": "200",
+      "tiempo_servidor_ms": 15.8,
+      "tiempo_cliente_ms": 17.45650599991677,
+      "estado": "OK",
+      "nota": ""
+    },
+    {
+      "numero": 17,
+      "nombre": "El token cerrado ya no sirve",
+      "requisito": "HU-004 · C-4",
+      "esperado": "401",
+      "obtenido": "401",
+      "tiempo_servidor_ms": 5.6,
+      "tiempo_cliente_ms": 7.211745999939012,
+      "estado": "OK",
+      "nota": ""
+    }
+  ]
+}

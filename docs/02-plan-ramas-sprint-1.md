@@ -102,17 +102,24 @@ segundos, 37 pruebas verdes entre los tres componentes.
 
 Pendiente en este sprint:
 
-- [ ] **Prueba de humo end-to-end** contra el `docker compose` levantado:
+- [x] **Prueba de humo end-to-end** contra el `docker compose` levantado:
       login → crear sede → crear producto → consultar → logout. Es la evidencia
-      que se muestra en la Sprint Review.
-- [ ] **Seed de datos del Bar de Moe** (`scripts/seed.py`): sedes, mesas,
-      productos y un usuario por perfil. Sin datos no hay demo.
-- [ ] Medición del RNF-02: script que ejecute N requests y falle si el p95
-      supera los 2 segundos.
-- [ ] **Checklist OWASP Top 10** aplicado al proyecto, con evidencia por punto.
-      Va en `docs/06-owasp.md`.
-- [ ] Reporte de cobertura (`pytest --cov`) y umbral mínimo acordado con el equipo.
-- [ ] Consolidar el reporte de pruebas que se adjunta a la Review.
+      que se muestra en la Sprint Review. → `scripts/prueba_humo.py` (`make humo`)
+- [x] **Seed de datos del Bar de Moe** (`scripts/seed.py`): sedes, mesas,
+      productos y un usuario por perfil. Sin datos no hay demo. → repetible y
+      con usuarios en las dos sedes (`make seed`)
+- [x] Medición del RNF-02: script que ejecute N requests y falle si el p95
+      supera los 2 segundos. → `scripts/medir_rnf02.py` (`make rnf02`)
+- [x] **Checklist OWASP** aplicado al proyecto, con evidencia por punto.
+      Va en `docs/06-owasp.md`. → acotado a los 4 controles de la propuesta v2
+- [x] Reporte de cobertura (`pytest --cov`) y umbral mínimo acordado con el
+      equipo. → **70 %** en `make cov` y en el CI
+- [x] Consolidar el reporte de pruebas que se adjunta a la Review.
+      → `scripts/reporte_pruebas.py` (`make reporte`)
+- [x] Auditoría de intentos rechazados (C-1) disponible en `libs/common`.
+      Cada servicio la activa con `crear_app(..., auditar_rechazos=SessionLocal)`.
+
+Defectos y riesgos encontrados: `docs/07-informe-qa-sprint-1.md`.
 
 ---
 

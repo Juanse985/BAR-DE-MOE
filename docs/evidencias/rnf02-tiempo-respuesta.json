@@ -1,0 +1,119 @@
+{
+  "fecha": "2026-09-16T06:05:37",
+  "base_url": "http://localhost:8000",
+  "ambiente": "verificación QA · Postgres 16 + uvicorn (sin Docker)",
+  "limite_ms": 2000.0,
+  "peticiones_por_operacion": 100,
+  "concurrencia": 8,
+  "operaciones": [
+    {
+      "operacion": "Login (bcrypt 12 rondas)",
+      "n": 10,
+      "errores": 0,
+      "promedio_ms": 285.7,
+      "p50_ms": 284.1,
+      "p95_ms": 297.3,
+      "max_ms": 297.3,
+      "p95_servidor_ms": 290.7,
+      "sla_excedido": 0,
+      "cumple": true
+    },
+    {
+      "operacion": "Estado de la plataforma",
+      "n": 100,
+      "errores": 0,
+      "promedio_ms": 39.8,
+      "p50_ms": 38.7,
+      "p95_ms": 55.6,
+      "max_ms": 70.6,
+      "p95_servidor_ms": 47.9,
+      "sla_excedido": 0,
+      "cumple": true
+    },
+    {
+      "operacion": "Usuario en sesión (auth/me)",
+      "n": 100,
+      "errores": 0,
+      "promedio_ms": 67.8,
+      "p50_ms": 65.7,
+      "p95_ms": 99.0,
+      "max_ms": 120.5,
+      "p95_servidor_ms": 90.2,
+      "sla_excedido": 0,
+      "cumple": true
+    },
+    {
+      "operacion": "Listar sedes",
+      "n": 100,
+      "errores": 0,
+      "promedio_ms": 78.8,
+      "p50_ms": 72.0,
+      "p95_ms": 132.4,
+      "max_ms": 153.0,
+      "p95_servidor_ms": 120.6,
+      "sla_excedido": 0,
+      "cumple": true
+    },
+    {
+      "operacion": "Listar mesas de la sede",
+      "n": 100,
+      "errores": 0,
+      "promedio_ms": 71.5,
+      "p50_ms": 70.7,
+      "p95_ms": 109.4,
+      "max_ms": 152.0,
+      "p95_servidor_ms": 101.2,
+      "sla_excedido": 0,
+      "cumple": true
+    },
+    {
+      "operacion": "Catálogo de la sede",
+      "n": 100,
+      "errores": 0,
+      "promedio_ms": 74.4,
+      "p50_ms": 67.6,
+      "p95_ms": 141.7,
+      "max_ms": 190.8,
+      "p95_servidor_ms": 132.4,
+      "sla_excedido": 0,
+      "cumple": true
+    },
+    {
+      "operacion": "Listar tipos de producto",
+      "n": 100,
+      "errores": 0,
+      "promedio_ms": 61.2,
+      "p50_ms": 59.1,
+      "p95_ms": 86.4,
+      "max_ms": 107.7,
+      "p95_servidor_ms": 74.6,
+      "sla_excedido": 0,
+      "cumple": true
+    },
+    {
+      "operacion": "Listar proveedores",
+      "n": 100,
+      "errores": 0,
+      "promedio_ms": 65.2,
+      "p50_ms": 62.5,
+      "p95_ms": 92.2,
+      "max_ms": 107.3,
+      "p95_servidor_ms": 77.2,
+      "sla_excedido": 0,
+      "cumple": true
+    },
+    {
+      "operacion": "Listar usuarios",
+      "n": 100,
+      "errores": 0,
+      "promedio_ms": 69.5,
+      "p50_ms": 66.1,
+      "p95_ms": 109.0,
+      "max_ms": 117.6,
+      "p95_servidor_ms": 102.2,
+      "sla_excedido": 0,
+      "cumple": true
+    }
+  ],
+  "aprobado": true
+}

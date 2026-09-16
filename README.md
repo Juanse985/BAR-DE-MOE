@@ -54,25 +54,40 @@ bar-de-moe/
 | [`docs/02-plan-ramas-sprint-1.md`](docs/02-plan-ramas-sprint-1.md) | Qué le toca a cada uno en este sprint |
 | [`docs/03-convenciones-git.md`](docs/03-convenciones-git.md) | Ramas, commits y Pull Requests |
 | [`docs/04-guia-rapida.md`](docs/04-guia-rapida.md) | Cómo levantarlo, probarlo y resolver problemas |
+| [`docs/06-owasp.md`](docs/06-owasp.md) | Los cuatro controles de seguridad de la propuesta y su evidencia |
+| [`docs/07-informe-qa-sprint-1.md`](docs/07-informe-qa-sprint-1.md) | Defectos abiertos y riesgos de integración del Sprint 1 |
+| [`docs/evidencias/`](docs/evidencias/) | Reporte de pruebas, prueba de humo y medición del RNF-02 para la Review |
 
 ## Pruebas
 
 ```bash
-make test
+make test       # los cuatro componentes
+make cov        # con cobertura; falla por debajo del 70 %
 ```
 
-**37 pruebas** entre los tres componentes. Las que verifican un requisito del
-tablero lo llevan en el nombre, para que la evidencia de la Sprint Review salga
-directo del reporte de pytest:
+**226 pruebas** entre la librería común, los dos servicios y el gateway
+(215 en verde y 11 que documentan defectos abiertos con `xfail`). Las que
+verifican un requisito del tablero lo llevan en el nombre, para que la
+evidencia de la Sprint Review salga directo del reporte de pytest:
 
 ```
 test_rnf03_la_sesion_caduca_por_inactividad
-test_rnf05_un_mesero_no_puede_administrar_usuarios
 test_rnf08_la_password_se_guarda_cifrada
-test_rnf09_la_cuenta_se_bloquea_tras_los_reintentos
-test_rnf10_no_se_permite_una_segunda_sesion
-test_rnf12_cada_accion_queda_en_la_auditoria
+test_hu025_login_exitoso_guarda_usuario_sede_fecha_e_ip
+test_c1_perfiles_no_admin_no_ejecutan_operaciones_de_administrador
+test_c3_la_inyeccion_en_el_usuario_no_abre_sesion
+test_c4_la_inactividad_se_cuenta_desde_la_ultima_actividad
 ```
+
+### Evidencia para la Sprint Review
+
+Con la plataforma levantada (`make up`), en otra terminal:
+
+```bash
+make evidencias   # seed + prueba de humo + medición RNF-02 + reporte consolidado
+```
+
+Todo queda en `docs/evidencias/`.
 
 ## Publicar el repositorio
 
