@@ -5,6 +5,10 @@ ADMINISTRADOR puede escribir; cualquier perfil autenticado puede consultar.
 Toda escritura queda registrada en la tabla de auditoría (RNF-12).
 """
 from contextlib import asynccontextmanager
+import csv
+from io import StringIO
+
+from fastapi import File, UploadFile
 
 from fastapi import APIRouter, Depends, FastAPI
 from sqlalchemy import select
@@ -23,6 +27,8 @@ from .schemas import (
     MesaCrear,
     MesaSalida,
     ProductoActualizar,
+    ProductoCargaError,
+    ProductoCargaResultado,
     ProductoCrear,
     ProductoSalida,
     ProveedorActualizar,
@@ -68,7 +74,7 @@ def guardar(db: Session, fila, *, accion: str, entidad: str, usuario: UsuarioAct
     db.add(fila)
     db.flush()
     registrar(db, accion=accion, entidad=entidad, entidad_id=fila.id,
-              usuario_id=usuario.id, usuario=usuario.usuario, sede_id=usuario.sede_id)
+            usuario_id=usuario.id, usuario=usuario.usuario, sede_id=usuario.sede_id)
     db.commit()
     db.refresh(fila)
     return fila
@@ -79,8 +85,8 @@ def aplicar_cambios(db: Session, fila, datos, *, entidad: str, usuario: UsuarioA
     for campo, valor in cambios.items():
         setattr(fila, campo, valor)
     registrar(db, accion="ACTUALIZAR", entidad=entidad, entidad_id=fila.id,
-              usuario_id=usuario.id, usuario=usuario.usuario, sede_id=usuario.sede_id,
-              detalle=", ".join(cambios.keys()))
+            usuario_id=usuario.id, usuario=usuario.usuario, sede_id=usuario.sede_id,
+            detalle=", ".join(cambios.keys()))
     db.commit()
     db.refresh(fila)
     return fila
@@ -99,7 +105,7 @@ def crear_sede(datos: SedeCrear, usuario: UsuarioActual = Depends(solo_admin), d
 
 @sedes.get("", response_model=list[SedeSalida], summary="Listar sedes")
 def listar_sedes(_: UsuarioActual = Depends(usuario_actual), db: Session = Depends(get_db),
-                 solo_activas: bool = True):
+                solo_activas: bool = True):
     consulta = select(Sede)
     if solo_activas:
         consulta = consulta.where(Sede.activa.is_(True))
@@ -115,8 +121,19 @@ def obtener_sede(sede_id: int, _: UsuarioActual = Depends(usuario_actual), db: S
 def actualizar_sede(sede_id: int, datos: SedeActualizar,
                     usuario: UsuarioActual = Depends(solo_admin), db: Session = Depends(get_db)):
     sede = obtener_o_404(db, Sede, sede_id, "la sede")
-    return aplicar_cambios(db, sede, datos, entidad="sedes", usuario=usuario)
 
+    if datos.activa is False and sede.activa:
+        tiene_mesas_activas = db.scalar(
+            select(Mesa.id).where(Mesa.sede_id == sede_id, Mesa.activa.is_(True)).limit(1)
+        )
+        tiene_productos_activos = db.scalar(
+            select(Producto.id).where(Producto.sede_id == sede_id, Producto.activo.is_(True)).limit(1)
+        )
+        if tiene_mesas_activas or tiene_productos_activos:
+            raise ErrorApp("SEDE_CON_RECURSOS_ACTIVOS",
+                        "No se puede inactivar la sede: tiene mesas o productos activos.", 409)
+
+    return aplicar_cambios(db, sede, datos, entidad="sedes", usuario=usuario)
 
 # -------------------------------------------------------------------- MESAS
 mesas = APIRouter(prefix="/mesas", tags=["mesas"])
@@ -133,7 +150,7 @@ def crear_mesa(datos: MesaCrear, usuario: UsuarioActual = Depends(solo_admin), d
 
 @mesas.get("", response_model=list[MesaSalida], summary="Listar mesas")
 def listar_mesas(_: UsuarioActual = Depends(usuario_actual), db: Session = Depends(get_db),
-                 sede_id: int | None = None, estado: str | None = None):
+                sede_id: int | None = None, estado: str | None = None):
     consulta = select(Mesa)
     if sede_id is not None:
         consulta = consulta.where(Mesa.sede_id == sede_id)
@@ -155,22 +172,28 @@ tipos = APIRouter(prefix="/tipos-producto", tags=["tipos de producto"])
 
 @tipos.post("", response_model=TipoProductoSalida, status_code=201, summary="Crear tipo de producto")
 def crear_tipo(datos: TipoProductoCrear, usuario: UsuarioActual = Depends(solo_admin),
-               db: Session = Depends(get_db)):
+            db: Session = Depends(get_db)):
     if db.scalar(select(TipoProducto).where(TipoProducto.nombre == datos.nombre)):
         raise ErrorApp("TIPO_DUPLICADO", f"Ya existe el tipo '{datos.nombre}'.", 409)
     return guardar(db, TipoProducto(**datos.model_dump()), accion="CREAR",
-                   entidad="tipos_producto", usuario=usuario)
+                entidad="tipos_producto", usuario=usuario)
 
 
 @tipos.get("", response_model=list[TipoProductoSalida], summary="Listar tipos de producto")
 def listar_tipos(_: UsuarioActual = Depends(usuario_actual), db: Session = Depends(get_db)):
     return list(db.scalars(select(TipoProducto).order_by(TipoProducto.nombre)))
 
-
 @tipos.patch("/{tipo_id}", response_model=TipoProductoSalida, summary="Actualizar tipo de producto")
 def actualizar_tipo(tipo_id: int, datos: TipoProductoActualizar,
                     usuario: UsuarioActual = Depends(solo_admin), db: Session = Depends(get_db)):
     tipo = obtener_o_404(db, TipoProducto, tipo_id, "el tipo de producto")
+    if datos.activo is False and tipo.activo:
+        tiene_productos_activos = db.scalar(
+            select(Producto.id).where(Producto.tipo_producto_id == tipo_id, Producto.activo.is_(True)).limit(1)
+        )
+        if tiene_productos_activos:
+            raise ErrorApp("TIPO_CON_PRODUCTOS_ACTIVOS",
+                        "No se puede inactivar el tipo: tiene productos activos asociados.", 409)
     return aplicar_cambios(db, tipo, datos, entidad="tipos_producto", usuario=usuario)
 
 
@@ -184,7 +207,7 @@ def crear_proveedor(datos: ProveedorCrear, usuario: UsuarioActual = Depends(solo
     if db.scalar(select(Proveedor).where(Proveedor.nit == datos.nit)):
         raise ErrorApp("PROVEEDOR_DUPLICADO", f"Ya existe un proveedor con NIT {datos.nit}.", 409)
     return guardar(db, Proveedor(**datos.model_dump()), accion="CREAR",
-                   entidad="proveedores", usuario=usuario)
+                entidad="proveedores", usuario=usuario)
 
 
 @proveedores.get("", response_model=list[ProveedorSalida], summary="Listar proveedores")
@@ -194,10 +217,16 @@ def listar_proveedores(_: UsuarioActual = Depends(usuario_actual), db: Session =
 
 @proveedores.patch("/{proveedor_id}", response_model=ProveedorSalida, summary="Actualizar proveedor")
 def actualizar_proveedor(proveedor_id: int, datos: ProveedorActualizar,
-                         usuario: UsuarioActual = Depends(solo_admin), db: Session = Depends(get_db)):
+                        usuario: UsuarioActual = Depends(solo_admin), db: Session = Depends(get_db)):
     proveedor = obtener_o_404(db, Proveedor, proveedor_id, "el proveedor")
+    if datos.activo is False and proveedor.activo:
+        tiene_productos_activos = db.scalar(
+            select(Producto.id).where(Producto.proveedor_id == proveedor_id, Producto.activo.is_(True)).limit(1)
+        )
+        if tiene_productos_activos:
+            raise ErrorApp("PROVEEDOR_CON_PRODUCTOS_ACTIVOS",
+                        "No se puede inactivar el proveedor: tiene productos activos asociados.", 409)
     return aplicar_cambios(db, proveedor, datos, entidad="proveedores", usuario=usuario)
-
 
 # ---------------------------------------------------------------- PRODUCTOS
 productos = APIRouter(prefix="/productos", tags=["productos"])
@@ -205,7 +234,7 @@ productos = APIRouter(prefix="/productos", tags=["productos"])
 
 @productos.post("", response_model=ProductoSalida, status_code=201, summary="Crear producto")
 def crear_producto(datos: ProductoCrear, usuario: UsuarioActual = Depends(solo_admin),
-                   db: Session = Depends(get_db)):
+                db: Session = Depends(get_db)):
     obtener_o_404(db, Sede, datos.sede_id, "la sede")
     obtener_o_404(db, TipoProducto, datos.tipo_producto_id, "el tipo de producto")
     obtener_o_404(db, Proveedor, datos.proveedor_id, "el proveedor")
@@ -214,15 +243,73 @@ def crear_producto(datos: ProductoCrear, usuario: UsuarioActual = Depends(solo_a
     )
     if duplicado:
         raise ErrorApp("PRODUCTO_DUPLICADO",
-                       f"El código {datos.codigo} ya existe en esa sede.", 409)
+                    f"El código {datos.codigo} ya existe en esa sede.", 409)
     return guardar(db, Producto(**datos.model_dump()), accion="CREAR",
-                   entidad="productos", usuario=usuario)
+                entidad="productos", usuario=usuario)
+
+
+
+@productos.post("/carga-masiva", response_model=ProductoCargaResultado,
+                summary="Carga masiva de productos desde CSV")
+async def cargar_productos_csv(sede_id: int, archivo: UploadFile = File(...),
+                            usuario: UsuarioActual = Depends(solo_admin),
+                            db: Session = Depends(get_db)):
+    obtener_o_404(db, Sede, sede_id, "la sede")
+
+    if not archivo.filename.lower().endswith(".csv"):
+        raise ErrorApp("FORMATO_INVALIDO", "El archivo debe ser un .csv.", 422)
+
+    contenido = (await archivo.read()).decode("utf-8-sig")
+    lector = csv.DictReader(StringIO(contenido))
+
+    columnas_esperadas = {"codigo", "nombre", "tipo_producto_id", "proveedor_id",
+                        "valor_compra", "valor_venta"}
+    if not columnas_esperadas.issubset(set(lector.fieldnames or [])):
+        raise ErrorApp("CSV_INVALIDO",
+                    f"El CSV debe tener las columnas: {', '.join(sorted(columnas_esperadas))}.", 422)
+
+    creados = 0
+    errores: list[ProductoCargaError] = []
+
+    for numero_fila, fila in enumerate(lector, start=2):  # fila 1 = encabezado
+        try:
+            datos = ProductoCrear(
+                codigo=fila["codigo"].strip(),
+                nombre=fila["nombre"].strip(),
+                sede_id=sede_id,
+                tipo_producto_id=int(fila["tipo_producto_id"]),
+                proveedor_id=int(fila["proveedor_id"]),
+                valor_compra=fila["valor_compra"],
+                valor_venta=fila["valor_venta"],
+            )
+            obtener_o_404(db, TipoProducto, datos.tipo_producto_id, "el tipo de producto")
+            obtener_o_404(db, Proveedor, datos.proveedor_id, "el proveedor")
+
+            duplicado = db.scalar(
+                select(Producto).where(Producto.sede_id == sede_id, Producto.codigo == datos.codigo)
+            )
+            if duplicado:
+                raise ValueError(f"El código {datos.codigo} ya existe en esa sede.")
+
+            producto = Producto(**datos.model_dump())
+            db.add(producto)
+            db.flush()
+            registrar(db, accion="CREAR", entidad="productos", entidad_id=producto.id,
+                    usuario_id=usuario.id, usuario=usuario.usuario, sede_id=usuario.sede_id,
+                    detalle="carga_masiva")
+            db.commit()
+            creados += 1
+        except (ErrorApp, ValueError, KeyError) as error:
+            db.rollback()
+            errores.append(ProductoCargaError(fila=numero_fila, mensaje=str(error)))
+
+    return ProductoCargaResultado(creados=creados, errores=errores)
 
 
 @productos.get("", response_model=list[ProductoSalida], summary="Listar productos por sede")
 def listar_productos(_: UsuarioActual = Depends(usuario_actual), db: Session = Depends(get_db),
-                     sede_id: int | None = None, tipo_producto_id: int | None = None,
-                     solo_activos: bool = True):
+                    sede_id: int | None = None, tipo_producto_id: int | None = None,
+                    solo_activos: bool = True):
     consulta = select(Producto)
     if sede_id is not None:
         consulta = consulta.where(Producto.sede_id == sede_id)
@@ -233,9 +320,23 @@ def listar_productos(_: UsuarioActual = Depends(usuario_actual), db: Session = D
     return list(db.scalars(consulta.order_by(Producto.nombre)))
 
 
+@productos.get("/por-codigo/{codigo}", response_model=ProductoSalida,
+            summary="Consultar producto por código y sede")
+def obtener_producto_por_codigo(codigo: str, sede_id: int,
+                                _: UsuarioActual = Depends(usuario_actual),
+                                db: Session = Depends(get_db)):
+    producto = db.scalar(
+        select(Producto).where(Producto.sede_id == sede_id, Producto.codigo == codigo)
+    )
+    if producto is None:
+        raise ErrorApp("NO_ENCONTRADO",
+                    f"No existe el producto con código {codigo} en la sede {sede_id}.", 404)
+    return producto
+
+
 @productos.get("/{producto_id}", response_model=ProductoSalida, summary="Consultar producto")
 def obtener_producto(producto_id: int, _: UsuarioActual = Depends(usuario_actual),
-                     db: Session = Depends(get_db)):
+                    db: Session = Depends(get_db)):
     return obtener_o_404(db, Producto, producto_id, "el producto")
 
 
@@ -248,9 +349,38 @@ def actualizar_producto(producto_id: int, datos: ProductoActualizar,
     venta = cambios.get("valor_venta", producto.valor_venta)
     if venta < compra:
         raise ErrorApp("MARGEN_NEGATIVO",
-                       "El valor de venta no puede ser menor que el valor de compra.", 422)
+                    "El valor de venta no puede ser menor que el valor de compra.", 422)
     return aplicar_cambios(db, producto, datos, entidad="productos", usuario=usuario)
+
+
+@productos.post("/{producto_id}/inactivar", response_model=ProductoSalida, summary="Inactivar producto")
+def inactivar_producto(producto_id: int, usuario: UsuarioActual = Depends(solo_admin),
+                    db: Session = Depends(get_db)):
+    producto = obtener_o_404(db, Producto, producto_id, "el producto")
+    if not producto.activo:
+        raise ErrorApp("PRODUCTO_YA_INACTIVO", "El producto ya está inactivo.", 409)
+    producto.activo = False
+    registrar(db, accion="INACTIVAR", entidad="productos", entidad_id=producto.id,
+            usuario_id=usuario.id, usuario=usuario.usuario, sede_id=usuario.sede_id)
+    db.commit()
+    db.refresh(producto)
+    return producto
+
+
+@productos.post("/{producto_id}/activar", response_model=ProductoSalida, summary="Activar producto")
+def activar_producto(producto_id: int, usuario: UsuarioActual = Depends(solo_admin),
+                    db: Session = Depends(get_db)):
+    producto = obtener_o_404(db, Producto, producto_id, "el producto")
+    if producto.activo:
+        raise ErrorApp("PRODUCTO_YA_ACTIVO", "El producto ya está activo.", 409)
+    producto.activo = True
+    registrar(db, accion="ACTIVAR", entidad="productos", entidad_id=producto.id,
+            usuario_id=usuario.id, usuario=usuario.usuario, sede_id=usuario.sede_id)
+    db.commit()
+    db.refresh(producto)
+    return producto
 
 
 for router in (sedes, mesas, tipos, proveedores, productos):
     app.include_router(router)
+

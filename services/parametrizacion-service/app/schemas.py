@@ -123,7 +123,6 @@ class ProductoActualizar(BaseModel):
     proveedor_id: int | None = None
     valor_compra: Decimal | None = Field(default=None, ge=0)
     valor_venta: Decimal | None = Field(default=None, ge=0)
-    activo: bool | None = None
 
 
 class ProductoSalida(Base):
@@ -136,3 +135,13 @@ class ProductoSalida(Base):
     valor_compra: Decimal
     valor_venta: Decimal
     activo: bool
+    
+    
+class ProductoCargaError(BaseModel):
+    fila: int
+    mensaje: str
+
+
+class ProductoCargaResultado(BaseModel):
+    creados: int
+    errores: list[ProductoCargaError]

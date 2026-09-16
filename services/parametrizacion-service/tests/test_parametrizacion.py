@@ -120,9 +120,9 @@ def test_los_productos_se_filtran_por_sede(cliente, admin, catalogo):
         "valor_venta": "6000",
     }
     cliente.post("/productos", headers=admin,
-                 json={**base, "codigo": "A-1", "sede_id": catalogo["sede"]["id"]})
+                json={**base, "codigo": "A-1", "sede_id": catalogo["sede"]["id"]})
     cliente.post("/productos", headers=admin,
-                 json={**base, "codigo": "B-1", "sede_id": otra["id"]})
+                json={**base, "codigo": "B-1", "sede_id": otra["id"]})
 
     solo_una = cliente.get(f"/productos?sede_id={otra['id']}", headers=admin).json()
     assert [p["codigo"] for p in solo_una] == ["B-1"]
@@ -135,3 +135,112 @@ def test_rnf12_las_escrituras_quedan_auditadas(cliente, admin):
         assert registros
         assert registros[-1].usuario == "admin"
         assert registros[-1].accion == "CREAR"
+
+def test_producto_por_codigo(cliente, admin, catalogo):
+    creado = cliente.post(
+        "/productos",
+        headers=admin,
+        json={
+            "codigo": "CERV-010",
+            "nombre": "Cerveza Duff 330ml",
+            "sede_id": catalogo["sede"]["id"],
+            "tipo_producto_id": catalogo["tipo"]["id"],
+            "proveedor_id": catalogo["proveedor"]["id"],
+            "valor_compra": "2500",
+            "valor_venta": "6000",
+        },
+    ).json()
+    resp = cliente.get(
+        f"/productos/por-codigo/{creado['codigo']}?sede_id={catalogo['sede']['id']}",
+        headers=admin,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["codigo"] == "CERV-010"
+
+
+def test_producto_por_codigo_no_encontrado(cliente, admin, catalogo):
+    resp = cliente.get(
+        f"/productos/por-codigo/NO-EXISTE?sede_id={catalogo['sede']['id']}",
+        headers=admin,
+    )
+    assert resp.status_code == 404
+
+
+def test_inactivar_y_activar_producto(cliente, admin, catalogo):
+    producto = cliente.post(
+        "/productos",
+        headers=admin,
+        json={
+            "codigo": "CERV-011",
+            "nombre": "Cerveza para inactivar",
+            "sede_id": catalogo["sede"]["id"],
+            "tipo_producto_id": catalogo["tipo"]["id"],
+            "proveedor_id": catalogo["proveedor"]["id"],
+            "valor_compra": "2500",
+            "valor_venta": "6000",
+        },
+    ).json()
+
+    inactivado = cliente.post(f"/productos/{producto['id']}/inactivar", headers=admin)
+    assert inactivado.status_code == 200
+    assert inactivado.json()["activo"] is False
+
+    de_nuevo = cliente.post(f"/productos/{producto['id']}/inactivar", headers=admin)
+    assert de_nuevo.status_code == 409
+
+    activado = cliente.post(f"/productos/{producto['id']}/activar", headers=admin)
+    assert activado.status_code == 200
+    assert activado.json()["activo"] is True
+
+
+def test_no_se_inactiva_una_sede_con_productos_activos(cliente, admin, catalogo):
+    cliente.post(
+        "/productos",
+        headers=admin,
+        json={
+            "codigo": "CERV-012",
+            "nombre": "Cerveza activa",
+            "sede_id": catalogo["sede"]["id"],
+            "tipo_producto_id": catalogo["tipo"]["id"],
+            "proveedor_id": catalogo["proveedor"]["id"],
+            "valor_compra": "2500",
+            "valor_venta": "6000",
+        },
+    )
+    resp = cliente.patch(f"/sedes/{catalogo['sede']['id']}", headers=admin, json={"activa": False})
+    assert resp.status_code == 409
+    assert resp.json()["error"]["codigo"] == "SEDE_CON_RECURSOS_ACTIVOS"
+
+
+def test_carga_masiva_de_productos(cliente, admin, catalogo):
+    csv_contenido = (
+        "codigo,nombre,tipo_producto_id,proveedor_id,valor_compra,valor_venta\n"
+        f"CERV-100,Cerveza Test,{catalogo['tipo']['id']},{catalogo['proveedor']['id']},2000,5000\n"
+    )
+    archivo = {"archivo": ("productos.csv", csv_contenido, "text/csv")}
+    resp = cliente.post(
+        f"/productos/carga-masiva?sede_id={catalogo['sede']['id']}",
+        headers=admin,
+        files=archivo,
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["creados"] == 1
+
+
+def test_carga_masiva_reporta_errores_de_fila(cliente, admin, catalogo):
+    csv_contenido = (
+        "codigo,nombre,tipo_producto_id,proveedor_id,valor_compra,valor_venta\n"
+        f"CERV-101,Cerveza Buena,{catalogo['tipo']['id']},{catalogo['proveedor']['id']},2000,5000\n"
+        f"CERV-102,Cerveza Perdida,{catalogo['tipo']['id']},{catalogo['proveedor']['id']},6000,2000\n"
+    )
+    archivo = {"archivo": ("productos.csv", csv_contenido, "text/csv")}
+    resp = cliente.post(
+        f"/productos/carga-masiva?sede_id={catalogo['sede']['id']}",
+        headers=admin,
+        files=archivo,
+    )
+    assert resp.status_code == 200, resp.text
+    cuerpo = resp.json()
+    assert cuerpo["creados"] == 1
+    assert len(cuerpo["errores"]) == 1
+    assert cuerpo["errores"][0]["fila"] == 3
