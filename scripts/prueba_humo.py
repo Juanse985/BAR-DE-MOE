@@ -3,8 +3,9 @@
 
 Recorre el flujo que se muestra en la Sprint Review, siempre por el gateway:
 
-    health → login → segunda sesión rechazada → crear sede, tipo, proveedor y
-    producto → consultar → mesero sin permisos → logout → token inservible
+    health → frontend → login → segunda sesión rechazada → crear sede, tipo,
+    proveedor, producto y mesa → consultar → mesero sin permisos ni acceso a
+    otra sede → auditoría → logout → token inservible
 
 En cada paso verifica el código HTTP esperado y que el tiempo de respuesta
 esté bajo los 2 segundos (RNF-02, cabecera X-Tiempo-Ms y reloj del cliente).
@@ -133,6 +134,11 @@ class PruebaHumo:
         if salud is None:
             return self.r
 
+        def es_html(resp):
+            assert "text/html" in resp.headers.get("content-type", ""), "la raíz no devolvió el frontend"
+
+        self.paso("Frontend por perfiles disponible (/)", "HU-009 · HU-010", 200, "GET", "/", validar=es_html)
+
         usuario, password = self.admin
         login = self.paso("Login del administrador", "HU-001 · RNF-05", 200, "POST",
                           "/api/auth/auth/login", json_={"usuario": usuario, "password": password})
@@ -163,6 +169,7 @@ class PruebaHumo:
         proveedor = self.paso("Crear proveedor", "HU-019", 201, "POST", "/api/parametrizacion/proveedores",
                               headers=self.h, json_={"nit": f"QA{self.sufijo}", "nombre": "QA Proveedor"})
 
+        sede_id = None
         if all(x is not None and x.status_code == 201 for x in (sede, tipo, proveedor)):
             sede_id = sede.json()["id"]
             codigo = f"QA-{self.sufijo[-6:]}"
@@ -192,14 +199,24 @@ class PruebaHumo:
         self.paso("Token falsificado", "HU-028 · C-1", 401, "GET", "/api/parametrizacion/sedes",
                   headers={"Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.e30.firma-falsa"})
 
-        self._mesero_sin_permisos()
+        self._mesero_sin_permisos(sede_id)
+
+        def trae_rechazos(resp):
+            filas = resp.json()
+            assert int(resp.headers.get("X-Total-Count", 0)) >= len(filas) > 0, "la auditoría vino vacía"
+
+        self.paso("Consultar la auditoría de parametrización", "HU-008 · RNF-12", 200, "GET",
+                  "/api/parametrizacion/auditoria", headers=self.h,
+                  params={"accion": "ACCESO_DENEGADO"}, validar=trae_rechazos)
+        self.paso("Consultar la auditoría de seguridad", "HU-008 · RNF-12", 200, "GET",
+                  "/api/auth/auditoria", headers=self.h, params={"tamano": 20})
 
         self.paso("Logout del administrador", "HU-004", 200, "POST", "/api/auth/auth/logout", headers=self.h)
         self.paso("El token cerrado ya no sirve", "HU-004 · C-4", 401, "GET",
                   "/api/parametrizacion/sedes", headers=self.h, validar=trae_codigo("SESION_CERRADA"))
         return self.r
 
-    def _mesero_sin_permisos(self) -> None:
+    def _mesero_sin_permisos(self, otra_sede: int | None) -> None:
         usuario, password = self.mesero
         try:
             resp = self.http.post("/api/auth/auth/login", json={"usuario": usuario, "password": password})
@@ -215,6 +232,11 @@ class PruebaHumo:
                   headers=h, json_={"nombre": f"Sede pirata {self.sufijo}"})
         self.paso("Mesero no puede administrar usuarios", "HU-028 · C-1", 403, "GET", "/api/auth/usuarios",
                   headers=h)
+        if otra_sede is not None:
+            self.paso("Mesero no ve las mesas de otra sede", "HU-028 · C-1", 403, "GET",
+                      "/api/parametrizacion/mesas", headers=h, params={"sede_id": otra_sede})
+        self.paso("Mesero ve las mesas de su sede", "HU-013 · C-1", 200, "GET",
+                  "/api/parametrizacion/mesas", headers=h)
         self.http.post("/api/auth/auth/logout", headers=h)
 
 

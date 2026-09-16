@@ -34,6 +34,10 @@ COMPONENTES = [
 
 # Qué requisito cubre cada prueba, según su archivo o su nombre.
 REQUISITOS = [
+    (r"hu002|obs02", "HU-002 · Bloqueo por reintentos (usuario e IP)"),
+    (r"hu007", "HU-007 · Gestión de usuarios"),
+    (r"hu008", "HU-008 · Consulta de la auditoría"),
+    (r"def10|frontend", "HU-009/010 · Frontend servido por el gateway"),
     (r"hu025|rnf12", "HU-025 · RNF-12 Trazabilidad"),
     (r"hu026|rnf02", "HU-026 · RNF-02 Tiempo de respuesta"),
     (r"hu027|rnf08", "HU-027 · RNF-08 Cifrado"),
@@ -41,6 +45,7 @@ REQUISITOS = [
     (r"test_c3_", "HU-028 · C-3 Inyección"),
     (r"test_c4_|rnf03|rnf09|rnf10", "HU-028 · C-4 Autenticación"),
     (r"rnf07", "RNF-07 Gestión de contraseñas"),
+    (r"test_parametrizacion", "HU-017 a HU-020 · Parametrización (David)"),
 ]
 
 
@@ -144,6 +149,11 @@ def main() -> int:
         lineas += ["", "## Pruebas fallidas", ""]
         lineas += [f"- `{c['archivo']}::{c['nombre']}` — {c['detalle']}" for c in fallidas]
 
+    if not abiertos:
+        lineas += ["", "## Defectos abiertos", "",
+                   "Ninguno. Los defectos DEF-02 a DEF-10 del informe de QA se corrigieron al "
+                   "integrar el Sprint 1 y sus pruebas ya no llevan `xfail`."]
+
     humo = EVIDENCIAS / "prueba-humo.json"
     rnf02 = EVIDENCIAS / "rnf02-tiempo-respuesta.json"
     if humo.exists() or rnf02.exists():
@@ -159,6 +169,9 @@ def main() -> int:
         lineas.append(f"- **RNF-02** ({m['fecha']}): {'✅ cumple' if m['aprobado'] else '❌ no cumple'}; "
                       f"el p95 más alto fue {peor['p95_ms']} ms en «{peor['operacion']}» "
                       f"· detalle en `rnf02-tiempo-respuesta.md`")
+    if (EVIDENCIAS / "frontend-perfiles.md").exists():
+        lineas.append("- **Frontend por perfiles:** revisión en navegador con los 3 perfiles · detalle en "
+                      "`frontend-perfiles.md`")
 
     destino = EVIDENCIAS / "reporte-pruebas.md"
     destino.write_text("\n".join(lineas) + "\n", encoding="utf-8")

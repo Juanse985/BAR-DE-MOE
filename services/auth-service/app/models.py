@@ -35,6 +35,8 @@ class Usuario(Base):
     # RNF-09 · bloqueo por reintentos
     intentos_fallidos: Mapped[int] = mapped_column(Integer, default=0)
     bloqueado: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Solo se usa cuando BLOQUEO_MINUTOS > 0 (bloqueo temporal, aporte de Angel).
+    bloqueado_hasta: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Fuerza el cambio de contraseña tras un restablecimiento del administrador
     debe_cambiar_password: Mapped[bool] = mapped_column(Boolean, default=False)

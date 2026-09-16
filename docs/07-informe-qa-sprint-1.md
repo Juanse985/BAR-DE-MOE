@@ -1,5 +1,11 @@
 # Informe de QA · Sprint 1
 
+> **Actualización (integración).** Todos los defectos de este informe
+> (DEF-01 a DEF-10) quedaron resueltos en la rama `integracion/sprint-1`, y las
+> pruebas ya no llevan `xfail`. El detalle está en
+> [`08-integracion-sprint-1.md`](08-integracion-sprint-1.md). Lo que sigue es
+> el informe tal como se emitió antes de integrar.
+
 **Preparado por:** Juan Sebastián Rodríguez (Líder QA) · **Rama:** `dev/juan`
 **Alcance:** HU-025 a HU-028, integración de las ramas del Sprint 1 y evidencia para la Sprint Review.
 

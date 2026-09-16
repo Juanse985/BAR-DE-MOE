@@ -71,8 +71,7 @@ def test_c1_sin_token_valido_no_hay_acceso(cliente, cabecera):
     assert cliente.post("/sedes", headers=cabecera, json={"nombre": "Pirata"}).status_code == 401
 
 
-@pytest.mark.xfail(strict=True, reason="DEF-06: un mesero/cajero puede consultar el catálogo y las "
-                                       "mesas de OTRA sede pasando sede_id (la sede no se valida)")
+# DEF-06 corregido en la integración del Sprint 1.
 @pytest.mark.parametrize("ruta", ["/productos?sede_id={otra}", "/mesas?sede_id={otra}"])
 def test_c1_un_operario_no_ve_datos_de_otra_sede(cliente, admin, ids, ruta):
     otra = cliente.post("/sedes", headers=admin, json={"nombre": "Bar de Moe · Norte"}).json()["id"]
@@ -84,7 +83,42 @@ def test_c1_un_operario_no_ve_datos_de_otra_sede(cliente, admin, ids, ruta):
     })
     mesero_centro = _encabezado(5, "barney", "MESERO", ids["sede"])
     respuesta = cliente.get(ruta.format(otra=otra), headers=mesero_centro)
-    assert respuesta.status_code == 403 or respuesta.json() == []
+    assert respuesta.status_code == 403
+    assert respuesta.json()["error"]["codigo"] == "SEDE_NO_AUTORIZADA"
+
+
+@pytest.mark.parametrize("perfil", ["CAJERO", "MESERO"])
+def test_c1_sin_filtro_el_operario_solo_recibe_su_sede(cliente, admin, ids, perfil):
+    otra = cliente.post("/sedes", headers=admin, json={"nombre": "Bar de Moe · Norte"}).json()["id"]
+    cliente.post("/mesas", headers=admin, json={"sede_id": otra, "numero": 7})
+    h = _encabezado(5, "operario", perfil, ids["sede"])
+    assert {m["sede_id"] for m in cliente.get("/mesas", headers=h).json()} == {ids["sede"]}
+    assert {p["sede_id"] for p in cliente.get("/productos", headers=h).json()} == {ids["sede"]}
+    assert [s["id"] for s in cliente.get("/sedes", headers=h).json()] == [ids["sede"]]
+    assert cliente.get(f"/sedes/{otra}", headers=h).status_code == 403
+    # El administrador sí ve todas las sedes.
+    assert {m["sede_id"] for m in cliente.get("/mesas", headers=admin).json()} == {ids["sede"], otra}
+
+
+def test_c1_un_operario_no_abre_un_producto_de_otra_sede(cliente, admin, ids):
+    otra = cliente.post("/sedes", headers=admin, json={"nombre": "Bar de Moe · Sur"}).json()["id"]
+    ajeno = cliente.post("/productos", headers=admin, json={
+        "codigo": "SUR-1", "nombre": "Solo Sur", "sede_id": otra, "tipo_producto_id": ids["tipo"],
+        "proveedor_id": ids["proveedor"], "valor_compra": "1", "valor_venta": "2",
+    }).json()
+    h = _encabezado(5, "barney", "MESERO", ids["sede"])
+    assert cliente.get(f"/productos/{ajeno['id']}", headers=h).status_code == 403
+    assert cliente.get("/productos/por-codigo/SUR-1", headers=h, params={"sede_id": otra}).status_code == 403
+    assert cliente.get("/productos/por-codigo/CERV-001", headers=h,
+                       params={"sede_id": ids["sede"]}).status_code == 200
+    assert cliente.get(f"/productos/{ids['producto']}", headers=h).status_code == 200
+
+
+def test_c1_un_operario_sin_sede_no_consulta_nada(cliente, ids):
+    h = _encabezado(5, "huerfano", "CAJERO", None)
+    respuesta = cliente.get("/mesas", headers=h)
+    assert respuesta.status_code == 403
+    assert respuesta.json()["error"]["codigo"] == "SIN_SEDE"
 
 
 # ------------------------------------------------------------------- C-3

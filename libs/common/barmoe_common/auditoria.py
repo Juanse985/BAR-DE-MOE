@@ -125,3 +125,98 @@ def registrar_rechazo(
         request_id=request_id,
         detalle=detalle,
     )
+
+
+def contexto_http(request) -> dict:
+    """`ip` y `request_id` listos para pasarle a `registrar(**contexto_http(request))`."""
+    return {"ip": ip_cliente(request), "request_id": request_id_de(request)}
+
+
+# ------------------------------------------------ HU-008 · consulta paginada
+def router_consulta(get_db, solo_admin, prefijo: str = "/auditoria"):
+    """Router de solo lectura sobre la tabla `auditoria` del servicio.
+
+    Criterios de HU-008: filtros por usuario, sede, acción, resultado y rango
+    de fechas; paginado del más reciente al más antiguo; solo ADMINISTRADOR; y
+    ningún endpoint para modificar o borrar registros (solo existe GET).
+    El total de registros viaja en la cabecera `X-Total-Count`.
+
+    Aporte original de Angel (`GET /audit`), llevado al contrato común para
+    que todos los servicios expongan la misma consulta.
+    """
+    from datetime import datetime as _dt
+
+    from fastapi import APIRouter, Depends, Query, Response
+    from pydantic import BaseModel, ConfigDict
+    from sqlalchemy import func, select
+
+    from .errors import ErrorApp
+
+    class AuditoriaSalida(BaseModel):
+        model_config = ConfigDict(from_attributes=True)
+
+        id: int
+        fecha: _dt
+        usuario_id: int | None
+        usuario: str | None
+        sede_id: int | None
+        accion: str
+        entidad: str | None
+        entidad_id: str | None
+        resultado: str
+        ip: str | None
+        request_id: str | None
+        detalle: str | None
+
+    def _utc(fecha):
+        if fecha is None:
+            return None
+        return fecha.replace(tzinfo=UTC) if fecha.tzinfo is None else fecha.astimezone(UTC)
+
+    router = APIRouter(prefix=prefijo, tags=["auditoría"])
+
+    @router.get("", response_model=list[AuditoriaSalida], summary="Consultar la auditoría (HU-008)")
+    def consultar(
+        response: Response,
+        _=Depends(solo_admin),
+        db=Depends(get_db),
+        usuario_id: int | None = None,
+        usuario: str | None = Query(default=None, max_length=60),
+        sede_id: int | None = None,
+        accion: str | None = Query(default=None, max_length=60),
+        resultado: str | None = Query(default=None, max_length=20),
+        desde: _dt | None = None,
+        hasta: _dt | None = None,
+        pagina: int = Query(default=1, ge=1),
+        tamano: int = Query(default=50, ge=1, le=200),
+    ):
+        # Fechas sin zona se toman como UTC; con zona (ej. -05:00) se pasan a UTC.
+        desde, hasta = (_utc(f) for f in (desde, hasta))
+        if desde and hasta and desde > hasta:
+            raise ErrorApp("RANGO_INVALIDO", "La fecha 'desde' no puede ser posterior a 'hasta'.", 422)
+        filtros = []
+        if usuario_id is not None:
+            filtros.append(Auditoria.usuario_id == usuario_id)
+        if usuario:
+            filtros.append(Auditoria.usuario == usuario)
+        if sede_id is not None:
+            filtros.append(Auditoria.sede_id == sede_id)
+        if accion:
+            filtros.append(Auditoria.accion == accion.upper())
+        if resultado:
+            filtros.append(Auditoria.resultado == resultado.upper())
+        if desde:
+            filtros.append(Auditoria.fecha >= desde)
+        if hasta:
+            filtros.append(Auditoria.fecha <= hasta)
+
+        total = db.scalar(select(func.count()).select_from(Auditoria).where(*filtros))
+        response.headers["X-Total-Count"] = str(total)
+        consulta = (
+            select(Auditoria).where(*filtros)
+            .order_by(Auditoria.fecha.desc(), Auditoria.id.desc())
+            .offset((pagina - 1) * tamano).limit(tamano)
+        )
+        return list(db.scalars(consulta))
+
+    return router

@@ -75,8 +75,27 @@ def test_hu025_un_error_de_negocio_no_deja_registro_ok(cliente, admin, catalogo)
     assert len(_auditorias(resultado="OK")) == total
 
 
-@pytest.mark.xfail(strict=True, reason="DEF-05: el servicio no activa la auditoría de rechazos "
-                                       "(falta auditar_rechazos=SessionLocal en crear_app)")
+# DEF-05 corregido en la integración del Sprint 1.
 def test_hu025_un_intento_rechazado_queda_registrado(cliente, mesero):
     cliente.post("/sedes", headers=mesero, json={"nombre": "Sede pirata"})
-    assert _auditorias(accion="ACCESO_DENEGADO")
+    fila = _auditorias(accion="ACCESO_DENEGADO")[-1]
+    assert (fila.usuario, fila.sede_id, fila.detalle) == ("mszyslak", 1, "POST /sedes -> 403")
+
+
+def test_hu025_otra_sede_rechazada_tambien_queda_registrada(cliente, mesero):
+    cliente.get("/mesas", headers=mesero, params={"sede_id": 99})
+    assert _auditorias(accion="ACCESO_DENEGADO")[-1].detalle == "GET /mesas -> 403"
+
+
+def test_hu025_la_escritura_guarda_ip_real_y_request_id(cliente, admin):
+    """DEF-07 y DEF-08 corregidos en el parametrizacion-service."""
+    cliente.post("/sedes", headers={**admin, "X-Forwarded-For": "181.60.10.20", "X-Request-Id": "req-9"},
+                 json={"nombre": "Bar de Moe · Oeste"})
+    fila = _auditorias(accion="CREAR", entidad="sedes")[-1]
+    assert (fila.ip, fila.request_id) == ("181.60.10.20", "req-9")
+
+
+def test_hu008_el_administrador_consulta_la_auditoria_del_servicio(cliente, admin, mesero, catalogo):
+    assert cliente.get("/auditoria", headers=mesero).status_code == 403
+    filas = cliente.get("/auditoria", headers=admin, params={"accion": "CREAR"}).json()
+    assert {f["entidad"] for f in filas} == {"sedes", "tipos_producto", "proveedores"}

@@ -1,13 +1,10 @@
 """HU-025 · RNF-12 — Trazabilidad de las transacciones en el auth-service.
 
 Criterio: toda transacción registra usuario, sede, fecha y hora, y es
-consultable por el administrador. Las pruebas marcadas `xfail` documentan
-defectos abiertos: pasan a verde solas cuando se corrigen (strict=True obliga
-a quitar la marca en ese momento).
+consultable por el administrador. Las últimas pruebas nacieron como `xfail`
+(DEF-02, DEF-03, DEF-07 y DEF-08) y quedaron en verde al integrar el sprint.
 """
 from datetime import UTC, datetime, timedelta
-
-import pytest
 
 from .utilidades import auditorias, crear_usuario, entrar
 
@@ -92,15 +89,17 @@ def test_hu025_ninguna_fila_de_auditoria_guarda_passwords(cliente, encabezado_ad
         assert "ClaveErrada99" not in texto
 
 
-# ------------------------------------------------------ defectos abiertos
-@pytest.mark.xfail(strict=True, reason="DEF-02: PATCH /usuarios/{id} no deja registro en auditoría")
+# ------------------------------------------- defectos corregidos al integrar
+# DEF-02 corregido en la integración del Sprint 1.
 def test_hu025_la_edicion_de_un_usuario_queda_registrada(cliente, encabezado_admin):
     objetivo = crear_usuario(cliente, encabezado_admin, usuario="nelson", perfil="MESERO")
     cliente.patch(f"/usuarios/{objetivo['id']}", headers=encabezado_admin, json={"estado": "INACTIVO"})
-    assert any(f.entidad_id == str(objetivo["id"]) and f.accion != "CREAR_USUARIO" for f in auditorias())
+    fila = auditorias(accion="ACTUALIZAR_USUARIO", entidad_id=str(objetivo["id"]))[-1]
+    assert fila.usuario == "admin"
+    assert fila.detalle == "estado=INACTIVO"
 
 
-@pytest.mark.xfail(strict=True, reason="DEF-03: el LOGOUT se registra sin nombre de usuario ni sede")
+# DEF-03 corregido en la integración del Sprint 1.
 def test_hu025_el_logout_registra_usuario_y_sede(cliente, encabezado_admin):
     crear_usuario(cliente, encabezado_admin, usuario="milhouse", perfil="MESERO", sede_id=2)
     h = entrar(cliente, "milhouse")
@@ -110,15 +109,14 @@ def test_hu025_el_logout_registra_usuario_y_sede(cliente, encabezado_admin):
     assert fila.sede_id == 2
 
 
-@pytest.mark.xfail(strict=True, reason="DEF-07: detrás del gateway se guarda la IP del gateway y no la del "
-                                       "cliente (falta reenviar y usar X-Forwarded-For)")
+# DEF-07 corregido en la integración del Sprint 1.
 def test_hu025_la_ip_registrada_es_la_del_cliente_real(cliente, encabezado_admin):
     crear_usuario(cliente, encabezado_admin, usuario="kent", perfil="MESERO")
     entrar(cliente, "kent", **{"X-Forwarded-For": "181.60.10.20"})
     assert auditorias(accion="LOGIN", usuario="kent")[-1].ip == "181.60.10.20"
 
 
-@pytest.mark.xfail(strict=True, reason="DEF-08: el X-Request-Id del gateway no se guarda en auditoría")
+# DEF-08 corregido en la integración del Sprint 1.
 def test_hu025_la_auditoria_guarda_el_request_id(cliente, encabezado_admin):
     crear_usuario(cliente, encabezado_admin, usuario="patty", perfil="CAJERO")
     entrar(cliente, "patty", **{"X-Request-Id": "req-demo-001"})

@@ -11,5 +11,14 @@ class Config(ConfigBase):
     ADMIN_USUARIO: str = "admin"
     ADMIN_PASSWORD: str = "Admin2026"
 
+    # HU-002 · aporte de Angel: minutos que dura el bloqueo por reintentos.
+    # 0 = la cuenta queda bloqueada hasta que el administrador la desbloquee
+    # (criterio 4 de HU-002: "debe contactar al administrador").
+    BLOQUEO_MINUTOS: int = 0
+
+    # OBS-02 · límite por IP: fallos de login desde una misma IP en la ventana.
+    MAX_INTENTOS_POR_IP: int = 10
+    VENTANA_IP_MINUTOS: int = 15
+
 
 config = Config()

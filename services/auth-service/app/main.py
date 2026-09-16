@@ -6,11 +6,12 @@ contraseña por administrador y por usuario, y trazabilidad de cada acción.
 """
 from contextlib import asynccontextmanager
 
-from fastapi import APIRouter, Depends, FastAPI, Request
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, FastAPI, Query, Request, Response
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from barmoe_common.app import crear_app
+from barmoe_common.auditoria import contexto_http, router_consulta
 from barmoe_common.db import Base, crear_session_factory, dependencia_db
 from barmoe_common.deps import UsuarioActual, construir_autenticacion
 from barmoe_common.errors import ErrorApp
@@ -47,11 +48,8 @@ app = crear_app(
     titulo="Bar de Moe · auth-service",
     descripcion="M1 · Seguridad y gestión de usuarios. DATHEON S.A.S.",
     lifespan=ciclo_de_vida,
+    auditar_rechazos=SessionLocal,  # DEF-05 · C-1: los 401/403 quedan en la auditoría
 )
-
-
-def _ip(request: Request) -> str | None:
-    return request.client.host if request.client else None
 
 
 def usuario_db(
@@ -71,7 +69,7 @@ auth = APIRouter(prefix="/auth", tags=["autenticación"])
 
 @auth.post("/login", response_model=LoginSalida, summary="Iniciar sesión")
 def login(datos: LoginEntrada, request: Request, db: Session = Depends(get_db)):
-    token, expira, usuario = servicio.login(db, datos.usuario, datos.password, _ip(request))
+    token, expira, usuario = servicio.login(db, datos.usuario, datos.password, **contexto_http(request))
     return LoginSalida(
         access_token=token,
         expira_en=expira,
@@ -81,8 +79,8 @@ def login(datos: LoginEntrada, request: Request, db: Session = Depends(get_db)):
 
 
 @auth.post("/logout", summary="Cerrar sesión")
-def logout(token: UsuarioActual = Depends(usuario_token), db: Session = Depends(get_db)):
-    servicio.logout(db, token.jti)
+def logout(request: Request, token: UsuarioActual = Depends(usuario_token), db: Session = Depends(get_db)):
+    servicio.logout(db, token.jti, **contexto_http(request))
     return {"mensaje": "Sesión cerrada."}
 
 
@@ -107,14 +105,23 @@ def me(usuario: Usuario = Depends(usuario_db)):
 @auth.post("/cambiar-password", summary="Cambiar la propia contraseña")
 def cambiar_password(
     datos: CambioPassword,
+    request: Request,
     usuario: Usuario = Depends(usuario_db),
     db: Session = Depends(get_db),
 ):
-    servicio.cambiar_password(db, usuario, datos.password_actual, datos.password_nueva)
+    servicio.cambiar_password(db, usuario, datos.password_actual, datos.password_nueva,
+                              **contexto_http(request))
     return {"mensaje": "Contraseña actualizada."}
 
 
 # =================================================================  USUARIOS
+def _objetivo(db: Session, usuario_id: int) -> Usuario:
+    usuario = db.get(Usuario, usuario_id)
+    if usuario is None:
+        raise ErrorApp("NO_ENCONTRADO", "El usuario no existe.", 404)
+    return usuario
+
+
 usuarios = APIRouter(prefix="/usuarios", tags=["usuarios"])
 solo_admin = requiere_perfil("ADMINISTRADOR")
 
@@ -122,85 +129,123 @@ solo_admin = requiere_perfil("ADMINISTRADOR")
 @usuarios.post("", response_model=UsuarioSalida, status_code=201, summary="Crear usuario")
 def crear(
     datos: UsuarioCrear,
+    request: Request,
     _: UsuarioActual = Depends(solo_admin),
     admin: Usuario = Depends(usuario_db),
     db: Session = Depends(get_db),
 ):
-    return servicio.crear_usuario(db, datos, admin)
+    return servicio.crear_usuario(db, datos, admin, **contexto_http(request))
 
 
-@usuarios.get("", response_model=list[UsuarioSalida], summary="Listar usuarios")
+@usuarios.get("", response_model=list[UsuarioSalida], summary="Listar usuarios (paginado)")
 def listar(
+    response: Response,
     _: UsuarioActual = Depends(solo_admin),
     db: Session = Depends(get_db),
     sede_id: int | None = None,
     perfil: str | None = None,
+    estado: str | None = None,
+    pagina: int = Query(default=1, ge=1),
+    tamano: int = Query(default=100, ge=1, le=500),
 ):
-    consulta = select(Usuario)
+    """HU-007 criterio 4: filtros por sede y perfil, y resultado paginado.
+
+    Sigue devolviendo una lista (así el frontend no cambia); el total va en
+    la cabecera `X-Total-Count`.
+    """
+    filtros = []
     if sede_id is not None:
-        consulta = consulta.where(Usuario.sede_id == sede_id)
+        filtros.append(Usuario.sede_id == sede_id)
     if perfil:
-        consulta = consulta.where(Usuario.perfil == perfil)
-    return list(db.scalars(consulta.order_by(Usuario.nombre)))
+        filtros.append(Usuario.perfil == perfil.upper())
+    if estado:
+        filtros.append(Usuario.estado == estado.upper())
+    response.headers["X-Total-Count"] = str(
+        db.scalar(select(func.count()).select_from(Usuario).where(*filtros))
+    )
+    consulta = (select(Usuario).where(*filtros).order_by(Usuario.nombre, Usuario.id)
+                .offset((pagina - 1) * tamano).limit(tamano))
+    return list(db.scalars(consulta))
 
 
 @usuarios.get("/{usuario_id}", response_model=UsuarioSalida, summary="Consultar usuario")
 def obtener(usuario_id: int, _: UsuarioActual = Depends(solo_admin), db: Session = Depends(get_db)):
-    usuario = db.get(Usuario, usuario_id)
-    if usuario is None:
-        raise ErrorApp("NO_ENCONTRADO", "El usuario no existe.", 404)
-    return usuario
+    return _objetivo(db, usuario_id)
 
 
 @usuarios.patch("/{usuario_id}", response_model=UsuarioSalida, summary="Actualizar usuario")
 def actualizar(
     usuario_id: int,
     datos: UsuarioActualizar,
+    request: Request,
     _: UsuarioActual = Depends(solo_admin),
+    admin: Usuario = Depends(usuario_db),
     db: Session = Depends(get_db),
 ):
-    usuario = db.get(Usuario, usuario_id)
-    if usuario is None:
-        raise ErrorApp("NO_ENCONTRADO", "El usuario no existe.", 404)
-    cambios = datos.model_dump(exclude_unset=True)
-    for campo, valor in cambios.items():
-        setattr(usuario, campo, valor)
-    if cambios.get("estado") == "INACTIVO":
-        for sesion in servicio.sesiones_activas(db, usuario.id):
-            servicio.cerrar_sesion(db, sesion, "USUARIO_INACTIVO")
-    db.commit()
-    db.refresh(usuario)
-    return usuario
+    objetivo = _objetivo(db, usuario_id)
+    return servicio.actualizar_usuario(db, admin, objetivo, datos.model_dump(exclude_unset=True),
+                                       **contexto_http(request))
+
+
+@usuarios.post("/{usuario_id}/inactivar", response_model=UsuarioSalida, summary="Inactivar usuario")
+def inactivar(
+    usuario_id: int,
+    request: Request,
+    _: UsuarioActual = Depends(solo_admin),
+    admin: Usuario = Depends(usuario_db),
+    db: Session = Depends(get_db),
+):
+    """Reemplaza el DELETE de Angel: el usuario no se borra, se inactiva (HU-007 criterio 5)."""
+    objetivo = _objetivo(db, usuario_id)
+    if objetivo.estado == "INACTIVO":
+        raise ErrorApp("USUARIO_YA_INACTIVO", "El usuario ya está inactivo.", 409)
+    return servicio.actualizar_usuario(db, admin, objetivo, {"estado": "INACTIVO"},
+                                       accion="INACTIVAR_USUARIO", **contexto_http(request))
+
+
+@usuarios.post("/{usuario_id}/activar", response_model=UsuarioSalida, summary="Activar usuario")
+def activar(
+    usuario_id: int,
+    request: Request,
+    _: UsuarioActual = Depends(solo_admin),
+    admin: Usuario = Depends(usuario_db),
+    db: Session = Depends(get_db),
+):
+    objetivo = _objetivo(db, usuario_id)
+    if objetivo.estado == "ACTIVO":
+        raise ErrorApp("USUARIO_YA_ACTIVO", "El usuario ya está activo.", 409)
+    return servicio.actualizar_usuario(db, admin, objetivo, {"estado": "ACTIVO"},
+                                       accion="ACTIVAR_USUARIO", **contexto_http(request))
 
 
 @usuarios.post("/{usuario_id}/restablecer-password", summary="Restablecer contraseña (admin)")
 def restablecer(
     usuario_id: int,
     datos: RestablecerPassword,
+    request: Request,
     _: UsuarioActual = Depends(solo_admin),
     admin: Usuario = Depends(usuario_db),
     db: Session = Depends(get_db),
 ):
-    objetivo = db.get(Usuario, usuario_id)
-    if objetivo is None:
-        raise ErrorApp("NO_ENCONTRADO", "El usuario no existe.", 404)
-    servicio.restablecer_password(db, admin, objetivo, datos.password_nueva)
+    objetivo = _objetivo(db, usuario_id)
+    servicio.restablecer_password(db, admin, objetivo, datos.password_nueva, **contexto_http(request))
     return {"mensaje": "Contraseña restablecida. El usuario deberá cambiarla al ingresar."}
 
 
 @usuarios.post("/{usuario_id}/desbloquear", summary="Desbloquear usuario (admin)")
 def desbloquear(
     usuario_id: int,
+    request: Request,
     _: UsuarioActual = Depends(solo_admin),
     admin: Usuario = Depends(usuario_db),
     db: Session = Depends(get_db),
 ):
-    objetivo = db.get(Usuario, usuario_id)
-    if objetivo is None:
-        raise ErrorApp("NO_ENCONTRADO", "El usuario no existe.", 404)
-    servicio.desbloquear(db, admin, objetivo)
+    objetivo = _objetivo(db, usuario_id)
+    servicio.desbloquear(db, admin, objetivo, **contexto_http(request))
     return {"mensaje": "Usuario desbloqueado."}
 
 
 app.include_router(auth)
 app.include_router(usuarios)
+# HU-008 (aporte de Angel): GET /auditoria, solo ADMINISTRADOR, paginado y de solo lectura.
+app.include_router(router_consulta(get_db, solo_admin))

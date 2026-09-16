@@ -2,7 +2,14 @@ const API = "/api",
   SESSION_KEY = "barmoe_access_token",
   USER_KEY = "barmoe_user";
 const MENU = {
-  ADMINISTRADOR: ["sedes", "mesas", "proveedores", "productos", "usuarios"],
+  ADMINISTRADOR: [
+    "sedes",
+    "mesas",
+    "tipos-producto",
+    "proveedores",
+    "productos",
+    "usuarios",
+  ],
   MESERO: ["mesas", "pedidos"],
   CAJERO: ["pedidos", "facturacion", "consulta-facturas", "reporte-ventas"],
 };
@@ -149,7 +156,7 @@ async function request(path, options = {}) {
     data = await response.json().catch(() => ({})),
     code = data?.error?.codigo;
   if (
-    response.status === 401 &&
+    [401, 403].includes(response.status) &&
     [
       "NO_AUTENTICADO",
       "SESION_CERRADA",
@@ -169,6 +176,9 @@ function clearSession() {
   sessionStorage.removeItem(USER_KEY);
   state = { ...state, token: null, user: null };
   clearTimeout(state.idleTimer);
+}
+function esAdmin() {
+  return state.user?.perfil === "ADMINISTRADOR";
 }
 function allowed(route) {
   return state.user && (MENU[state.user.perfil] || []).includes(route);
@@ -349,13 +359,20 @@ function drawUsers() {
   document.getElementById("users-table").innerHTML = state.error
     ? `<p class="error">${esc(state.error)}</p>`
     : usersList.length
-      ? `<div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Usuario</th><th>Perfil</th><th>Sede</th><th>Estado</th><th>Acceso</th><th>Acciones</th></tr></thead><tbody>${usersList.map((item) => `<tr><td>${esc(item.nombre)}</td><td>${esc(item.usuario)}</td><td><span class="role-badge">${esc(item.perfil)}</span></td><td>${item.sede_id ?? "Todas"}</td><td><span class="badge ${item.estado === "ACTIVO" ? "active" : "inactive"}">${esc(item.estado)}</span></td><td>${item.debe_cambiar_password ? "Cambio pendiente" : "Listo"}</td><td><div class="user-actions"><button class="ghost reset-user" data-id="${item.id}">Restablecer clave</button><button class="ghost toggle-user ${item.estado === "INACTIVO" ? "activate" : "deactivate"}" data-id="${item.id}" data-state="${item.estado}">${item.estado === "INACTIVO" ? "Activar" : "Desactivar"}</button></div></td></tr>`).join("")}</tbody></table></div>`
+      ? `<div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Usuario</th><th>Perfil</th><th>Sede</th><th>Estado</th><th>Acceso</th><th>Acciones</th></tr></thead><tbody>${usersList.map((item) => `<tr><td>${esc(item.nombre)}</td><td>${esc(item.usuario)}</td><td><span class="role-badge">${esc(item.perfil)}</span></td><td>${item.sede_id ?? "Todas"}</td><td><span class="badge ${item.estado === "ACTIVO" ? "active" : "inactive"}">${esc(item.estado)}</span></td><td>${item.bloqueado ? '<span class="badge inactive">Bloqueado</span>' : item.debe_cambiar_password ? "Cambio pendiente" : "Listo"}</td><td><div class="user-actions">${item.bloqueado ? `<button class="ghost unlock-user" data-id="${item.id}">Desbloquear</button>` : ""}<button class="ghost reset-user" data-id="${item.id}">Restablecer clave</button><button class="ghost toggle-user ${item.estado === "INACTIVO" ? "activate" : "deactivate"}" data-id="${item.id}" data-state="${item.estado}">${item.estado === "INACTIVO" ? "Activar" : "Desactivar"}</button></div></td></tr>`).join("")}</tbody></table></div>`
       : `<div class="empty">No hay usuarios para mostrar.</div>`;
   document
     .querySelectorAll(".reset-user")
     .forEach((button) =>
       button.addEventListener("click", () =>
         resetUserPassword(Number(button.dataset.id)),
+      ),
+    );
+  document
+    .querySelectorAll(".unlock-user")
+    .forEach((button) =>
+      button.addEventListener("click", () =>
+        unlockUser(Number(button.dataset.id)),
       ),
     );
   document
@@ -411,15 +428,25 @@ async function resetUserPassword(userId) {
     drawUsers();
   }
 }
+async function unlockUser(userId) {
+  try {
+    await request(`/auth/usuarios/${userId}/desbloquear`, { method: "POST" });
+    await loadUsers();
+  } catch (error) {
+    state.error = error.message;
+    drawUsers();
+  }
+}
 async function toggleUserStatus(userId, currentState) {
   const nextState = currentState === "ACTIVO" ? "INACTIVO" : "ACTIVO";
   const action = nextState === "INACTIVO" ? "desactivar" : "activar";
   if (!window.confirm(`¿Deseas ${action} esta cuenta?`)) return;
   try {
-    await request(`/auth/usuarios/${userId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ estado: nextState }),
-    });
+    // Endpoints propios de activar/inactivar (integración Sprint 1).
+    await request(
+      `/auth/usuarios/${userId}/${nextState === "INACTIVO" ? "inactivar" : "activar"}`,
+      { method: "POST" },
+    );
     await loadUsers();
   } catch (error) {
     state.error = error.message;
@@ -437,10 +464,10 @@ async function resource(key) {
       ? `<select id="sede-filter" aria-label="Filtrar por sede"><option value="">Todas las sedes</option></select><select id="tipo-filter" aria-label="Filtrar por tipo"><option value="">Todos los tipos</option></select>`
       : "";
   document.getElementById("view").innerHTML =
-    `<div class="topbar"><div><p class="eyebrow">Parametrizacion</p><h1>${r.title}</h1><p class="subtle">Gestiona registros, busca coincidencias y distingue los elementos inactivos.</p></div><div class="topbar-actions"><button class="primary" id="new-item">+ Nuevo</button></div></div><section class="panel"><div class="toolbar"><input id="search" placeholder="Buscar en el listado" aria-label="Buscar">${productFilters}<button class="ghost" id="refresh">Actualizar</button></div><div id="table"></div></section>`;
+    `<div class="topbar"><div><p class="eyebrow">Parametrizacion</p><h1>${r.title}</h1><p class="subtle">Gestiona registros, busca coincidencias y distingue los elementos inactivos.</p></div>${esAdmin() ? '<div class="topbar-actions"><button class="primary" id="new-item">+ Nuevo</button></div>' : ""}</div><section class="panel"><div class="toolbar"><input id="search" placeholder="Buscar en el listado" aria-label="Buscar">${productFilters}<button class="ghost" id="refresh">Actualizar</button></div><div id="table"></div></section>`;
   document
     .getElementById("new-item")
-    .addEventListener("click", () => form(key));
+    ?.addEventListener("click", () => form(key));
   document.getElementById("refresh").addEventListener("click", () => load(key));
   document.getElementById("search").addEventListener("input", (event) => {
     state.filter = event.target.value.toLowerCase();
@@ -504,7 +531,7 @@ function table(key) {
   document.getElementById("table").innerHTML = state.error
     ? `<p class="error">${esc(state.error)}</p>`
     : rows.length
-      ? `<div class="table-wrap"><table><thead><tr>${r.fields.map((f) => `<th>${f.label}</th>`).join("")}<th>Estado</th><th></th></tr></thead><tbody>${rows.map((item) => `<tr>${r.fields.map((f) => `<td>${esc(item[f.key])}</td>`).join("")}<td><span class="badge ${item[r.active] === false ? "inactive" : "active"}">${item[r.active] === false ? "Inactivo" : "Activo"}</span></td><td><button class="ghost edit" data-id="${item.id}">Editar</button></td></tr>`).join("")}</tbody></table></div>`
+      ? `<div class="table-wrap"><table><thead><tr>${r.fields.map((f) => `<th>${f.label}</th>`).join("")}<th>Estado</th><th></th></tr></thead><tbody>${rows.map((item) => `<tr>${r.fields.map((f) => `<td>${esc(item[f.key])}</td>`).join("")}<td><span class="badge ${item[r.active] === false ? "inactive" : "active"}">${item[r.active] === false ? "Inactivo" : "Activo"}</span></td><td>${esAdmin() ? `<button class="ghost edit" data-id="${item.id}">Editar</button>` : ""}</td></tr>`).join("")}</tbody></table></div>`
       : `<div class="empty">No hay registros para mostrar.</div>`;
   document.querySelectorAll(".edit").forEach((button) =>
     button.addEventListener("click", () =>

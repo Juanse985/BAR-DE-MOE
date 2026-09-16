@@ -12,12 +12,15 @@ Desarrollada por **DATHEON S.A.S.** — Diseño de Algoritmos, UNIMINUTO.
 
 ## Equipo
 
-| Integrante | Rol | Rama |
-|---|---|---|
-| Angel De Jesús Paniza Sierra | Líder Técnico / Scrum Master | `feat/auth-usuarios` |
-| Juan Felipe Cortés Mendoza | Arquitecto | `feat/infra-gateway` |
-| Juan David Tovío Montes | Analista de Requisitos | `feat/parametrizacion` |
-| Juan Sebastián Rodríguez Jiménez | Líder de QA | `feat/calidad-trazabilidad` |
+| Integrante | Rol | Rama | Aporte al Sprint 1 |
+|---|---|---|---|
+| Angel De Jesús Paniza Sierra | Líder Técnico / Scrum Master | `dev/angel` | M1: consulta de auditoría, bloqueo temporal, activar/inactivar, colección Postman |
+| Juan Felipe Cortés Mendoza | Arquitecto | `dev/felipe` | Frontend por perfiles servido por el gateway |
+| Juan David Tovío Montes | Analista de Requisitos | `dev/david` | M2: carga masiva CSV, producto por código, inactivación con validaciones |
+| Juan Sebastián Rodríguez Jiménez | Líder de QA | `dev/juan` | Trazabilidad, pruebas, evidencias e integración |
+
+Las cuatro ramas quedaron unidas en `integracion/sprint-1`
+(detalle en [`docs/08-integracion-sprint-1.md`](docs/08-integracion-sprint-1.md)).
 
 Los roles definen quién decide en cada frente. **Los cuatro programan.**
 
@@ -26,7 +29,8 @@ Los roles definen quién decide en cada frente. **Los cuatro programan.**
 ```bash
 cp .env.example .env
 docker compose up --build
-# abrir http://localhost:8000/health
+# abrir http://localhost:8000          → frontend por perfiles
+# abrir http://localhost:8000/health   → estado de la plataforma
 ```
 
 Usuario inicial: **`admin` / `Admin2026`** (cámbienlo antes de la demo).
@@ -35,6 +39,7 @@ Usuario inicial: **`admin` / `Admin2026`** (cámbienlo antes de la demo).
 
 ```
 bar-de-moe/
+├── frontend/                      Pantallas por perfil (las sirve el gateway)
 ├── gateway/                       Punto de entrada único (:8000)
 ├── services/
 │   ├── auth-service/              M1 · seguridad y usuarios
@@ -56,6 +61,8 @@ bar-de-moe/
 | [`docs/04-guia-rapida.md`](docs/04-guia-rapida.md) | Cómo levantarlo, probarlo y resolver problemas |
 | [`docs/06-owasp.md`](docs/06-owasp.md) | Los cuatro controles de seguridad de la propuesta y su evidencia |
 | [`docs/07-informe-qa-sprint-1.md`](docs/07-informe-qa-sprint-1.md) | Defectos abiertos y riesgos de integración del Sprint 1 |
+| [`docs/08-integracion-sprint-1.md`](docs/08-integracion-sprint-1.md) | Qué aportó cada integrante y cómo se unieron las ramas |
+| [`docs/postman/`](docs/postman/) | Colección Postman de la API del Sprint 1 |
 | [`docs/evidencias/`](docs/evidencias/) | Reporte de pruebas, prueba de humo y medición del RNF-02 para la Review |
 
 ## Pruebas
@@ -65,8 +72,8 @@ make test       # los cuatro componentes
 make cov        # con cobertura; falla por debajo del 70 %
 ```
 
-**226 pruebas** entre la librería común, los dos servicios y el gateway
-(215 en verde y 11 que documentan defectos abiertos con `xfail`). Las que
+**292 pruebas** entre la librería común, los dos servicios y el gateway,
+todas en verde y sin defectos abiertos. Las que
 verifican un requisito del tablero lo llevan en el nombre, para que la
 evidencia de la Sprint Review salga directo del reporte de pytest:
 

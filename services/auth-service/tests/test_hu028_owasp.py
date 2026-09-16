@@ -23,6 +23,9 @@ OPERACIONES_ADMIN = [
     ("PATCH", "/usuarios/1", {"perfil": "MESERO"}),
     ("POST", "/usuarios/1/restablecer-password", {"password_nueva": "Hackeada2026"}),
     ("POST", "/usuarios/1/desbloquear", None),
+    ("POST", "/usuarios/1/inactivar", None),
+    ("POST", "/usuarios/1/activar", None),
+    ("GET", "/auditoria", None),
 ]
 
 
@@ -59,8 +62,7 @@ def test_c1_un_usuario_inactivo_no_opera_aunque_tenga_token(cliente, encabezado_
     assert cliente.get("/auth/me", headers=h).status_code == 403
 
 
-@pytest.mark.xfail(strict=True, reason="DEF-04: al inactivar un usuario sus sesiones siguen vivas; "
-                                       "el gateway lo deja pasar a los demás servicios")
+# DEF-04 corregido en la integración del Sprint 1.
 def test_c1_inactivar_un_usuario_cierra_su_sesion(cliente, encabezado_admin):
     objetivo = crear_usuario(cliente, encabezado_admin, usuario="jimbo", perfil="MESERO")
     h = entrar(cliente, "jimbo")
@@ -68,8 +70,7 @@ def test_c1_inactivar_un_usuario_cierra_su_sesion(cliente, encabezado_admin):
     assert cliente.post("/auth/validar-sesion", headers=h).status_code == 401
 
 
-@pytest.mark.xfail(strict=True, reason="DEF-05: el servicio no activa la auditoría de rechazos "
-                                       "(falta auditar_rechazos=SessionLocal en crear_app)")
+# DEF-05 corregido en la integración del Sprint 1.
 def test_c1_el_intento_no_autorizado_queda_registrado(cliente, encabezado_admin):
     crear_usuario(cliente, encabezado_admin, usuario="kearney", perfil="MESERO")
     h = entrar(cliente, "kearney")

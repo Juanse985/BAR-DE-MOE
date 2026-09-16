@@ -1,6 +1,6 @@
 # Seguridad verificable — controles OWASP (HU-028 · RNF-11)
 
-**Responsable:** Juan Sebastián Rodríguez (Líder QA) · **Sprint:** 1 · **Versión:** 1.0
+**Responsable:** Juan Sebastián Rodríguez (Líder QA) · **Sprint:** 1 · **Versión:** 1.1 (integración)
 
 La propuesta comercial v2 (sección 4.1) no promete "cumplir OWASP" en general.
 Se compromete con **cuatro controles del OWASP Top 10 (2021)**, que son los
@@ -24,10 +24,10 @@ Los resultados quedan en `docs/evidencias/`.
 
 | Control | Riesgo OWASP | Estado Sprint 1 | Pruebas en verde | Defectos abiertos |
 |---|---|---|---|---|
-| C-1 | A01 Control de acceso roto | 🟡 Parcial | Perfil validado en servidor en todas las escrituras | DEF-04, DEF-05, DEF-06 |
+| C-1 | A01 Control de acceso roto | 🟢 Cumple | Perfil **y sede** validados en el servidor; rechazos auditados | — (DEF-04, 05 y 06 corregidos) |
 | C-2 | A02 Fallas criptográficas | 🟡 Parcial | Contraseñas con bcrypt, ninguna legible en BD | HTTPS pendiente (OBS-01) |
 | C-3 | A03 Inyección | 🟢 Cumple | Login, filtros y textos resisten inyección | — |
-| C-4 | A07 Fallas de autenticación | 🟢 Cumple | Bloqueo, sesión única, inactividad de 3 min | Mejoras en OBS-02 y OBS-03 |
+| C-4 | A07 Fallas de autenticación | 🟢 Cumple | Bloqueo por usuario **y por IP**, sesión única, inactividad de 3 min | OBS-03 pendiente |
 
 🟢 cumple con evidencia · 🟡 implementado con defectos abiertos · 🔴 no implementado
 
@@ -60,9 +60,14 @@ conozca la dirección de la pantalla. Todo intento rechazado queda registrado.
 | Tokens vencidos, firmados con otro secreto, `alg=none` o con el perfil alterado a mano → 401 | `libs/common/tests/test_hu028_tokens_y_permisos.py` |
 | Ninguna ruta privada se enruta sin token | `gateway/tests/test_qa_gateway.py` |
 | Un intento rechazado queda en `auditoria` con usuario, sede, IP y request id | `libs/common/tests/test_hu025_trazabilidad.py` |
-| En vivo: el mesero no puede crear sedes ni listar usuarios | `scripts/prueba_humo.py` (pasos 14 y 15) |
+| En vivo: el mesero no puede crear sedes, listar usuarios ni ver otra sede | `scripts/prueba_humo.py` (pasos 15 a 17) |
 
-**Pendiente.**
+**Estado tras la integración.** DEF-04, DEF-05 y DEF-06 están corregidos y
+sus pruebas pasan sin `xfail`. Además, la auditoría (incluidos los rechazos)
+se puede consultar en `GET /auditoria` de cada servicio (HU-008). Lo que
+sigue es el diagnóstico original.
+
+**Pendiente (diagnóstico original).**
 
 - **DEF-05.** La auditoría de rechazos ya existe en la librería común, pero
   ningún servicio la activó todavía. Es una línea en cada `main.py`:
@@ -154,13 +159,15 @@ cierre por inactividad de 3 minutos (RNF-03), probados en la Review.
 | Una sesión vencida libera el login y queda cerrada con motivo `INACTIVIDAD` | `test_c4_una_sesion_vencida_por_inactividad_libera_el_login` |
 | Después del logout y del restablecimiento el token ya no sirve | `test_c4_despues_del_logout_el_token_no_sirve`, `test_c4_el_restablecimiento_cierra_las_sesiones_del_usuario` |
 | El mensaje de error no revela si el usuario existe | `test_c4_el_mensaje_de_error_no_distingue_usuario_de_password` |
-| En vivo, por el gateway | `scripts/prueba_humo.py` (pasos 3, 16 y 17) |
+| En vivo, por el gateway | `scripts/prueba_humo.py` (pasos 4, 21 y 22) |
 
 **Observaciones (no bloquean el sprint).**
 
-- **OBS-02.** El bloqueo es por usuario. Un atacante puede probar una
-  contraseña contra muchos usuarios distintos sin que nada lo frene. Hace
-  falta un límite por IP en el gateway (tareas de Angel y de Felipe).
+- **OBS-02 (resuelto al integrar).** El bloqueo era solo por usuario: un atacante
+  podía probar una contraseña contra muchos usuarios distintos sin que nada lo
+  frenara. Ahora el auth-service
+  corta con 429 `DEMASIADOS_INTENTOS` tras `MAX_INTENTOS_POR_IP` fallos en
+  `VENTANA_IP_MINUTOS`, usando la IP real que reenvía el gateway.
 - **OBS-03.** El administrador inicial nace con `debe_cambiar_password=true`,
   pero nada obliga a cambiarla: se puede operar con `Admin2026`. Se recomienda
   que el backend rechace cualquier operación distinta de

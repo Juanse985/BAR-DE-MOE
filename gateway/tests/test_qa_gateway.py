@@ -78,11 +78,30 @@ def test_hu025_si_el_cliente_no_manda_request_id_el_gateway_lo_genera(cliente, s
     assert servicios.a("/sedes")[0].headers["X-Request-Id"] == generado
 
 
-@pytest.mark.xfail(strict=True, reason="DEF-07: detrás del gateway se guarda la IP del gateway y no la del "
-                                       "cliente (falta reenviar y usar X-Forwarded-For)")
 def test_hu025_el_gateway_reenvia_la_ip_del_cliente(cliente, servicios):
+    """DEF-07 corregido: los servicios reciben la IP real para auditarla."""
     cliente.post("/api/auth/auth/login", json={"usuario": "admin", "password": "x"})
-    assert "x-forwarded-for" in servicios.a("/auth/login")[0].headers
+    assert servicios.a("/auth/login")[0].headers["x-forwarded-for"] == "testclient"
+
+
+def test_hu025_la_validacion_de_sesion_tambien_lleva_la_ip(cliente, servicios):
+    cliente.get("/api/parametrizacion/sedes", headers=TOKEN)
+    assert servicios.a("/auth/validar-sesion")[0].headers["x-forwarded-for"] == "testclient"
+
+
+def test_hu025_un_x_forwarded_for_inventado_por_el_cliente_se_ignora(cliente, servicios):
+    cliente.post("/api/auth/auth/login", json={"usuario": "admin", "password": "x"},
+                 headers={"X-Forwarded-For": "1.2.3.4"})
+    assert servicios.a("/auth/login")[0].headers["x-forwarded-for"] == "testclient"
+
+
+def test_hu025_detras_de_un_proxy_confiable_se_respeta_su_cabecera(cliente, servicios, monkeypatch):
+    from app.main import config
+
+    monkeypatch.setattr(config, "PROXIES_CONFIABLES", "testclient")
+    cliente.post("/api/auth/auth/login", json={"usuario": "admin", "password": "x"},
+                 headers={"X-Forwarded-For": "181.50.1.2, 10.0.0.1"})
+    assert servicios.a("/auth/login")[0].headers["x-forwarded-for"] == "181.50.1.2"
 
 
 # ------------------------------------------------------------ HU-026 · SLA
@@ -177,12 +196,68 @@ def test_los_parametros_de_consulta_se_reenvian(cliente):
     assert cuerpo == {"ruta": "/productos", "query": "sede_id=2"}
 
 
-@pytest.mark.xfail(strict=True, raises=Exception,
-                   reason="DEF-09: si un servicio responde algo que no es JSON el gateway se cae con 500")
 def test_una_respuesta_no_json_no_tumba_el_gateway():
+    """DEF-09 corregido."""
     c = _cliente(ServiciosFalsos(cuerpo_no_json=True))
     try:
         respuesta = c.get("/api/parametrizacion/sedes", headers=TOKEN)
     finally:
         c.__exit__(None, None, None)
     assert respuesta.status_code == 502
+    assert respuesta.json()["error"]["codigo"] == "RESPUESTA_INVALIDA"
+
+
+def test_si_auth_responde_algo_raro_al_validar_tampoco_se_cae():
+    class AuthRaro(ServiciosFalsos):
+        def __call__(self, peticion):
+            if peticion.url.path == "/auth/validar-sesion":
+                return httpx.Response(500, text="Internal Server Error")
+            return super().__call__(peticion)
+
+    c = _cliente(AuthRaro())
+    try:
+        respuesta = c.get("/api/parametrizacion/sedes", headers=TOKEN)
+    finally:
+        c.__exit__(None, None, None)
+    assert respuesta.status_code == 502
+
+
+def test_la_paginacion_x_total_count_llega_al_navegador():
+    class ConTotal(ServiciosFalsos):
+        def __call__(self, peticion):
+            if peticion.url.path == "/usuarios":
+                self.recibidas.append(peticion)
+                return httpx.Response(200, json=[], headers={"X-Total-Count": "42", "Set-Cookie": "x=1"})
+            return super().__call__(peticion)
+
+    c = _cliente(ConTotal())
+    try:
+        respuesta = c.get("/api/auth/usuarios", headers=TOKEN)
+    finally:
+        c.__exit__(None, None, None)
+    assert respuesta.headers["X-Total-Count"] == "42"
+    assert "set-cookie" not in respuesta.headers  # solo pasan las cabeceras permitidas
+
+
+# ------------------------------------------------------------ DEF-10 · frontend
+def test_def10_el_frontend_se_sirve_en_la_raiz(cliente):
+    respuesta = cliente.get("/")
+    assert respuesta.status_code == 200
+    assert "text/html" in respuesta.headers["content-type"]
+    assert cliente.get("/app.js").status_code == 200
+
+
+def test_def10_la_api_y_el_health_siguen_teniendo_prioridad(cliente):
+    assert cliente.get("/health").json()["estado"] == "ok"
+    assert cliente.get("/api/parametrizacion/sedes").status_code == 401
+
+
+def test_def10_sin_carpeta_de_frontend_el_gateway_igual_arranca(monkeypatch, tmp_path):
+    from app import main
+
+    monkeypatch.setattr(main.config, "FRONTEND_DIR", str(tmp_path))
+    (tmp_path / "index.html").write_text("<h1>otro</h1>")
+    assert main.carpeta_frontend() == tmp_path
+    monkeypatch.setattr(main, "__file__", str(tmp_path / "a" / "b" / "main.py"))
+    monkeypatch.setattr(main.config, "FRONTEND_DIR", "")
+    assert main.carpeta_frontend() is None

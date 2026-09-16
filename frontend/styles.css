@@ -585,3 +585,13 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* Integración Sprint 1: el botón de cerrar sesión quedaba blanco sobre blanco. */
+.user-mini #logout {
+  background: transparent;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.45) !important;
+}
+.user-mini #logout:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
