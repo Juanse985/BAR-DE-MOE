@@ -85,9 +85,10 @@ Pendiente en este sprint:
 - [ ] Inactivación lógica (`activo=false`) en vez de borrado, con endpoint propio.
 - [ ] Carga masiva de productos desde CSV para la parametrización inicial del bar.
 - [ ] Validar que no se pueda inactivar una sede que tenga mesas o productos activos.
-- [ ] Documentar en `docs/05-contratos.md` el mapeo campo por campo entre el
+- [x] Documentar en `docs/05-contratos.md` el mapeo campo por campo entre el
       tablero del cliente y las tablas. Como Analista RQ, esta es la evidencia
-      que sustenta que no se perdió ningún requisito.
+      que sustenta que no se perdió ningún requisito. → hecho por David en
+      `docs/05-contratos.md` (estado de hallazgos actualizado por QA)
 - [ ] Pruebas de los endpoints nuevos.
 
 ---

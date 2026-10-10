@@ -12,10 +12,12 @@ prueba de humo del flujo completo.
 Se puede correr varias veces: lo que ya existe se reporta como "ya existía" y
 no se duplica. Termina con código 1 si algo falló de verdad.
 
-Usuarios que deja creados (uno por perfil en cada sede):
+Usuarios que deja creados (deben cambiar la contraseña al primer ingreso):
 
-    Centro  mszyslak / Cerveza2026 (ADMINISTRADOR) · ccarlson / Cajero2026 · bgumble / Mesero2026
-    Norte   lleonard / Cajero2026 (CAJERO)          · sgumble  / Mesero2026 (MESERO)
+    Todas las sedes  mszyslak / Cerveza2026 (ADMINISTRADOR)
+    Galerías         ccarlson / Cajero2026 (CAJERO)  · bgumble / Mesero2026 (MESERO)
+    Modelia          lleonard / Cajero2026 (CAJERO)  · sgumble / Mesero2026 (MESERO)
+    Zona T           pbouvier / Cajero2026 (CAJERO)  · omann   / Mesero2026 (MESERO)
 """
 import os
 import sys
@@ -26,39 +28,59 @@ BASE = os.environ.get("BASE_URL", "http://localhost:8000")
 USUARIO = os.environ.get("ADMIN_USUARIO", "admin")
 PASSWORD = os.environ.get("ADMIN_PASSWORD", "Admin2026")
 
+# Las tres sedes del Bar de Moe en Bogotá.
+GALERIAS, MODELIA, ZONA_T = "Galerías", "Modelia", "Zona T"
 SEDES = [
-    {"nombre": "Bar de Moe · Centro", "direccion": "Av. Siempreviva 742", "telefono": "6011234567"},
-    {"nombre": "Bar de Moe · Norte", "direccion": "Calle 100 #15-20", "telefono": "6017654321"},
+    {"nombre": GALERIAS, "direccion": "Galerías, Bogotá"},
+    {"nombre": MODELIA, "direccion": "Modelia, Bogotá"},
+    {"nombre": ZONA_T, "direccion": "Zona T, Bogotá"},
 ]
 TIPOS = [
-    {"nombre": "Cerveza", "descripcion": "Cervezas nacionales e importadas"},
-    {"nombre": "Licor", "descripcion": "Destilados y cócteles"},
-    {"nombre": "Snack", "descripcion": "Pasabocas y picadas"},
+    {"nombre": "Cerveza nacional", "descripcion": "Cervezas de marcas colombianas"},
+    {"nombre": "Cerveza artesanal", "descripcion": "Cervezas artesanales colombianas"},
+    {"nombre": "Cerveza internacional", "descripcion": "Marcas internacionales que se venden en Colombia"},
 ]
+# Los NIT son de ejemplo: se reemplazan por los reales al parametrizar el bar.
 PROVEEDORES = [
-    {"nit": "900123456-1", "nombre": "Distribuidora Duff",
-     "contacto": "H. Simpson", "telefono": "3001112233"},
-    {"nit": "900654321-2", "nombre": "Licores del Valle",
-     "contacto": "B. Gumble", "telefono": "3004445566"},
+    {"nit": "900000001-1", "nombre": "Bavaria", "contacto": "Asesor comercial", "telefono": "3000000001"},
+    {"nit": "900000002-2", "nombre": "Central Cervecera de Colombia",
+     "contacto": "Asesor comercial", "telefono": "3000000002"},
+    {"nit": "900000003-3", "nombre": "Bogotá Beer Company", "contacto": "Asesor comercial",
+     "telefono": "3000000003"},
 ]
+# Catálogo mínimo de cervezas. Precios en pesos colombianos, de ejemplo:
+# el administrador los ajusta por sede desde la pantalla de Productos.
 PRODUCTOS = [
-    ("CERV-001", "Cerveza Duff 330ml", "Cerveza", "Distribuidora Duff", "2500", "6000"),
-    ("CERV-002", "Cerveza Duff 750ml", "Cerveza", "Distribuidora Duff", "5000", "12000"),
-    ("LIC-001", "Aguardiente botella", "Licor", "Licores del Valle", "28000", "65000"),
-    ("SNK-001", "Picada personal", "Snack", "Distribuidora Duff", "8000", "18000"),
+    # (código, nombre, tipo, proveedor, valor de compra, valor de venta)
+    ("CERV-001", "Águila 330 ml", "Cerveza nacional", "Bavaria", "2200", "6000"),
+    ("CERV-002", "Águila Light 330 ml", "Cerveza nacional", "Bavaria", "2300", "6000"),
+    ("CERV-003", "Poker 330 ml", "Cerveza nacional", "Bavaria", "2200", "6000"),
+    ("CERV-004", "Costeña 330 ml", "Cerveza nacional", "Bavaria", "2000", "5500"),
+    ("CERV-005", "Pilsen 330 ml", "Cerveza nacional", "Bavaria", "2200", "6000"),
+    ("CERV-006", "Club Colombia Dorada 330 ml", "Cerveza nacional", "Bavaria", "2800", "7500"),
+    ("CERV-007", "Andina 330 ml", "Cerveza nacional", "Central Cervecera de Colombia", "2000", "5500"),
+    ("ART-001", "BBC Cajicá Honey Ale 330 ml", "Cerveza artesanal", "Bogotá Beer Company", "5000", "12000"),
+    ("ART-002", "BBC Chapinero Porter 330 ml", "Cerveza artesanal", "Bogotá Beer Company", "5000", "12000"),
+    ("INT-001", "Corona 355 ml", "Cerveza internacional", "Bavaria", "4000", "10000"),
+    ("INT-002", "Heineken 330 ml", "Cerveza internacional", "Central Cervecera de Colombia", "3500", "9000"),
 ]
 MESAS_POR_SEDE = 10
+# Un cajero y un mesero por sede: cada uno solo ve la información de su sede.
 USUARIOS = [
     {"cedula": "1032456789", "nombre": "Moe Szyslak", "perfil": "ADMINISTRADOR",
-     "usuario": "mszyslak", "password": "Cerveza2026", "sede": "Bar de Moe · Centro"},
-    {"cedula": "1099887766", "nombre": "Barney Gumble", "perfil": "MESERO",
-     "usuario": "bgumble", "password": "Mesero2026", "sede": "Bar de Moe · Centro"},
+     "usuario": "mszyslak", "password": "Cerveza2026", "sede": None},
     {"cedula": "1011223344", "nombre": "Carl Carlson", "perfil": "CAJERO",
-     "usuario": "ccarlson", "password": "Cajero2026", "sede": "Bar de Moe · Centro"},
+     "usuario": "ccarlson", "password": "Cajero2026", "sede": GALERIAS},
+    {"cedula": "1099887766", "nombre": "Barney Gumble", "perfil": "MESERO",
+     "usuario": "bgumble", "password": "Mesero2026", "sede": GALERIAS},
     {"cedula": "1022334455", "nombre": "Lenny Leonard", "perfil": "CAJERO",
-     "usuario": "lleonard", "password": "Cajero2026", "sede": "Bar de Moe · Norte"},
+     "usuario": "lleonard", "password": "Cajero2026", "sede": MODELIA},
     {"cedula": "1033445566", "nombre": "Sam Gumble", "perfil": "MESERO",
-     "usuario": "sgumble", "password": "Mesero2026", "sede": "Bar de Moe · Norte"},
+     "usuario": "sgumble", "password": "Mesero2026", "sede": MODELIA},
+    {"cedula": "1044556677", "nombre": "Patty Bouvier", "perfil": "CAJERO",
+     "usuario": "pbouvier", "password": "Cajero2026", "sede": ZONA_T},
+    {"cedula": "1055667788", "nombre": "Otto Mann", "perfil": "MESERO",
+     "usuario": "omann", "password": "Mesero2026", "sede": ZONA_T},
 ]
 
 
@@ -142,11 +164,12 @@ def main() -> int:
                 "valor_compra": compra, "valor_venta": venta,
             }, f"{codigo} en {sede_nombre}")
 
-    print("→ Usuarios (uno por perfil en cada sede)")
+    print("→ Usuarios (un cajero y un mesero por sede)")
     for u in USUARIOS:
         datos = {k: v for k, v in u.items() if k != "sede"}
-        crear("/api/auth/usuarios", {**datos, "sede_id": sedes[u["sede"]]},
-              f"{u['usuario']} ({u['perfil']}, {u['sede']})")
+        sede_id = sedes[u["sede"]] if u["sede"] else None
+        crear("/api/auth/usuarios", {**datos, "sede_id": sede_id},
+              f"{u['usuario']} ({u['perfil']}, {u['sede'] or 'todas las sedes'})")
 
     cliente.post("/api/auth/auth/logout", headers=h)
     print(f"✓ Sesión cerrada. {conteo['creados']} registros nuevos, "

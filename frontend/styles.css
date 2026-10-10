@@ -494,7 +494,8 @@ tbody tr:hover {
   font-weight: 700;
   color: #52636d;
 }
-.form-grid input {
+.form-grid input,
+.form-grid select {
   width: 100%;
   padding: 14px 18px;
   border: 2px solid transparent;
@@ -503,8 +504,16 @@ tbody tr:hover {
   box-shadow: #cff0ff 0 10px 10px -5px;
   outline: none;
 }
-.form-grid input:focus {
+.form-grid input:focus,
+.form-grid select:focus {
   border-color: var(--cyan);
+}
+.form-grid input:disabled,
+.form-grid select:disabled {
+  background: #eef2f4;
+  color: #7a8a93;
+  box-shadow: none;
+  cursor: not-allowed;
 }
 .modal-actions {
   display: flex;

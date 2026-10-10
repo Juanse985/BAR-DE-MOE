@@ -142,7 +142,7 @@ ALTER TABLE auditoria ADD COLUMN request_id VARCHAR(64);
 ```bash
 cp .env.example .env
 make up                 # terminal 1 → http://localhost:8000
-make test               # terminal 2: 292 pruebas
+make test               # terminal 2: 299 pruebas (292 + 7 de H-09)
 make evidencias         # seed + humo + RNF-02 + reporte
 ```
 
@@ -151,11 +151,17 @@ Usuarios del seed (el sistema pide cambiar la contraseña en el primer ingreso):
 | Usuario | Contraseña | Perfil | Sede |
 |---|---|---|---|
 | `admin` | `Admin2026` | ADMINISTRADOR | Todas |
-| `mszyslak` | `Cerveza2026` | ADMINISTRADOR | Centro |
-| `ccarlson` | `Cajero2026` | CAJERO | Centro |
-| `bgumble` | `Mesero2026` | MESERO | Centro |
-| `lleonard` | `Cajero2026` | CAJERO | Norte |
-| `sgumble` | `Mesero2026` | MESERO | Norte |
+| `mszyslak` | `Cerveza2026` | ADMINISTRADOR | Todas |
+| `ccarlson` | `Cajero2026` | CAJERO | Galerías |
+| `bgumble` | `Mesero2026` | MESERO | Galerías |
+| `lleonard` | `Cajero2026` | CAJERO | Modelia |
+| `sgumble` | `Mesero2026` | MESERO | Modelia |
+| `pbouvier` | `Cajero2026` | CAJERO | Zona T |
+| `omann` | `Mesero2026` | MESERO | Zona T |
+
+> Actualizado el 10/10/2026: el bar quedó con tres sedes (Galerías, Modelia y
+> Zona T), un cajero y un mesero por sede, y un catálogo mínimo de cervezas
+> colombianas. Los precios del seed son de ejemplo.
 
 Postman: importar `docs/postman/bar-de-moe-sprint-1.postman_collection.json` y
 correrla completa. Necesita el seed cargado y la contraseña del admin en la

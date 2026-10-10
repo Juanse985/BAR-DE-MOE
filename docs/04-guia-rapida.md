@@ -34,7 +34,7 @@ TOKEN="pegar-aqui-el-access_token"
 # 3. Crear una sede
 curl -s -X POST http://localhost:8000/api/parametrizacion/sedes \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"nombre":"Bar de Moe · Centro","direccion":"Av. Siempreviva 742"}'
+  -d '{"nombre":"Galerías","direccion":"Galerías, Bogotá"}'
 
 # 4. Consultarlas
 curl -s http://localhost:8000/api/parametrizacion/sedes \

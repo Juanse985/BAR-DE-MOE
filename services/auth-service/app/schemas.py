@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 Perfil = Literal["ADMINISTRADOR", "CAJERO", "MESERO"]
 Estado = Literal["ACTIVO", "INACTIVO"]
@@ -16,6 +16,14 @@ class UsuarioCrear(BaseModel):
     perfil: Perfil = Field(examples=["MESERO"])
     usuario: str = Field(min_length=4, max_length=60, examples=["mszyslak"])
     password: str = Field(min_length=8, max_length=72, examples=["Cerveza2026"])
+
+    @model_validator(mode="after")
+    def sede_obligatoria(self):
+        # Cajero y mesero solo trabajan en su sede: sin sede no podrían ver nada
+        # en la parametrización (H-09 de docs/05-contratos.md).
+        if self.perfil != "ADMINISTRADOR" and self.sede_id is None:
+            raise ValueError("El cajero y el mesero deben tener una sede asignada.")
+        return self
 
 
 class UsuarioActualizar(BaseModel):

@@ -40,8 +40,8 @@ const RESOURCES = {
     title: "Mesas",
     endpoint: "mesas",
     fields: [
-      { key: "sede_id", label: "Sede", type: "number", required: true },
-      { key: "numero", label: "Numero", type: "number", required: true },
+      { key: "sede_id", label: "Sede", ref: "sedes", required: true, fixed: true },
+      { key: "numero", label: "Numero", type: "number", required: true, fixed: true },
       { key: "capacidad", label: "Capacidad", type: "number", required: true },
     ],
     active: "activa",
@@ -59,7 +59,7 @@ const RESOURCES = {
     title: "Proveedores",
     endpoint: "proveedores",
     fields: [
-      { key: "nit", label: "NIT", required: true },
+      { key: "nit", label: "NIT", required: true, fixed: true },
       { key: "nombre", label: "Nombre", required: true },
       { key: "contacto", label: "Contacto" },
       { key: "telefono", label: "Telefono" },
@@ -70,21 +70,11 @@ const RESOURCES = {
     title: "Productos",
     endpoint: "productos",
     fields: [
-      { key: "codigo", label: "Codigo", required: true },
+      { key: "codigo", label: "Codigo", required: true, fixed: true },
       { key: "nombre", label: "Nombre", required: true },
-      { key: "sede_id", label: "Sede", type: "number", required: true },
-      {
-        key: "tipo_producto_id",
-        label: "Tipo",
-        type: "number",
-        required: true,
-      },
-      {
-        key: "proveedor_id",
-        label: "Proveedor",
-        type: "number",
-        required: true,
-      },
+      { key: "sede_id", label: "Sede", ref: "sedes", required: true, fixed: true },
+      { key: "tipo_producto_id", label: "Tipo", ref: "tipos", required: true },
+      { key: "proveedor_id", label: "Proveedor", ref: "proveedores", required: true },
       {
         key: "valor_compra",
         label: "Valor compra",
@@ -109,6 +99,7 @@ let state = {
   filter: "",
   sedeFilter: "",
   tipoFilter: "",
+  cat: { sedes: [], tipos: [], proveedores: [] },
   idleTimer: null,
   lastActivityAt: 0,
 };
@@ -144,6 +135,39 @@ function message(error) {
     error?.detail ||
     "No fue posible completar la operacion."
   );
+}
+// Sedes, tipos y proveedores: se eligen de una lista y la tabla muestra el
+// nombre, no el número. Así nadie tiene que escribir un id a mano.
+async function loadCatalogs() {
+  const [sedes, tipos, proveedores] = await Promise.all([
+    request("/parametrizacion/sedes?solo_activas=false"),
+    request("/parametrizacion/tipos-producto"),
+    request("/parametrizacion/proveedores"),
+  ]);
+  state.cat = { sedes, tipos, proveedores };
+}
+function refName(ref, id) {
+  if (id === null || id === undefined || id === "") return "";
+  const found = (state.cat[ref] || []).find((item) => item.id === Number(id));
+  return found ? found.nombre : `#${id}`;
+}
+function refOptions(ref, selected = "", placeholder = "Selecciona una opcion") {
+  const activo = (item) => item.activa !== false && item.activo !== false;
+  const items = (state.cat[ref] || []).filter(
+    (item) => activo(item) || item.id === Number(selected),
+  );
+  return (
+    `<option value="">${esc(placeholder)}</option>` +
+    items
+      .map(
+        (item) =>
+          `<option value="${item.id}" ${item.id === Number(selected) ? "selected" : ""}>${esc(item.nombre)}</option>`,
+      )
+      .join("")
+  );
+}
+function cellValue(field, item) {
+  return field.ref ? refName(field.ref, item[field.key]) : item[field.key];
 }
 async function request(path, options = {}) {
   const response = await fetch(`${API}${path}`, {
@@ -342,6 +366,7 @@ async function users() {
 }
 async function loadUsers() {
   try {
+    await loadCatalogs();
     state.users = await request("/auth/usuarios");
     state.error = "";
     drawUsers();
@@ -359,7 +384,7 @@ function drawUsers() {
   document.getElementById("users-table").innerHTML = state.error
     ? `<p class="error">${esc(state.error)}</p>`
     : usersList.length
-      ? `<div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Usuario</th><th>Perfil</th><th>Sede</th><th>Estado</th><th>Acceso</th><th>Acciones</th></tr></thead><tbody>${usersList.map((item) => `<tr><td>${esc(item.nombre)}</td><td>${esc(item.usuario)}</td><td><span class="role-badge">${esc(item.perfil)}</span></td><td>${item.sede_id ?? "Todas"}</td><td><span class="badge ${item.estado === "ACTIVO" ? "active" : "inactive"}">${esc(item.estado)}</span></td><td>${item.bloqueado ? '<span class="badge inactive">Bloqueado</span>' : item.debe_cambiar_password ? "Cambio pendiente" : "Listo"}</td><td><div class="user-actions">${item.bloqueado ? `<button class="ghost unlock-user" data-id="${item.id}">Desbloquear</button>` : ""}<button class="ghost reset-user" data-id="${item.id}">Restablecer clave</button><button class="ghost toggle-user ${item.estado === "INACTIVO" ? "activate" : "deactivate"}" data-id="${item.id}" data-state="${item.estado}">${item.estado === "INACTIVO" ? "Activar" : "Desactivar"}</button></div></td></tr>`).join("")}</tbody></table></div>`
+      ? `<div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Usuario</th><th>Perfil</th><th>Sede</th><th>Estado</th><th>Acceso</th><th>Acciones</th></tr></thead><tbody>${usersList.map((item) => `<tr><td>${esc(item.nombre)}</td><td>${esc(item.usuario)}</td><td><span class="role-badge">${esc(item.perfil)}</span></td><td>${item.sede_id ? esc(refName("sedes", item.sede_id)) : "Todas"}</td><td><span class="badge ${item.estado === "ACTIVO" ? "active" : "inactive"}">${esc(item.estado)}</span></td><td>${item.bloqueado ? '<span class="badge inactive">Bloqueado</span>' : item.debe_cambiar_password ? "Cambio pendiente" : "Listo"}</td><td><div class="user-actions">${item.bloqueado ? `<button class="ghost unlock-user" data-id="${item.id}">Desbloquear</button>` : ""}<button class="ghost reset-user" data-id="${item.id}">Restablecer clave</button><button class="ghost toggle-user ${item.estado === "INACTIVO" ? "activate" : "deactivate"}" data-id="${item.id}" data-state="${item.estado}">${item.estado === "INACTIVO" ? "Activar" : "Desactivar"}</button></div></td></tr>`).join("")}</tbody></table></div>`
       : `<div class="empty">No hay usuarios para mostrar.</div>`;
   document
     .querySelectorAll(".reset-user")
@@ -386,7 +411,7 @@ function drawUsers() {
 function userForm() {
   document.body.insertAdjacentHTML(
     "beforeend",
-    `<div class="modal-backdrop" id="modal"><section class="modal"><div class="topbar"><div><p class="eyebrow">Administracion</p><h2>Crear usuario</h2></div><button class="ghost" id="close-modal">Cerrar</button></div><p class="subtle">La persona recibira estas credenciales y debera cambiar la contraseña al ingresar.</p><form id="user-form"><div class="form-grid"><label>Cedula<input name="cedula" minlength="5" maxlength="20" required></label><label>Nombre completo<input name="nombre" minlength="3" maxlength="120" required></label><label>Usuario<input name="usuario" minlength="4" maxlength="60" autocomplete="off" required></label><label>Contraseña inicial<input name="password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required></label><label>Perfil<select name="perfil" required><option value="CAJERO">Cajero</option><option value="MESERO">Mesero</option><option value="ADMINISTRADOR">Administrador</option></select></label><label>Sede<input name="sede_id" type="number" min="1" placeholder="ID de sede"></label></div><div id="form-error"></div><div class="modal-actions"><button type="button" class="ghost" id="cancel-modal">Cancelar</button><button class="primary">Crear usuario</button></div></form></section></div>`,
+    `<div class="modal-backdrop" id="modal"><section class="modal"><div class="topbar"><div><p class="eyebrow">Administracion</p><h2>Crear usuario</h2></div><button class="ghost" id="close-modal">Cerrar</button></div><p class="subtle">La persona recibira estas credenciales y debera cambiar la contraseña al ingresar.</p><form id="user-form"><div class="form-grid"><label>Cedula<input name="cedula" minlength="5" maxlength="20" required></label><label>Nombre completo<input name="nombre" minlength="3" maxlength="120" required></label><label>Usuario<input name="usuario" minlength="4" maxlength="60" autocomplete="off" required></label><label>Contraseña inicial<input name="password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required></label><label>Perfil<select name="perfil" required><option value="CAJERO">Cajero</option><option value="MESERO">Mesero</option><option value="ADMINISTRADOR">Administrador</option></select></label><label>Sede<select name="sede_id">${refOptions("sedes", "", "Todas (solo administrador)")}</select></label></div><p class="subtle">El cajero y el mesero solo ven la informacion de su sede.</p><div id="form-error"></div><div class="modal-actions"><button type="button" class="ghost" id="cancel-modal">Cancelar</button><button class="primary">Crear usuario</button></div></form></section></div>`,
   );
   const close = () => document.getElementById("modal")?.remove();
   document.getElementById("close-modal").addEventListener("click", close);
@@ -398,6 +423,11 @@ function userForm() {
       const values = Object.fromEntries(new FormData(event.target));
       if (values.sede_id === "") values.sede_id = null;
       else values.sede_id = Number(values.sede_id);
+      if (values.perfil !== "ADMINISTRADOR" && values.sede_id === null) {
+        document.getElementById("form-error").innerHTML =
+          '<p class="error">El cajero y el mesero deben tener una sede.</p>';
+        return;
+      }
       try {
         await request("/auth/usuarios", {
           method: "POST",
@@ -454,15 +484,26 @@ async function toggleUserStatus(userId, currentState) {
   }
 }
 function home() {
+  if (state.user.sede_id) {
+    request(`/parametrizacion/sedes/${state.user.sede_id}`)
+      .then((sede) => {
+        const el = document.getElementById("home-sede");
+        if (el) el.textContent = sede.nombre;
+      })
+      .catch(() => {});
+  }
   document.getElementById("view").innerHTML =
-    `<div class="dashboard-view"><div class="topbar"><div><p class="eyebrow">Panel personal</p><h1>Hola, ${esc(state.user.nombre.split(" ")[0])}</h1><p class="subtle">Esta es tu informacion de acceso y las funciones principales de tu cargo.</p></div></div><div class="profile-layout single-panel"><section class="panel profile-card"><h2>Mi informacion</h2><div class="profile-details"><div><span>Nombre completo</span><strong>${esc(state.user.nombre)}</strong></div><div><span>Cedula</span><strong>${esc(state.user.cedula)}</strong></div><div><span>Usuario</span><strong>${esc(state.user.usuario)}</strong></div><div><span>Cargo</span><strong>${esc(state.user.perfil)}</strong></div><div><span>Sede</span><strong>${state.user.sede_id ? `Sede #${state.user.sede_id}` : "Todas las sedes"}</strong></div><div><span>Estado</span><strong><span class="badge active">${esc(state.user.estado)}</span></strong></div></div></section></div></div>`;
+    `<div class="dashboard-view"><div class="topbar"><div><p class="eyebrow">Panel personal</p><h1>Hola, ${esc(state.user.nombre.split(" ")[0])}</h1><p class="subtle">Esta es tu informacion de acceso y las funciones principales de tu cargo.</p></div></div><div class="profile-layout single-panel"><section class="panel profile-card"><h2>Mi informacion</h2><div class="profile-details"><div><span>Nombre completo</span><strong>${esc(state.user.nombre)}</strong></div><div><span>Cedula</span><strong>${esc(state.user.cedula)}</strong></div><div><span>Usuario</span><strong>${esc(state.user.usuario)}</strong></div><div><span>Cargo</span><strong>${esc(state.user.perfil)}</strong></div><div><span>Sede</span><strong id="home-sede">${state.user.sede_id ? `Sede #${state.user.sede_id}` : "Todas las sedes"}</strong></div><div><span>Estado</span><strong><span class="badge active">${esc(state.user.estado)}</span></strong></div></div></section></div></div>`;
 }
 async function resource(key) {
   const r = RESOURCES[key];
   const productFilters =
-    key === "productos"
-      ? `<select id="sede-filter" aria-label="Filtrar por sede"><option value="">Todas las sedes</option></select><select id="tipo-filter" aria-label="Filtrar por tipo"><option value="">Todos los tipos</option></select>`
-      : "";
+    (hasSedeFilter(key)
+      ? `<select id="sede-filter" aria-label="Filtrar por sede"><option value="">Todas las sedes</option></select>`
+      : "") +
+    (hasTipoFilter(key)
+      ? `<select id="tipo-filter" aria-label="Filtrar por tipo"><option value="">Todos los tipos</option></select>`
+      : "");
   document.getElementById("view").innerHTML =
     `<div class="topbar"><div><p class="eyebrow">Parametrizacion</p><h1>${r.title}</h1><p class="subtle">Gestiona registros, busca coincidencias y distingue los elementos inactivos.</p></div>${esAdmin() ? '<div class="topbar-actions"><button class="primary" id="new-item">+ Nuevo</button></div>' : ""}</div><section class="panel"><div class="toolbar"><input id="search" placeholder="Buscar en el listado" aria-label="Buscar">${productFilters}<button class="ghost" id="refresh">Actualizar</button></div><div id="table"></div></section>`;
   document
@@ -483,13 +524,20 @@ async function resource(key) {
   );
   await load(key);
 }
+function hasSedeFilter(key) {
+  return esAdmin() && RESOURCES[key].fields.some((f) => f.key === "sede_id");
+}
+function hasTipoFilter(key) {
+  return key === "productos";
+}
 async function load(key) {
   try {
+    await loadCatalogs();
     state.items = await request(
       `/parametrizacion/${RESOURCES[key].endpoint}?solo_activos=false`,
     );
     state.error = "";
-    if (key === "productos") fillProductFilters();
+    fillFilters();
     table(key);
   } catch (error) {
     if (error.message !== "sesion") {
@@ -498,40 +546,38 @@ async function load(key) {
     }
   }
 }
-function fillProductFilters() {
+function fillFilters() {
   const sede = document.getElementById("sede-filter"),
     tipo = document.getElementById("tipo-filter");
-  if (!sede || !tipo) return;
-  const sedes = [...new Set(state.items.map((item) => item.sede_id))].sort(),
-    tipos = [
-      ...new Set(state.items.map((item) => item.tipo_producto_id)),
-    ].sort();
-  sede.innerHTML =
-    '<option value="">Todas las sedes</option>' +
-    sedes
-      .map((value) => `<option value="${value}">Sede ${value}</option>`)
-      .join("");
-  tipo.innerHTML =
-    '<option value="">Todos los tipos</option>' +
-    tipos
-      .map((value) => `<option value="${value}">Tipo ${value}</option>`)
-      .join("");
-  sede.value = state.sedeFilter;
-  tipo.value = state.tipoFilter;
+  if (sede) {
+    sede.innerHTML = refOptions("sedes", state.sedeFilter, "Todas las sedes");
+    sede.value = state.sedeFilter;
+  }
+  if (tipo) {
+    tipo.innerHTML = refOptions("tipos", state.tipoFilter, "Todos los tipos");
+    tipo.value = state.tipoFilter;
+  }
 }
 function table(key) {
   const r = RESOURCES[key],
     rows = state.items.filter(
       (item) =>
-        JSON.stringify(item).toLowerCase().includes(state.filter) &&
-        (!state.sedeFilter || String(item.sede_id) === state.sedeFilter) &&
-        (!state.tipoFilter ||
+        r.fields
+          .map((f) => cellValue(f, item))
+          .join(" ")
+          .toLowerCase()
+          .includes(state.filter) &&
+        (!hasSedeFilter(key) ||
+          !state.sedeFilter ||
+          String(item.sede_id) === state.sedeFilter) &&
+        (!hasTipoFilter(key) ||
+          !state.tipoFilter ||
           String(item.tipo_producto_id) === state.tipoFilter),
     );
   document.getElementById("table").innerHTML = state.error
     ? `<p class="error">${esc(state.error)}</p>`
     : rows.length
-      ? `<div class="table-wrap"><table><thead><tr>${r.fields.map((f) => `<th>${f.label}</th>`).join("")}<th>Estado</th><th></th></tr></thead><tbody>${rows.map((item) => `<tr>${r.fields.map((f) => `<td>${esc(item[f.key])}</td>`).join("")}<td><span class="badge ${item[r.active] === false ? "inactive" : "active"}">${item[r.active] === false ? "Inactivo" : "Activo"}</span></td><td>${esAdmin() ? `<button class="ghost edit" data-id="${item.id}">Editar</button>` : ""}</td></tr>`).join("")}</tbody></table></div>`
+      ? `<div class="table-wrap"><table><thead><tr>${r.fields.map((f) => `<th>${f.label}</th>`).join("")}<th>Estado</th><th></th></tr></thead><tbody>${rows.map((item) => `<tr>${r.fields.map((f) => `<td>${esc(cellValue(f, item))}</td>`).join("")}<td><span class="badge ${item[r.active] === false ? "inactive" : "active"}">${item[r.active] === false ? "Inactivo" : "Activo"}</span></td><td>${esAdmin() ? `<button class="ghost edit" data-id="${item.id}">Editar</button>` : ""}</td></tr>`).join("")}</tbody></table></div>`
       : `<div class="empty">No hay registros para mostrar.</div>`;
   document.querySelectorAll(".edit").forEach((button) =>
     button.addEventListener("click", () =>
@@ -542,11 +588,20 @@ function table(key) {
     ),
   );
 }
+// Al editar, los campos "fixed" van deshabilitados: el navegador no los envía
+// y la API no los cambia (H-01 de docs/05-contratos.md).
+function fieldHtml(f, item) {
+  const locked = item && f.fixed ? "disabled" : "",
+    required = f.required && !locked ? "required" : "";
+  if (f.ref)
+    return `<label>${f.label}<select name="${f.key}" ${required} ${locked}>${refOptions(f.ref, item?.[f.key] ?? "")}</select></label>`;
+  return `<label>${f.label}<input name="${f.key}" type="${f.type || "text"}" value="${esc(item?.[f.key])}" ${required} ${locked}></label>`;
+}
 function form(key, item = null) {
   const r = RESOURCES[key];
   document.body.insertAdjacentHTML(
     "beforeend",
-    `<div class="modal-backdrop" id="modal"><section class="modal"><div class="topbar"><div><p class="eyebrow">${item ? "Editar registro" : "Nuevo registro"}</p><h2>${r.title}</h2></div><button class="ghost" id="close-modal">Cerrar</button></div><form id="resource-form"><div class="form-grid">${r.fields.map((f) => `<label>${f.label}<input name="${f.key}" type="${f.type || "text"}" value="${esc(item?.[f.key])}" ${f.required ? "required" : ""}></label>`).join("")}</div><div id="form-error"></div><div class="modal-actions"><button type="button" class="ghost" id="cancel-modal">Cancelar</button><button class="primary">Guardar</button></div></form></section></div>`,
+    `<div class="modal-backdrop" id="modal"><section class="modal"><div class="topbar"><div><p class="eyebrow">${item ? "Editar registro" : "Nuevo registro"}</p><h2>${r.title}</h2></div><button class="ghost" id="close-modal">Cerrar</button></div><form id="resource-form"><div class="form-grid">${r.fields.map((f) => fieldHtml(f, item)).join("")}</div>${item && r.fields.some((f) => f.fixed) ? '<p class="subtle">Los campos en gris no se pueden cambiar despues de crear el registro.</p>' : ""}<div id="form-error"></div><div class="modal-actions"><button type="button" class="ghost" id="cancel-modal">Cancelar</button><button class="primary">Guardar</button></div></form></section></div>`,
   );
   const close = () => document.getElementById("modal")?.remove();
   document.getElementById("close-modal").addEventListener("click", close);
@@ -557,9 +612,10 @@ function form(key, item = null) {
       event.preventDefault();
       const values = Object.fromEntries(new FormData(event.target));
       r.fields
-        .filter((f) => f.type === "number")
+        .filter((f) => f.type === "number" || f.ref)
         .forEach((f) => {
-          if (values[f.key] !== "") values[f.key] = Number(values[f.key]);
+          if (values[f.key] !== undefined && values[f.key] !== "")
+            values[f.key] = Number(values[f.key]);
         });
       try {
         await request(

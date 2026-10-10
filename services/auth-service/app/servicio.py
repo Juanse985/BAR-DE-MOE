@@ -287,6 +287,11 @@ def actualizar_usuario(db: Session, admin: Usuario, objetivo: Usuario, cambios: 
         # Aporte de Angel: nadie se quita el acceso a sí mismo por error.
         raise ErrorApp("OPERACION_SOBRE_SI_MISMO",
                        "No puede inactivar su propia cuenta ni quitarse el perfil de administrador.", 409)
+    perfil_final = cambios.get("perfil", objetivo.perfil)
+    sede_final = cambios["sede_id"] if "sede_id" in cambios else objetivo.sede_id
+    if perfil_final != "ADMINISTRADOR" and sede_final is None:
+        # H-09: cajero y mesero siempre quedan amarrados a una sede.
+        raise ErrorApp("SEDE_OBLIGATORIA", "El cajero y el mesero deben tener una sede asignada.", 422)
     for campo, valor in cambios.items():
         setattr(objetivo, campo, valor)
     if cambios.get("estado") == "INACTIVO":

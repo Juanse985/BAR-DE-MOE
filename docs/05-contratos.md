@@ -1,6 +1,6 @@
 # Contratos · mapeo tablero → pantalla → API → tabla
 
-**Responsable:** Juan David Tovío Montes (Analista de Requisitos) · **Sprint:** 1 · **Versión:** 1.0
+**Responsable:** Juan David Tovío Montes (Analista de Requisitos) · **Sprint:** 1 · **Versión:** 1.1 (10/10/2026 · estado de hallazgos actualizado por QA, ver 9.1)
 **Alcance:** todo el proyecto integrado en `main` (commit `040d62c`): M1 Seguridad, M2 Parametrización y los requisitos transversales.
 
 Este documento sigue cada dato que pidió el cliente en el tablero de
@@ -92,7 +92,7 @@ nombre, sede, perfil, usuario, contraseña y estado**. Los siete están.
 |---|---|---|---|---|---|---|---|---|
 | 1 | Cédula | Cedula | `cedula` | `usuarios.cedula` | `VARCHAR(20)` | E · — · S | Obligatoria, 5–20 caracteres, **única** (`CEDULA_DUPLICADA` 409). No se edita. | `test_c3_la_entrada_se_valida_por_tipo_y_longitud` |
 | 2 | Nombre | Nombre completo | `nombre` | `usuarios.nombre` | `VARCHAR(120)` | E · A · S | Obligatorio, 3–120 caracteres | `test_hu007_el_administrador_si_puede_editar_su_nombre` |
-| 3 | Sede | Sede | `sede_id` | `usuarios.sede_id` | `INTEGER NULL` | E · A · S | Opcional. `NULL` = todas las sedes (administrador general). Referencia lógica a `sedes.id` (ver H-05) | `test_c1_un_operario_sin_sede_no_consulta_nada` |
+| 3 | Sede | Sede (lista de sedes) | `sede_id` | `usuarios.sede_id` | `INTEGER NULL` | E · A · S | **Obligatoria para CAJERO y MESERO** (H-09). `NULL` = todas las sedes, solo para el administrador. Referencia lógica a `sedes.id` (ver H-05) | `test_c1_un_operario_sin_sede_no_consulta_nada`, `test_h09_no_se_crea_cajero_ni_mesero_sin_sede` |
 | 4 | Perfil | Perfil | `perfil` | `usuarios.perfil` | `VARCHAR(20)` | E · A · S | Dominio cerrado: `ADMINISTRADOR`, `CAJERO`, `MESERO` (RNF-05). El administrador no se quita su propio perfil | `test_rnf05_un_mesero_no_puede_administrar_usuarios`, `test_hu007_el_administrador_no_se_quita_el_acceso_a_si_mismo` |
 | 5 | Usuario | Usuario | `usuario` | `usuarios.usuario` | `VARCHAR(60)` | E · — · S | Obligatorio, 4–60 caracteres, **único** (`USUARIO_DUPLICADO` 409). No se edita | `test_c3_la_inyeccion_en_el_usuario_no_abre_sesion` |
 | 6 | Contraseña | Contraseña inicial | `password` (entrada) | `usuarios.password_hash` | `VARCHAR(120)` | E · (endpoints propios) · **nunca sale** | 8–72 caracteres, al menos una mayúscula, una minúscula y un número (`PASSWORD_DEBIL` 422). Se guarda solo el hash bcrypt de 12 rondas (RNF-08) | `test_rnf08_la_password_se_guarda_cifrada`, `test_hu027_ninguna_tabla_contiene_una_password_legible`, `test_hu027_la_api_nunca_devuelve_el_hash` |
@@ -218,8 +218,8 @@ Endpoints: `POST /sedes` · `GET /sedes?solo_activas=` · `GET /sedes/{id}` · `
 
 | Tablero | Pantalla | API | Columna | Tipo BD | E/A/S | Reglas | Evidencia |
 |---|---|---|---|---|---|---|---|
-| Sede de la mesa | Sede | `sede_id` | `mesas.sede_id` | `INTEGER FK → sedes.id` | E · — · S | Obligatoria y debe existir (404) | `test_no_se_crea_una_mesa_en_una_sede_inexistente` |
-| Número de mesa | Numero | `numero` | `mesas.numero` | `INTEGER` | E · — · S | > 0; **único por sede** (`uq_mesa_por_sede`, `MESA_DUPLICADA` 409) | `test_la_mesa_nace_libre_y_no_se_repite_en_la_sede` |
+| Sede de la mesa | Sede (lista; en gris al editar) | `sede_id` | `mesas.sede_id` | `INTEGER FK → sedes.id` | E · — · S | Obligatoria y debe existir (404) | `test_no_se_crea_una_mesa_en_una_sede_inexistente` |
+| Número de mesa | Numero (en gris al editar) | `numero` | `mesas.numero` | `INTEGER` | E · — · S | > 0; **único por sede** (`uq_mesa_por_sede`, `MESA_DUPLICADA` 409) | `test_la_mesa_nace_libre_y_no_se_repite_en_la_sede` |
 | Capacidad | Capacidad | `capacidad` | `mesas.capacidad` | `INTEGER` | E · A · S | 1–30, por defecto 4 | ídem |
 | Estado (libre/ocupada) | — (solo lectura) | `estado` | `mesas.estado` | `VARCHAR(10)` | — · A · S | Dominio `LIBRE`/`OCUPADA`, nace `LIBRE`. Las transiciones automáticas son de M4 (Sprint 2) | `test_c3_el_filtro_de_estado_de_mesa_no_se_puede_inyectar` |
 | Activa | Estado · Activar/Inactivar | `activa` | `mesas.activa` | `BOOLEAN` | — · A · S | Nace `true` | — |
@@ -244,7 +244,7 @@ Endpoints: `POST /tipos-producto` · `GET /tipos-producto` · `PATCH /tipos-prod
 
 | Tablero | Pantalla | API | Columna | Tipo BD | E/A/S | Reglas | Evidencia |
 |---|---|---|---|---|---|---|---|
-| NIT | NIT | `nit` | `proveedores.nit` | `VARCHAR(20)` | E · — · S | Obligatorio, 5–20, **único** (`PROVEEDOR_DUPLICADO` 409). No se edita | prueba de humo paso 8 |
+| NIT | NIT (en gris al editar) | `nit` | `proveedores.nit` | `VARCHAR(20)` | E · — · S | Obligatorio, 5–20, **único** (`PROVEEDOR_DUPLICADO` 409). No se edita | prueba de humo paso 8 |
 | Razón social / nombre | Nombre | `nombre` | `proveedores.nombre` | `VARCHAR(120)` | E · A · S | Obligatorio, 3–120 | ídem |
 | Contacto | Contacto | `contacto` | `proveedores.contacto` | `VARCHAR(120) NULL` | E · A · S | Opcional | — |
 | Teléfono | Telefono | `telefono` | `proveedores.telefono` | `VARCHAR(30) NULL` | E · A · S | Opcional | — |
@@ -260,11 +260,11 @@ varias sedes, pero no dos veces en la misma (`uq_producto_por_sede`).
 
 | Tablero | Pantalla | API | Columna | Tipo BD | E/A/S | Reglas | Evidencia |
 |---|---|---|---|---|---|---|---|
-| Código | Codigo | `codigo` | `productos.codigo` | `VARCHAR(30)` | E · — · S | Obligatorio, 2–30; **único por sede** (`PRODUCTO_DUPLICADO` 409). No se edita | `test_el_catalogo_se_gestiona_por_sede` |
+| Código | Codigo (en gris al editar) | `codigo` | `productos.codigo` | `VARCHAR(30)` | E · — · S | Obligatorio, 2–30; **único por sede** (`PRODUCTO_DUPLICADO` 409). No se edita | `test_el_catalogo_se_gestiona_por_sede` |
 | Nombre | Nombre | `nombre` | `productos.nombre` | `VARCHAR(120)` | E · A · S | Obligatorio, 3–120 | `test_se_crea_un_producto_con_sus_relaciones` |
-| Sede | Sede | `sede_id` | `productos.sede_id` | `INTEGER FK → sedes.id` | E · — · S | Obligatoria y debe existir (404). No se edita | `test_los_productos_se_filtran_por_sede` |
-| Tipo de producto | Tipo | `tipo_producto_id` | `productos.tipo_producto_id` | `INTEGER FK → tipos_producto.id` | E · A · S | Debe existir al crear (404); ver H-02 al editar | `test_se_crea_un_producto_con_sus_relaciones` |
-| Proveedor | Proveedor | `proveedor_id` | `productos.proveedor_id` | `INTEGER FK → proveedores.id` | E · A · S | Debe existir al crear (404); ver H-02 al editar | ídem |
+| Sede | Sede (lista; en gris al editar) | `sede_id` | `productos.sede_id` | `INTEGER FK → sedes.id` | E · — · S | Obligatoria y debe existir (404). No se edita | `test_los_productos_se_filtran_por_sede` |
+| Tipo de producto | Tipo (lista) | `tipo_producto_id` | `productos.tipo_producto_id` | `INTEGER FK → tipos_producto.id` | E · A · S | Debe existir al crear (404); ver H-02 al editar | `test_se_crea_un_producto_con_sus_relaciones` |
+| Proveedor | Proveedor (lista) | `proveedor_id` | `productos.proveedor_id` | `INTEGER FK → proveedores.id` | E · A · S | Debe existir al crear (404); ver H-02 al editar | ídem |
 | Valor de compra | Valor compra | `valor_compra` | `productos.valor_compra` | `NUMERIC(12,2)` | E · A · S | ≥ 0 | `test_c3_un_valor_de_venta_negativo_o_de_texto_no_entra` |
 | Valor de venta | Valor venta | `valor_venta` | `productos.valor_venta` | `NUMERIC(12,2)` | E · A · S | ≥ 0 y **≥ `valor_compra`** (422 al crear, `MARGEN_NEGATIVO` 422 al editar). Lo necesita M6 para calcular la ganancia | `test_el_valor_de_venta_no_puede_ser_menor_que_el_de_compra` |
 | Estado | Estado · Activar/Inactivar | `activo` | `productos.activo` | `BOOLEAN` | — · (endpoints propios) · S | `PRODUCTO_YA_INACTIVO` / `PRODUCTO_YA_ACTIVO` 409 | `test_inactivar_y_activar_producto` |
@@ -417,10 +417,32 @@ de `main`.
 | **H-06** | Baja | Inactivar una sede solo revisa mesas y productos, no usuarios asignados (están en otra base) | Usuarios activos en una sede inactiva | Documentar la regla con el PO; resolver junto con H-05 |
 | **H-07** | Info | El tablero pide mesa LIBRE/OCUPADA; hoy el estado solo lo cambia el administrador por `PATCH`. Las transiciones al abrir y cerrar pedidos son de M4 | Ninguno en Sprint 1 | Tomar en Sprint 2 |
 | **H-08** | Info | Sin migraciones (Alembic): `create_all` no agrega columnas nuevas a bases existentes (ya pasó con `request_id` y `bloqueado_hasta`) | Esquemas desalineados entre portátiles | Prioridad de la rama de Felipe; ver `docs/08-integracion-sprint-1.md` §4 |
+| **H-09** | Media | Se podía crear un CAJERO o un MESERO sin sede (201). Después, el parametrizacion-service le responde 403 `SIN_SEDE` en todo | Usuario que existe pero no puede trabajar | Exigir `sede_id` cuando el perfil no es ADMINISTRADOR, al crear y al editar |
+| **H-10** | Baja | Se puede crear una mesa o un producto en una sede **inactiva** (201) | Datos nuevos colgando de una sede que ya no opera | Rechazar con 409 si la sede está inactiva (complementa H-04) |
+| **H-11** | Baja | Los listados de parametrización (`/sedes`, `/mesas`, `/productos`, …) no están paginados: no reciben `pagina`/`tamano` ni devuelven `X-Total-Count`. Solo usuarios y auditoría paginan, aunque RNF-06 y la práctica 9.4.3 del documento de arquitectura lo presentan como regla general | Respuestas grandes cuando crezca el catálogo | Agregar la paginación o precisar el documento de arquitectura |
 
 Ninguno de estos hallazgos implica un requisito perdido: todos los datos del
 tablero identificados tienen pantalla, contrato y columna. Son reglas de
 integridad que faltan en los caminos de edición.
+
+H-09 a H-11 los agregó QA el 10/10/2026, reproducidos con el `TestClient`
+de cada servicio.
+
+### 9.1 Estado de los hallazgos (10/10/2026)
+
+| ID | Estado | Qué se hizo |
+|---|---|---|
+| H-01 | **Corregido en la pantalla** | Al editar, los campos que no se pueden cambiar salen en gris y el navegador no los envía. La API todavía los ignora sin avisar si llegan por fuera de la pantalla (Postman, curl); el `extra="forbid"` queda para el Sprint 2 |
+| H-02 | Abierto | — |
+| H-03 | Abierto | — |
+| H-04 | Abierto | — |
+| H-05 | **Mitigado** | La sede del usuario, de la mesa y del producto se elige de una lista (selector de sedes, la segunda propuesta). Falta la validación por HTTP en el auth-service |
+| H-06 | Abierto | — |
+| H-07 | Sprint 2 | Es de M4 |
+| H-08 | Sprint 2 | Deuda técnica declarada en el documento de arquitectura |
+| H-09 | **Corregido** | Crear cajero o mesero sin sede → 422 `DATOS_INVALIDOS`. Quitarle la sede, o pasar un administrador sin sede a cajero o mesero → 422 `SEDE_OBLIGATORIA`. Pruebas en `services/auth-service/tests/test_h09_sede_obligatoria.py` |
+| H-10 | Abierto | — |
+| H-11 | Abierto | — |
 
 ---
 

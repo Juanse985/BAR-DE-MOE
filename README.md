@@ -35,6 +35,10 @@ docker compose up --build
 
 Usuario inicial: **`admin` / `Admin2026`** (cámbienlo antes de la demo).
 
+Para cargar las tres sedes (Galerías, Modelia y Zona T), las mesas, el
+catálogo de cervezas y un cajero y un mesero por sede: `python scripts/seed.py`
+(usuarios y contraseñas en `docs/08-integracion-sprint-1.md`, sección 6).
+
 ## Estructura
 
 ```
@@ -55,10 +59,12 @@ bar-de-moe/
 
 | Documento | Para qué |
 |---|---|
+| [`docs/arquitectura/`](docs/arquitectura/Documento_Arquitectura_Bar_de_Moe_v1.01.pdf) | **Documento de arquitectura** (PDF): diagramas, modelo entidad-relación, buenas prácticas y diccionario |
 | [`docs/01-arquitectura.md`](docs/01-arquitectura.md) | Las decisiones y su porqué. **Léanlo antes de la sustentación.** |
 | [`docs/02-plan-ramas-sprint-1.md`](docs/02-plan-ramas-sprint-1.md) | Qué le toca a cada uno en este sprint |
 | [`docs/03-convenciones-git.md`](docs/03-convenciones-git.md) | Ramas, commits y Pull Requests |
 | [`docs/04-guia-rapida.md`](docs/04-guia-rapida.md) | Cómo levantarlo, probarlo y resolver problemas |
+| [`docs/05-contratos.md`](docs/05-contratos.md) | Mapeo campo por campo entre tablero, pantalla, API y tabla, y los hallazgos encontrados al cruzarlos |
 | [`docs/06-owasp.md`](docs/06-owasp.md) | Los cuatro controles de seguridad de la propuesta y su evidencia |
 | [`docs/07-informe-qa-sprint-1.md`](docs/07-informe-qa-sprint-1.md) | Defectos abiertos y riesgos de integración del Sprint 1 |
 | [`docs/08-integracion-sprint-1.md`](docs/08-integracion-sprint-1.md) | Qué aportó cada integrante y cómo se unieron las ramas |
