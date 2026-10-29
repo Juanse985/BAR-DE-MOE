@@ -244,3 +244,102 @@ def test_carga_masiva_reporta_errores_de_fila(cliente, admin, catalogo):
     assert cuerpo["creados"] == 1
     assert len(cuerpo["errores"]) == 1
     assert cuerpo["errores"][0]["fila"] == 3
+
+
+def test_hu012_inventario_por_sede_y_ajuste(cliente, admin, catalogo):
+    producto = cliente.post(
+        "/productos",
+        headers=admin,
+        json={
+            "codigo": "CERV-201",
+            "nombre": "Cerveza Inventario",
+            "sede_id": catalogo["sede"]["id"],
+            "tipo_producto_id": catalogo["tipo"]["id"],
+            "proveedor_id": catalogo["proveedor"]["id"],
+            "valor_compra": "2500",
+            "valor_venta": "6000",
+            "stock": 10,
+            "stock_minimo": 4,
+        },
+    ).json()
+    assert producto["stock"] == 10
+
+    inv = cliente.get(f"/inventario?sede_id={catalogo['sede']['id']}", headers=admin).json()
+    assert any(p["codigo"] == "CERV-201" and p["stock"] == 10 for p in inv)
+
+    entrada = cliente.post(
+        f"/inventario/{producto['id']}/ajustar",
+        headers=admin,
+        json={"tipo": "ENTRADA", "cantidad": 5, "stock_minimo": 6, "motivo": "Recepción"},
+    )
+    assert entrada.status_code == 200
+    assert entrada.json()["stock"] == 15
+    assert entrada.json()["stock_minimo"] == 6
+
+    exceso = cliente.post(
+        f"/inventario/{producto['id']}/ajustar",
+        headers=admin,
+        json={"tipo": "SALIDA", "cantidad": 99},
+    )
+    assert exceso.status_code == 409
+    assert exceso.json()["error"]["codigo"] == "STOCK_INSUFICIENTE"
+
+
+def test_hu013_hu014_mapa_mesas_y_toma_de_pedido(cliente, admin, mesero, catalogo):
+    sede_id = catalogo["sede"]["id"]
+    mesa = cliente.post("/mesas", headers=admin, json={"sede_id": sede_id, "numero": 8}).json()
+    prod = cliente.post(
+        "/productos",
+        headers=admin,
+        json={
+            "codigo": "CERV-301",
+            "nombre": "Cerveza Pedido",
+            "sede_id": sede_id,
+            "tipo_producto_id": catalogo["tipo"]["id"],
+            "proveedor_id": catalogo["proveedor"]["id"],
+            "valor_compra": "2500",
+            "valor_venta": "7000",
+            "stock": 5,
+        },
+    ).json()
+
+    pedido = cliente.post(
+        "/pedidos",
+        headers=mesero,
+        json={
+            "mesa_id": mesa["id"],
+            "observaciones": "Bien frías",
+            "items": [{"producto_id": prod["id"], "cantidad": 2}],
+        },
+    )
+    assert pedido.status_code == 201, pedido.text
+    datos_pedido = pedido.json()
+    assert float(datos_pedido["total"]) == 14000.0
+    assert datos_pedido["estado"] == "ABIERTO"
+
+    # La mesa pasa a OCUPADA y el stock baja a 3
+    mesas_sede = cliente.get("/mesas", headers=mesero).json()
+    mesa_actual = next(m for m in mesas_sede if m["id"] == mesa["id"])
+    assert mesa_actual["estado"] == "OCUPADA"
+
+    prod_actual = cliente.get(f"/productos/{prod['id']}", headers=mesero).json()
+    assert prod_actual["stock"] == 3
+
+    # Si pide más de lo disponible, rechaza con 409 STOCK_INSUFICIENTE
+    sin_stock = cliente.post(
+        "/pedidos",
+        headers=mesero,
+        json={"mesa_id": mesa["id"], "items": [{"producto_id": prod["id"], "cantidad": 10}]},
+    )
+    assert sin_stock.status_code == 409
+    assert sin_stock.json()["error"]["codigo"] == "STOCK_INSUFICIENTE"
+
+    # Al cerrar el pedido, la mesa vuelve a LIBRE
+    cerrado = cliente.post(
+        f"/pedidos/{datos_pedido['id']}/estado",
+        headers=mesero,
+        json={"estado": "CERRADO"},
+    )
+    assert cerrado.status_code == 200
+    mesa_libre = next(m for m in cliente.get("/mesas", headers=mesero).json() if m["id"] == mesa["id"])
+    assert mesa_libre["estado"] == "LIBRE"

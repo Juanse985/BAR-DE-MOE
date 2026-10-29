@@ -82,9 +82,46 @@ class Producto(Base):
     proveedor_id: Mapped[int] = mapped_column(ForeignKey("proveedores.id"), index=True)
     valor_compra: Mapped[float] = mapped_column(Numeric(12, 2))
     valor_venta: Mapped[float] = mapped_column(Numeric(12, 2))
+    stock: Mapped[int] = mapped_column(Integer, default=24)
+    stock_minimo: Mapped[int] = mapped_column(Integer, default=5)
     activo: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora_utc)
 
     sede: Mapped[Sede] = relationship()
     tipo: Mapped[TipoProducto] = relationship()
     proveedor: Mapped[Proveedor] = relationship()
+
+
+class Pedido(Base):
+    """Pedidos por mesa y sede (Sprint 2 · HU-014 y HU-022)."""
+
+    __tablename__ = "pedidos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    sede_id: Mapped[int] = mapped_column(ForeignKey("sedes.id"), index=True)
+    mesa_id: Mapped[int] = mapped_column(ForeignKey("mesas.id"), index=True)
+    usuario_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    mesero: Mapped[str] = mapped_column(String(60))
+    estado: Mapped[str] = mapped_column(String(20), default="ABIERTO", index=True)
+    observaciones: Mapped[str | None] = mapped_column(String(250), nullable=True)
+    total: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora_utc)
+
+    detalles: Mapped[list["PedidoDetalle"]] = relationship(
+        back_populates="pedido", cascade="all, delete-orphan"
+    )
+
+
+class PedidoDetalle(Base):
+    __tablename__ = "pedidos_detalle"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    pedido_id: Mapped[int] = mapped_column(ForeignKey("pedidos.id"), index=True)
+    producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id"), index=True)
+    codigo_producto: Mapped[str] = mapped_column(String(30))
+    nombre_producto: Mapped[str] = mapped_column(String(120))
+    cantidad: Mapped[int] = mapped_column(Integer)
+    precio_unitario: Mapped[float] = mapped_column(Numeric(12, 2))
+    subtotal: Mapped[float] = mapped_column(Numeric(12, 2))
+
+    pedido: Mapped[Pedido] = relationship(back_populates="detalles")

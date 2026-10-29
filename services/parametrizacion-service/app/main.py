@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from io import StringIO
 
 from fastapi import APIRouter, Depends, FastAPI, File, Request, UploadFile
-from sqlalchemy import select
+from sqlalchemy import inspect, select, text
 from sqlalchemy.orm import Session
 
 from barmoe_common.app import crear_app
@@ -21,11 +21,16 @@ from barmoe_common.deps import UsuarioActual, construir_autenticacion
 from barmoe_common.errors import ErrorApp
 
 from .config import config
-from .models import Mesa, Producto, Proveedor, Sede, TipoProducto
+from .models import Mesa, Pedido, PedidoDetalle, Producto, Proveedor, Sede, TipoProducto
 from .schemas import (
+    InventarioAjuste,
     MesaActualizar,
     MesaCrear,
+    MesaEstadoActualizar,
     MesaSalida,
+    PedidoCrear,
+    PedidoEstadoActualizar,
+    PedidoSalida,
     ProductoActualizar,
     ProductoCargaError,
     ProductoCargaResultado,
@@ -50,7 +55,14 @@ solo_admin = requiere_perfil("ADMINISTRADOR")
 
 @asynccontextmanager
 async def ciclo_de_vida(_: FastAPI):
-    Base.metadata.create_all(bind=SessionLocal.engine)
+    engine = SessionLocal.engine
+    Base.metadata.create_all(bind=engine)
+    cols = {c["name"] for c in inspect(engine).get_columns("productos")}
+    with engine.begin() as conn:
+        if "stock" not in cols:
+            conn.execute(text("ALTER TABLE productos ADD COLUMN stock INTEGER DEFAULT 24"))
+        if "stock_minimo" not in cols:
+            conn.execute(text("ALTER TABLE productos ADD COLUMN stock_minimo INTEGER DEFAULT 5"))
     yield
 
 
@@ -123,12 +135,35 @@ sedes = APIRouter(prefix="/sedes", tags=["sedes"])
 
 
 @sedes.post("", response_model=SedeSalida, status_code=201, summary="Crear sede")
-def crear_sede(datos: SedeCrear, request: Request, usuario: UsuarioActual = Depends(solo_admin),
-               db: Session = Depends(get_db)):
+def crear_sede(datos: SedeCrear, request: Request, copiar_catalogo: bool = False,
+               usuario: UsuarioActual = Depends(solo_admin), db: Session = Depends(get_db)):
     if db.scalar(select(Sede).where(Sede.nombre == datos.nombre)):
         raise ErrorApp("SEDE_DUPLICADA", f"Ya existe la sede '{datos.nombre}'.", 409)
-    return guardar(db, Sede(**datos.model_dump()), accion="CREAR", entidad="sedes", usuario=usuario,
-                   request=request)
+    nueva = guardar(db, Sede(**datos.model_dump()), accion="CREAR", entidad="sedes", usuario=usuario,
+                    request=request)
+    if copiar_catalogo:
+        existentes = list(db.scalars(select(Producto).order_by(Producto.id)))
+        vistos: set[str] = set()
+        for base_prod in existentes:
+            if base_prod.codigo in vistos:
+                continue
+            vistos.add(base_prod.codigo)
+            db.add(
+                Producto(
+                    codigo=base_prod.codigo,
+                    nombre=base_prod.nombre,
+                    sede_id=nueva.id,
+                    tipo_producto_id=base_prod.tipo_producto_id,
+                    proveedor_id=base_prod.proveedor_id,
+                    valor_compra=base_prod.valor_compra,
+                    valor_venta=base_prod.valor_venta,
+                    stock=24,
+                    stock_minimo=base_prod.stock_minimo or 5,
+                    activo=base_prod.activo,
+                )
+            )
+        db.commit()
+    return nueva
 
 
 @sedes.get("", response_model=list[SedeSalida], summary="Listar sedes")
@@ -202,6 +237,32 @@ def actualizar_mesa(mesa_id: int, datos: MesaActualizar, request: Request,
     return aplicar_cambios(db, mesa, datos, entidad="mesas", usuario=usuario, request=request)
 
 
+@mesas.post("/{mesa_id}/estado", response_model=MesaSalida, summary="Cambiar estado operativo de mesa")
+def cambiar_estado_mesa(mesa_id: int, datos: MesaEstadoActualizar, request: Request,
+                        usuario: UsuarioActual = Depends(usuario_actual), db: Session = Depends(get_db)):
+    mesa = obtener_o_404(db, Mesa, mesa_id, "la mesa")
+    sede_autorizada(usuario, mesa.sede_id)
+    if not mesa.activa:
+        raise ErrorApp("MESA_INACTIVA", "No se puede operar una mesa inactiva.", 409)
+    mesa.estado = datos.estado
+    if datos.estado == "LIBRE":
+        abiertos = list(
+            db.scalars(
+                select(Pedido).where(
+                    Pedido.mesa_id == mesa.id,
+                    Pedido.estado.in_(("ABIERTO", "ENTREGADO")),
+                )
+            )
+        )
+        for ped in abiertos:
+            ped.estado = "CERRADO"
+    registrar(db, accion="CAMBIAR_ESTADO_MESA", entidad="mesas", entidad_id=mesa.id,
+              detalle=f"estado={datos.estado}", **_contexto(usuario, request))
+    db.commit()
+    db.refresh(mesa)
+    return mesa
+
+
 # ------------------------------------------------------------ TIPOS PRODUCTO
 tipos = APIRouter(prefix="/tipos-producto", tags=["tipos de producto"])
 
@@ -271,11 +332,36 @@ productos = APIRouter(prefix="/productos", tags=["productos"])
 
 
 @productos.post("", response_model=ProductoSalida, status_code=201, summary="Crear producto")
-def crear_producto(datos: ProductoCrear, request: Request, usuario: UsuarioActual = Depends(solo_admin),
-                   db: Session = Depends(get_db)):
-    obtener_o_404(db, Sede, datos.sede_id, "la sede")
+def crear_producto(datos: ProductoCrear, request: Request, todas_las_sedes: bool = False,
+                   usuario: UsuarioActual = Depends(solo_admin), db: Session = Depends(get_db)):
     obtener_o_404(db, TipoProducto, datos.tipo_producto_id, "el tipo de producto")
     obtener_o_404(db, Proveedor, datos.proveedor_id, "el proveedor")
+
+    if todas_las_sedes or datos.sede_id is None:
+        lista_sedes = list(db.scalars(select(Sede).order_by(Sede.id)))
+        if not lista_sedes:
+            raise ErrorApp("NO_ENCONTRADO", "No existen sedes registradas para asociar el producto.", 404)
+        creados: list[Producto] = []
+        base_dict = datos.model_dump(exclude={"sede_id"})
+        for s in lista_sedes:
+            dup = db.scalar(
+                select(Producto).where(Producto.sede_id == s.id, Producto.codigo == datos.codigo)
+            )
+            if dup is None:
+                nuevo = Producto(sede_id=s.id, **base_dict)
+                db.add(nuevo)
+                db.flush()
+                registrar(db, accion="CREAR", entidad="productos", entidad_id=nuevo.id,
+                          **_contexto(usuario, request))
+                creados.append(nuevo)
+        if not creados:
+            raise ErrorApp("PRODUCTO_DUPLICADO",
+                           f"El código {datos.codigo} ya existe en todas las sedes.", 409)
+        db.commit()
+        db.refresh(creados[0])
+        return creados[0]
+
+    obtener_o_404(db, Sede, datos.sede_id, "la sede")
     duplicado = db.scalar(
         select(Producto).where(Producto.sede_id == datos.sede_id, Producto.codigo == datos.codigo)
     )
@@ -383,6 +469,7 @@ def obtener_producto(producto_id: int, usuario: UsuarioActual = Depends(usuario_
 
 @productos.patch("/{producto_id}", response_model=ProductoSalida, summary="Actualizar producto")
 def actualizar_producto(producto_id: int, datos: ProductoActualizar, request: Request,
+                        todas_las_sedes: bool = False,
                         usuario: UsuarioActual = Depends(solo_admin), db: Session = Depends(get_db)):
     producto = obtener_o_404(db, Producto, producto_id, "el producto")
     cambios = datos.model_dump(exclude_unset=True)
@@ -391,16 +478,35 @@ def actualizar_producto(producto_id: int, datos: ProductoActualizar, request: Re
     if venta < compra:
         raise ErrorApp("MARGEN_NEGATIVO",
                     "El valor de venta no puede ser menor que el valor de compra.", 422)
+    if todas_las_sedes:
+        campos_maestros = {
+            k: v for k, v in cambios.items() if k not in ("stock", "stock_minimo")
+        }
+        hermanos = list(db.scalars(select(Producto).where(Producto.codigo == producto.codigo)))
+        for h in hermanos:
+            for k, v in campos_maestros.items():
+                setattr(h, k, v)
+        registrar(db, accion="ACTUALIZAR", entidad="productos", entidad_id=producto.id,
+                  detalle=", ".join(campos_maestros.keys()), **_contexto(usuario, request))
+        db.commit()
+        db.refresh(producto)
+        return producto
     return aplicar_cambios(db, producto, datos, entidad="productos", usuario=usuario, request=request)
 
 
 @productos.post("/{producto_id}/inactivar", response_model=ProductoSalida, summary="Inactivar producto")
-def inactivar_producto(producto_id: int, request: Request, usuario: UsuarioActual = Depends(solo_admin),
-                       db: Session = Depends(get_db)):
+def inactivar_producto(producto_id: int, request: Request, todas_las_sedes: bool = False,
+                       usuario: UsuarioActual = Depends(solo_admin), db: Session = Depends(get_db)):
     producto = obtener_o_404(db, Producto, producto_id, "el producto")
     if not producto.activo:
         raise ErrorApp("PRODUCTO_YA_INACTIVO", "El producto ya está inactivo.", 409)
-    producto.activo = False
+    objetivos = (
+        list(db.scalars(select(Producto).where(Producto.codigo == producto.codigo)))
+        if todas_las_sedes
+        else [producto]
+    )
+    for obj in objetivos:
+        obj.activo = False
     registrar(db, accion="INACTIVAR", entidad="productos", entidad_id=producto.id,
               **_contexto(usuario, request))
     db.commit()
@@ -409,12 +515,18 @@ def inactivar_producto(producto_id: int, request: Request, usuario: UsuarioActua
 
 
 @productos.post("/{producto_id}/activar", response_model=ProductoSalida, summary="Activar producto")
-def activar_producto(producto_id: int, request: Request, usuario: UsuarioActual = Depends(solo_admin),
-                     db: Session = Depends(get_db)):
+def activar_producto(producto_id: int, request: Request, todas_las_sedes: bool = False,
+                     usuario: UsuarioActual = Depends(solo_admin), db: Session = Depends(get_db)):
     producto = obtener_o_404(db, Producto, producto_id, "el producto")
     if producto.activo:
         raise ErrorApp("PRODUCTO_YA_ACTIVO", "El producto ya está activo.", 409)
-    producto.activo = True
+    objetivos = (
+        list(db.scalars(select(Producto).where(Producto.codigo == producto.codigo)))
+        if todas_las_sedes
+        else [producto]
+    )
+    for obj in objetivos:
+        obj.activo = True
     registrar(db, accion="ACTIVAR", entidad="productos", entidad_id=producto.id,
               **_contexto(usuario, request))
     db.commit()
@@ -422,7 +534,174 @@ def activar_producto(producto_id: int, request: Request, usuario: UsuarioActual 
     return producto
 
 
-for router in (sedes, mesas, tipos, proveedores, productos):
+# ------------------------------------------- SPRINT 2: INVENTARIO POR SEDE
+inventario = APIRouter(prefix="/inventario", tags=["inventario"])
+
+
+@inventario.get("", response_model=list[ProductoSalida], summary="Consultar inventario por sede")
+def listar_inventario(usuario: UsuarioActual = Depends(usuario_actual), db: Session = Depends(get_db),
+                      sede_id: int | None = None, tipo_producto_id: int | None = None,
+                      solo_activos: bool = True):
+    sede_id = sede_autorizada(usuario, sede_id)
+    consulta = select(Producto)
+    if sede_id is not None:
+        consulta = consulta.where(Producto.sede_id == sede_id)
+    if tipo_producto_id is not None:
+        consulta = consulta.where(Producto.tipo_producto_id == tipo_producto_id)
+    if solo_activos:
+        consulta = consulta.where(Producto.activo.is_(True))
+    return list(db.scalars(consulta.order_by(Producto.sede_id, Producto.nombre)))
+
+
+@inventario.post("/{producto_id}/ajustar", response_model=ProductoSalida,
+                 summary="Registrar movimiento o ajuste de inventario")
+def ajustar_inventario(producto_id: int, datos: InventarioAjuste, request: Request,
+                       usuario: UsuarioActual = Depends(solo_admin), db: Session = Depends(get_db)):
+    producto = obtener_o_404(db, Producto, producto_id, "el producto")
+    actual = producto.stock or 0
+    if datos.tipo == "ENTRADA":
+        nuevo = actual + datos.cantidad
+    elif datos.tipo == "SALIDA":
+        if datos.cantidad > actual:
+            msg = f"Stock insuficiente para '{producto.nombre}': disponible {actual}."
+            raise ErrorApp("STOCK_INSUFICIENTE", msg, 409)
+        nuevo = actual - datos.cantidad
+    else:
+        nuevo = datos.cantidad
+
+    producto.stock = nuevo
+    if datos.stock_minimo is not None:
+        producto.stock_minimo = datos.stock_minimo
+    detalle = f"{datos.tipo}: {actual} -> {nuevo}"
+    if datos.motivo:
+        detalle += f" ({datos.motivo})"
+    registrar(db, accion="AJUSTAR_INVENTARIO", entidad="productos", entidad_id=producto.id,
+              detalle=detalle, **_contexto(usuario, request))
+    db.commit()
+    db.refresh(producto)
+    return producto
+
+
+# ------------------------------------------- SPRINT 2: TOMA DE PEDIDOS
+pedidos = APIRouter(prefix="/pedidos", tags=["pedidos"])
+
+
+@pedidos.get("", response_model=list[PedidoSalida], summary="Listar pedidos por sede")
+def listar_pedidos(usuario: UsuarioActual = Depends(usuario_actual), db: Session = Depends(get_db),
+                   sede_id: int | None = None, mesa_id: int | None = None, estado: str | None = None):
+    sede_id = sede_autorizada(usuario, sede_id)
+    consulta = select(Pedido)
+    if sede_id is not None:
+        consulta = consulta.where(Pedido.sede_id == sede_id)
+    if mesa_id is not None:
+        consulta = consulta.where(Pedido.mesa_id == mesa_id)
+    if estado:
+        consulta = consulta.where(Pedido.estado == estado.upper())
+    return list(db.scalars(consulta.order_by(Pedido.id.desc())))
+
+
+@pedidos.post("", response_model=PedidoSalida, status_code=201,
+              summary="Registrar pedido con verificación de inventario")
+def crear_pedido(datos: PedidoCrear, request: Request,
+                 usuario: UsuarioActual = Depends(usuario_actual), db: Session = Depends(get_db)):
+    mesa = obtener_o_404(db, Mesa, datos.mesa_id, "la mesa")
+    sede_autorizada(usuario, mesa.sede_id)
+    if not mesa.activa:
+        raise ErrorApp("MESA_INACTIVA", f"La mesa #{mesa.numero} está inactiva.", 409)
+
+    detalles: list[PedidoDetalle] = []
+    total = 0.0
+    for item in datos.items:
+        producto = obtener_o_404(db, Producto, item.producto_id, "el producto")
+        if producto.sede_id != mesa.sede_id:
+            raise ErrorApp(
+                "SEDE_NO_AUTORIZADA",
+                f"El producto '{producto.nombre}' no pertenece a la sede de la mesa #{mesa.numero}.",
+                409,
+            )
+        if not producto.activo:
+            raise ErrorApp("PRODUCTO_INACTIVO", f"El producto '{producto.nombre}' está inactivo.", 409)
+        disponible = producto.stock if producto.stock is not None else 0
+        if item.cantidad > disponible:
+            msg = (
+                f"Existencias insuficientes para '{producto.nombre}': "
+                f"disponibles {disponible}, solicitadas {item.cantidad}."
+            )
+            raise ErrorApp("STOCK_INSUFICIENTE", msg, 409)
+        producto.stock = disponible - item.cantidad
+        precio = float(producto.valor_venta)
+        sub = round(precio * item.cantidad, 2)
+        total = round(total + sub, 2)
+        detalles.append(
+            PedidoDetalle(
+                producto_id=producto.id,
+                codigo_producto=producto.codigo,
+                nombre_producto=producto.nombre,
+                cantidad=item.cantidad,
+                precio_unitario=precio,
+                subtotal=sub,
+            )
+        )
+
+    mesa.estado = "OCUPADA"
+    nombre_mesero = (datos.mesero_nombre or usuario.usuario)[:60]
+    pedido = Pedido(
+        sede_id=mesa.sede_id,
+        mesa_id=mesa.id,
+        usuario_id=usuario.id,
+        mesero=nombre_mesero,
+        estado="ABIERTO",
+        observaciones=datos.observaciones,
+        total=total,
+        detalles=detalles,
+    )
+    db.add(pedido)
+    db.flush()
+    registrar(db, accion="CREAR_PEDIDO", entidad="pedidos", entidad_id=pedido.id,
+              detalle=f"mesa={mesa.numero}, items={len(detalles)}, total={total}",
+              **_contexto(usuario, request))
+    db.commit()
+    db.refresh(pedido)
+    return pedido
+
+
+@pedidos.post("/{pedido_id}/estado", response_model=PedidoSalida, summary="Actualizar estado del pedido")
+def cambiar_estado_pedido(pedido_id: int, datos: PedidoEstadoActualizar, request: Request,
+                          usuario: UsuarioActual = Depends(usuario_actual), db: Session = Depends(get_db)):
+    pedido = obtener_o_404(db, Pedido, pedido_id, "el pedido")
+    sede_autorizada(usuario, pedido.sede_id)
+    anterior = pedido.estado
+    if anterior == datos.estado:
+        return pedido
+
+    if datos.estado == "CANCELADO" and anterior != "CANCELADO":
+        for det in pedido.detalles:
+            prod = db.get(Producto, det.producto_id)
+            if prod is not None:
+                prod.stock = (prod.stock or 0) + det.cantidad
+
+    pedido.estado = datos.estado
+    if datos.estado in ("CERRADO", "CANCELADO"):
+        abiertos = db.scalar(
+            select(Pedido.id).where(
+                Pedido.mesa_id == pedido.mesa_id,
+                Pedido.id != pedido.id,
+                Pedido.estado.in_(("ABIERTO", "ENTREGADO")),
+            ).limit(1)
+        )
+        if not abiertos:
+            mesa = db.get(Mesa, pedido.mesa_id)
+            if mesa is not None:
+                mesa.estado = "LIBRE"
+
+    registrar(db, accion="ESTADO_PEDIDO", entidad="pedidos", entidad_id=pedido.id,
+              detalle=f"{anterior} -> {datos.estado}", **_contexto(usuario, request))
+    db.commit()
+    db.refresh(pedido)
+    return pedido
+
+
+for router in (sedes, mesas, tipos, proveedores, productos, inventario, pedidos):
     app.include_router(router)
 # HU-008: la auditoría de este servicio también se puede consultar (solo ADMINISTRADOR).
 app.include_router(router_consulta(get_db, solo_admin))

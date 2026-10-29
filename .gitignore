@@ -22,3 +22,5 @@ htmlcov/
 .idea/
 .DS_Store
 reporte-pruebas.xml
+.pids/
+.logs/

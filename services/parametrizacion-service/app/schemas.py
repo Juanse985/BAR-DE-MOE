@@ -1,10 +1,13 @@
 """Contratos del parametrizacion-service."""
+from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 EstadoMesa = Literal["LIBRE", "OCUPADA"]
+TipoMovimientoInventario = Literal["ENTRADA", "SALIDA", "AJUSTE"]
+EstadoPedido = Literal["ABIERTO", "ENTREGADO", "CERRADO", "CANCELADO"]
 
 
 class Base(BaseModel):
@@ -102,11 +105,13 @@ class ProveedorSalida(Base):
 class ProductoCrear(BaseModel):
     codigo: str = Field(min_length=2, max_length=30, examples=["CERV-001"])
     nombre: str = Field(min_length=3, max_length=120, examples=["Cerveza Duff 330ml"])
-    sede_id: int
+    sede_id: int | None = None
     tipo_producto_id: int
     proveedor_id: int
     valor_compra: Decimal = Field(ge=0, examples=["2500"])
     valor_venta: Decimal = Field(ge=0, examples=["6000"])
+    stock: int = Field(default=24, ge=0)
+    stock_minimo: int = Field(default=5, ge=0)
 
     @model_validator(mode="after")
     def venta_mayor_que_compra(self):
@@ -123,6 +128,8 @@ class ProductoActualizar(BaseModel):
     proveedor_id: int | None = None
     valor_compra: Decimal | None = Field(default=None, ge=0)
     valor_venta: Decimal | None = Field(default=None, ge=0)
+    stock: int | None = Field(default=None, ge=0)
+    stock_minimo: int | None = Field(default=None, ge=0)
 
 
 class ProductoSalida(Base):
@@ -134,9 +141,11 @@ class ProductoSalida(Base):
     proveedor_id: int
     valor_compra: Decimal
     valor_venta: Decimal
+    stock: int = 24
+    stock_minimo: int = 5
     activo: bool
-    
-    
+
+
 class ProductoCargaError(BaseModel):
     fila: int
     mensaje: str
@@ -145,3 +154,54 @@ class ProductoCargaError(BaseModel):
 class ProductoCargaResultado(BaseModel):
     creados: int
     errores: list[ProductoCargaError]
+
+
+# ------------------------------------------- Sprint 2: Inventario y Pedidos
+class InventarioAjuste(BaseModel):
+    tipo: TipoMovimientoInventario = "ENTRADA"
+    cantidad: int = Field(ge=0)
+    stock_minimo: int | None = Field(default=None, ge=0)
+    motivo: str | None = Field(default=None, max_length=150)
+
+
+class MesaEstadoActualizar(BaseModel):
+    estado: EstadoMesa
+
+
+class PedidoItemCrear(BaseModel):
+    producto_id: int
+    cantidad: int = Field(gt=0, le=500)
+
+
+class PedidoCrear(BaseModel):
+    mesa_id: int
+    mesero_nombre: str | None = Field(default=None, max_length=120)
+    observaciones: str | None = Field(default=None, max_length=250)
+    items: list[PedidoItemCrear] = Field(min_length=1)
+
+
+class PedidoEstadoActualizar(BaseModel):
+    estado: EstadoPedido
+
+
+class PedidoDetalleSalida(Base):
+    id: int
+    producto_id: int
+    codigo_producto: str
+    nombre_producto: str
+    cantidad: int
+    precio_unitario: Decimal
+    subtotal: Decimal
+
+
+class PedidoSalida(Base):
+    id: int
+    sede_id: int
+    mesa_id: int
+    usuario_id: int | None
+    mesero: str
+    estado: EstadoPedido
+    observaciones: str | None
+    total: Decimal
+    creado_en: datetime
+    detalles: list[PedidoDetalleSalida] = []
