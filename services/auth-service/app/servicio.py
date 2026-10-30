@@ -42,6 +42,17 @@ def esta_inactiva(sesion: Sesion) -> bool:
     return transcurrido > config.INACTIVIDAD_SEGUNDOS
 
 
+def token_vencido(sesion: Sesion) -> bool:
+    """El JWT de la sesión ya caducó (JWT_EXPIRA_MINUTOS desde que se emitió).
+
+    HU-003 criterio 4: una sesión vencida no impide un nuevo ingreso. Sin esto,
+    quien trabajó hasta que el token caducó quedaba con la fila "activa" y el
+    login le respondía SESION_ACTIVA durante los siguientes 3 minutos.
+    """
+    expira = _aware(sesion.creada_en) + timedelta(minutes=config.JWT_EXPIRA_MINUTOS)
+    return expira <= ahora_utc()
+
+
 # ------------------------------------------------------------------ login
 def _ip_excedida(db: Session, ip: str | None) -> bool:
     """OBS-02: demasiados logins fallidos desde la misma IP, sin importar el usuario."""
@@ -69,7 +80,7 @@ def login(
     ctx = {"ip": ip, "request_id": request_id}
 
     if _ip_excedida(db, ip):
-        registrar(db, accion="LOGIN", usuario=usuario_str, resultado="BLOQUEADO",
+        registrar(db, accion="LOGIN", usuario=usuario_str, entidad="usuarios", resultado="BLOQUEADO",
                   detalle="demasiados intentos fallidos desde esta IP", **ctx)
         db.commit()
         raise ErrorApp(
@@ -82,7 +93,7 @@ def login(
 
     # Mensaje genérico a propósito: no revelamos si el usuario existe (OWASP).
     if usuario is None:
-        registrar(db, accion="LOGIN", usuario=usuario_str, resultado="FALLIDO",
+        registrar(db, accion="LOGIN", usuario=usuario_str, entidad="usuarios", resultado="FALLIDO",
                   detalle="usuario inexistente", **ctx)
         db.commit()
         raise ErrorApp("CREDENCIALES_INVALIDAS", "Usuario o contraseña incorrectos.", 401)
@@ -92,12 +103,14 @@ def login(
         usuario.bloqueado_hasta = None
         usuario.intentos_fallidos = 0
         registrar(db, accion="DESBLOQUEO_AUTOMATICO", usuario_id=usuario.id, usuario=usuario.usuario,
-                  sede_id=usuario.sede_id, detalle=f"venció el bloqueo de {config.BLOQUEO_MINUTOS} min",
+                  sede_id=usuario.sede_id, entidad="usuarios", entidad_id=usuario.id,
+                  detalle=f"venció el bloqueo de {config.BLOQUEO_MINUTOS} min",
                   **ctx)
 
     if usuario.bloqueado:
         registrar(db, accion="LOGIN", usuario_id=usuario.id, usuario=usuario.usuario,
-                  sede_id=usuario.sede_id, resultado="BLOQUEADO", **ctx)
+                  sede_id=usuario.sede_id, entidad="usuarios", entidad_id=usuario.id,
+                  resultado="BLOQUEADO", **ctx)
         db.commit()
         mensaje = "La cuenta está bloqueada por intentos fallidos. Contacte al administrador."
         if usuario.bloqueado_hasta is not None:
@@ -106,7 +119,8 @@ def login(
 
     if usuario.estado != "ACTIVO":
         registrar(db, accion="LOGIN", usuario_id=usuario.id, usuario=usuario.usuario,
-                  sede_id=usuario.sede_id, resultado="INACTIVO", **ctx)
+                  sede_id=usuario.sede_id, entidad="usuarios", entidad_id=usuario.id,
+                  resultado="INACTIVO", **ctx)
         db.commit()
         raise ErrorApp("USUARIO_INACTIVO", "El usuario se encuentra inactivo.", 403)
 
@@ -120,19 +134,34 @@ def login(
                 usuario.bloqueado_hasta = ahora_utc() + timedelta(minutes=config.BLOQUEO_MINUTOS)
             motivo = f"bloqueado tras {usuario.intentos_fallidos} intentos"
         registrar(db, accion="LOGIN", usuario_id=usuario.id, usuario=usuario.usuario,
-                  sede_id=usuario.sede_id, resultado="FALLIDO", detalle=motivo, **ctx)
+                  sede_id=usuario.sede_id, entidad="usuarios", entidad_id=usuario.id,
+                  resultado="FALLIDO", detalle=motivo, **ctx)
         db.commit()
+        if usuario.bloqueado:
+            # HU-002 criterios 2 y 4: el intento que agota el cupo ya informa el
+            # bloqueo (mockup: "Cuenta bloqueada: 3 intentos fallidos").
+            raise ErrorApp(
+                "USUARIO_BLOQUEADO",
+                f"Cuenta bloqueada: {usuario.intentos_fallidos} intentos fallidos. "
+                "Contacte al administrador.",
+                423,
+            )
         raise ErrorApp("CREDENCIALES_INVALIDAS", "Usuario o contraseña incorrectos.", 401)
 
     # RNF-10 · sesión única
-    activas = [s for s in sesiones_activas(db, usuario.id) if not esta_inactiva(s)]
-    vencidas = [s for s in sesiones_activas(db, usuario.id) if esta_inactiva(s)]
-    for sesion in vencidas:
-        cerrar_sesion(db, sesion, "INACTIVIDAD")
+    activas = []
+    for sesion in sesiones_activas(db, usuario.id):
+        if esta_inactiva(sesion):
+            cerrar_sesion(db, sesion, "INACTIVIDAD")
+        elif token_vencido(sesion):
+            cerrar_sesion(db, sesion, "TOKEN_VENCIDO")
+        else:
+            activas.append(sesion)
 
     if activas and not config.PERMITIR_MULTISESION:
         registrar(db, accion="LOGIN", usuario_id=usuario.id, usuario=usuario.usuario,
-                  sede_id=usuario.sede_id, resultado="RECHAZADO", detalle="ya tiene una sesión activa",
+                  sede_id=usuario.sede_id, entidad="sesiones", resultado="RECHAZADO",
+                  detalle="ya tiene una sesión activa",
                   **ctx)
         db.commit()
         raise ErrorApp(
@@ -154,7 +183,7 @@ def login(
     usuario.intentos_fallidos = 0
     db.add(Sesion(jti=jti, usuario_id=usuario.id, ip=ip))
     registrar(db, accion="LOGIN", usuario_id=usuario.id, usuario=usuario.usuario,
-              sede_id=usuario.sede_id, resultado="OK", **ctx)
+              sede_id=usuario.sede_id, entidad="sesiones", entidad_id=jti, resultado="OK", **ctx)
     db.commit()
     return token, expira, usuario
 
@@ -166,6 +195,15 @@ def validar_sesion(db: Session, jti: str, usuario_id: int) -> tuple[Sesion, floa
     Devuelve la sesión y los segundos que llevaba inactiva ANTES del refresco.
     """
     sesion = db.get(Sesion, jti)
+    if sesion is not None and not sesion.activa and sesion.motivo_cierre == "INACTIVIDAD":
+        # HU-004 criterio 3: toda operación posterior al cierre por inactividad
+        # responde SESION_EXPIRADA (no solo la primera), así la pantalla siempre
+        # muestra el motivo correcto aunque haga varias peticiones a la vez.
+        raise ErrorApp(
+            "SESION_EXPIRADA",
+            f"Sesión cerrada por inactividad de más de {config.INACTIVIDAD_SEGUNDOS} segundos.",
+            401,
+        )
     if sesion is None or not sesion.activa:
         raise ErrorApp("SESION_CERRADA", "La sesión no está activa.", 401)
     if sesion.usuario_id != usuario_id:
@@ -197,7 +235,8 @@ def logout(db: Session, jti: str, **ctx) -> None:
         # DEF-03: el logout ahora dice quién salió y de qué sede.
         registrar(db, accion="LOGOUT", usuario_id=sesion.usuario_id,
                   usuario=usuario.usuario if usuario else None,
-                  sede_id=usuario.sede_id if usuario else None, resultado="OK", **ctx)
+                  sede_id=usuario.sede_id if usuario else None, entidad="sesiones", entidad_id=jti,
+                  resultado="OK", **ctx)
         db.commit()
 
 
@@ -210,15 +249,26 @@ def _validar_reglas(password: str) -> None:
 
 def cambiar_password(db: Session, usuario: Usuario, actual: str, nueva: str, **ctx) -> None:
     """RNF-07 · el propio usuario cambia su contraseña."""
+    def rechazar(codigo: str, mensaje: str, status: int, motivo: str):
+        registrar(db, accion="CAMBIO_PASSWORD", usuario_id=usuario.id, usuario=usuario.usuario,
+                  sede_id=usuario.sede_id, entidad="usuarios", entidad_id=usuario.id,
+                  resultado="FALLIDO", detalle=motivo, **ctx)
+        db.commit()
+        raise ErrorApp(codigo, mensaje, status)
+
     if not verificar_password(actual, usuario.password_hash):
-        raise ErrorApp("CREDENCIALES_INVALIDAS", "La contraseña actual no es correcta.", 401)
+        rechazar("CREDENCIALES_INVALIDAS", "La contraseña actual no es correcta.", 401,
+                 "contraseña actual incorrecta")
     if verificar_password(nueva, usuario.password_hash):
-        raise ErrorApp("PASSWORD_REPETIDA", "La nueva contraseña debe ser distinta de la actual.", 422)
-    _validar_reglas(nueva)
+        rechazar("PASSWORD_REPETIDA", "La nueva contraseña debe ser distinta de la actual.", 422,
+                 "la nueva es igual a la actual")
+    ok, mensaje = password_es_valida(nueva)
+    if not ok:
+        rechazar("PASSWORD_DEBIL", mensaje, 422, "no cumple las reglas de contraseña")
     usuario.password_hash = hashear_password(nueva)
     usuario.debe_cambiar_password = False
     registrar(db, accion="CAMBIO_PASSWORD", usuario_id=usuario.id, usuario=usuario.usuario,
-              sede_id=usuario.sede_id, resultado="OK", **ctx)
+              sede_id=usuario.sede_id, entidad="usuarios", entidad_id=usuario.id, resultado="OK", **ctx)
     db.commit()
 
 
@@ -321,6 +371,8 @@ def asegurar_admin_inicial(db: Session) -> None:
         debe_cambiar_password=True,
     )
     db.add(usuario)
-    registrar(db, accion="BOOTSTRAP_ADMIN", usuario="sistema", resultado="OK",
+    db.flush()
+    registrar(db, accion="BOOTSTRAP_ADMIN", usuario="sistema", entidad="usuarios",
+              entidad_id=usuario.id, resultado="OK",
               detalle="administrador inicial creado")
     db.commit()
