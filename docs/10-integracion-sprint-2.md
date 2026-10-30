@@ -102,7 +102,7 @@ Ahora todo sale del servidor. Así, lo que ve un perfil es lo mismo que ve otro.
 **Resuelto después de la integración (30/10/2026):**
 
 - Arquitectura: la decisión de dejar inventario y pedidos en `parametrizacion-service` quedó
-  registrada como **ADR-08** en `01-arquitectura.md` y en el documento de arquitectura **v1.2**
+  registrada como **ADR-08** en `01-arquitectura.md` y en el documento de arquitectura **v1.0.2**
   (sección 12).
 - Algoritmos: se agregaron el 6 (ruta voraz del mesero, conjuntos C y S) y el 7 (cola de la
   barra, cadena lexicográficamente menor), tomados del quiz de algoritmos voraces. Con eso son

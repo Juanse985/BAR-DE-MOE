@@ -59,7 +59,7 @@ bar-de-moe/
 
 | Documento | Para qué |
 |---|---|
-| [`docs/arquitectura/`](docs/arquitectura/Documento_Arquitectura_Bar_de_Moe_v1.2.pdf) | **Documento de arquitectura v1.2** (PDF): diagramas, modelo entidad-relación, buenas prácticas, diccionario y, en la sección 12, los cambios del Sprint 2 (ADR-08 y ADR-09) |
+| [`docs/arquitectura/`](docs/arquitectura/Documento_Arquitectura_Bar_de_Moe_v1.0.2.pdf) | **Documento de arquitectura v1.0.2** (PDF): diagramas, modelo entidad-relación, buenas prácticas, diccionario y, en la sección 12, los cambios del Sprint 2 (ADR-08 y ADR-09) |
 | [`docs/01-arquitectura.md`](docs/01-arquitectura.md) | Las decisiones y su porqué. **Léanlo antes de la sustentación.** |
 | [`docs/02-plan-ramas-sprint-1.md`](docs/02-plan-ramas-sprint-1.md) | Qué le toca a cada uno en este sprint |
 | [`docs/03-convenciones-git.md`](docs/03-convenciones-git.md) | Ramas, commits y Pull Requests |
