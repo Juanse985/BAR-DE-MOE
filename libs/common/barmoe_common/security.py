@@ -29,7 +29,7 @@ def verificar_password(password: str, hash_guardado: str) -> bool:
 
 
 REGLAS_PASSWORD = (
-    "Mínimo 8 caracteres, con al menos una mayúscula, una minúscula y un número."
+    "At least 8 characters, with at least one uppercase letter, one lowercase letter and one number."
 )
 
 

@@ -30,14 +30,14 @@ def construir_autenticacion(secreto: str, algoritmo: str = "HS256"):
 
     def usuario_actual(authorization: str | None = Header(default=None)) -> UsuarioActual:
         if not authorization or not authorization.lower().startswith("bearer "):
-            raise ErrorApp("NO_AUTENTICADO", "Falta el token de acceso.", 401)
+            raise ErrorApp("NO_AUTENTICADO", "The access token is missing.", 401)
         token = authorization.split(" ", 1)[1].strip()
         try:
             datos = decodificar_token(token, secreto, algoritmo)
         except jwt.ExpiredSignatureError as exc:
-            raise ErrorApp("SESION_EXPIRADA", "La sesión expiró. Inicie sesión de nuevo.", 401) from exc
+            raise ErrorApp("SESION_EXPIRADA", "The session has expired. Please sign in again.", 401) from exc
         except jwt.PyJWTError as exc:
-            raise ErrorApp("TOKEN_INVALIDO", "El token de acceso no es válido.", 401) from exc
+            raise ErrorApp("TOKEN_INVALIDO", "The access token is not valid.", 401) from exc
         return UsuarioActual(
             id=int(datos["sub"]),
             usuario=datos["usr"],
@@ -51,7 +51,7 @@ def construir_autenticacion(secreto: str, algoritmo: str = "HS256"):
             if usuario.perfil not in perfiles:
                 raise ErrorApp(
                     "SIN_PERMISOS",
-                    f"El perfil {usuario.perfil} no puede ejecutar esta operación.",
+                    f"The {usuario.perfil} profile is not allowed to perform this operation.",
                     403,
                 )
             return usuario

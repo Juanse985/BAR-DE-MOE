@@ -48,8 +48,10 @@ PROVEEDORES = [
     {"nit": "900000003-3", "nombre": "Bogotá Beer Company", "contacto": "Asesor comercial",
      "telefono": "3000000003"},
 ]
-# Catálogo mínimo de cervezas. Precios en pesos colombianos, de ejemplo:
-# el administrador los ajusta por sede desde la pantalla de Productos.
+# Catálogo mínimo de cervezas. Precios en pesos colombianos, de ejemplo.
+# Sprint 2: cada producto se crea una vez y queda en las tres sedes; lo que
+# cambia por sede es la existencia.
+EXISTENCIA_INICIAL = 48
 PRODUCTOS = [
     # (código, nombre, tipo, proveedor, valor de compra, valor de venta)
     ("CERV-001", "Águila 330 ml", "Cerveza nacional", "Bavaria", "2200", "6000"),
@@ -154,15 +156,30 @@ def main() -> int:
     respuesta_prov = cliente.get("/api/parametrizacion/proveedores", headers=h).json()
     proveedores = {p["nombre"]: p["id"] for p in respuesta_prov}
 
-    print("→ Productos (catálogo por sede)")
+    print("→ Productos (uno solo para todas las sedes)")
+    for codigo, nombre, tipo, proveedor, compra, venta in PRODUCTOS:
+        crear("/api/parametrizacion/productos", {
+            "codigo": codigo, "nombre": nombre,
+            "tipo_producto_id": tipos[tipo], "proveedor_id": proveedores[proveedor],
+            "valor_compra": compra, "valor_venta": venta,
+        }, codigo)
+
+    print(f"→ Inventario inicial ({EXISTENCIA_INICIAL} unidades por producto y sede)")
     for s in SEDES:
-        sede_nombre, sede_id = s["nombre"], sedes[s["nombre"]]
-        for codigo, nombre, tipo, proveedor, compra, venta in PRODUCTOS:
-            crear("/api/parametrizacion/productos", {
-                "codigo": codigo, "nombre": nombre, "sede_id": sede_id,
-                "tipo_producto_id": tipos[tipo], "proveedor_id": proveedores[proveedor],
-                "valor_compra": compra, "valor_venta": venta,
-            }, f"{codigo} en {sede_nombre}")
+        sede_id = sedes[s["nombre"]]
+        filas = cliente.get("/api/parametrizacion/inventario", headers=h, params={"sede_id": sede_id}).json()
+        cargados = 0
+        for fila in filas:
+            if fila["existencia"] == 0:
+                r = cliente.post("/api/parametrizacion/inventario/ingresos", headers=h, json={
+                    "sede_id": sede_id, "producto_id": fila["producto_id"],
+                    "cantidad": EXISTENCIA_INICIAL, "motivo": "Initial stock (seed)"})
+                if r.status_code == 201:
+                    cargados += 1
+                else:
+                    conteo["errores"] += 1
+                    print(f"  ! {fila['codigo']} en {s['nombre']} -> {r.status_code} {r.text}")
+        print(f"  + {cargados} productos con existencia en {s['nombre']}")
 
     print("→ Usuarios (un cajero y un mesero por sede)")
     for u in USUARIOS:

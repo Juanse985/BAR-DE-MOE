@@ -428,20 +428,20 @@ integridad que faltan en los caminos de edición.
 H-09 a H-11 los agregó QA el 10/10/2026, reproducidos con el `TestClient`
 de cada servicio.
 
-### 9.1 Estado de los hallazgos (10/10/2026)
+### 9.1 Estado de los hallazgos (actualizado 30/10/2026, Sprint 2)
 
 | ID | Estado | Qué se hizo |
 |---|---|---|
-| H-01 | **Corregido en la pantalla** | Al editar, los campos que no se pueden cambiar salen en gris y el navegador no los envía. La API todavía los ignora sin avisar si llegan por fuera de la pantalla (Postman, curl); el `extra="forbid"` queda para el Sprint 2 |
-| H-02 | Abierto | — |
-| H-03 | Abierto | — |
-| H-04 | Abierto | — |
+| H-01 | **Corregido** (Sprint 2) | Pantalla: campos en gris. API: los `*Actualizar` tienen `extra="forbid"`; `PATCH /mesas/1 {"numero": 9}` responde 422 `numero: no se puede enviar ni modificar`. Prueba: `test_hallazgos_sprint1.py` |
+| H-02 | **Corregido** (Sprint 2) | `PATCH /productos` valida tipo y proveedor: 404 `No existe el tipo de producto con id 999.` |
+| H-03 | **Corregido** (Sprint 2) | Renombrar sede o tipo a un nombre existente → 409 `SEDE_DUPLICADA` / `TIPO_DUPLICADO` |
+| H-04 | **Corregido** (Sprint 2) | Tipo o proveedor inactivo → 409 `TIPO_INACTIVO` / `PROVEEDOR_INACTIVO` al crear, editar o reactivar un producto |
 | H-05 | **Mitigado** | La sede del usuario, de la mesa y del producto se elige de una lista (selector de sedes, la segunda propuesta). Falta la validación por HTTP en el auth-service |
-| H-06 | Abierto | — |
-| H-07 | Sprint 2 | Es de M4 |
+| H-06 | Abierto | Necesita consultar el auth-service por HTTP; se resuelve con H-05 |
+| H-07 | **Corregido** (Sprint 2) | Abrir pedido pasa la mesa a OCUPADA; con pedido abierto no se libera ni se inactiva a mano (409 `MESA_CON_PEDIDO_ABIERTO`). Liberarla al facturar es de HU-023 (Sprint 3) |
 | H-08 | Sprint 2 | Deuda técnica declarada en el documento de arquitectura |
 | H-09 | **Corregido** | Crear cajero o mesero sin sede → 422 `DATOS_INVALIDOS`. Quitarle la sede, o pasar un administrador sin sede a cajero o mesero → 422 `SEDE_OBLIGATORIA`. Pruebas en `services/auth-service/tests/test_h09_sede_obligatoria.py` |
-| H-10 | Abierto | — |
+| H-10 | **Corregido** (Sprint 2) | Mesa en sede inactiva → 409 `SEDE_INACTIVA`. Los productos nuevos solo se cargan al inventario de las sedes activas |
 | H-11 | Abierto | — |
 
 ---

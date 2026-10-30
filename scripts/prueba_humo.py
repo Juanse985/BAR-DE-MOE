@@ -173,9 +173,10 @@ class PruebaHumo:
         if all(x is not None and x.status_code == 201 for x in (sede, tipo, proveedor)):
             sede_id = sede.json()["id"]
             codigo = f"QA-{self.sufijo[-6:]}"
-            self.paso("Crear producto en la sede", "HU-020", 201, "POST", "/api/parametrizacion/productos",
+            self.paso("Crear producto (queda en todas las sedes)", "HU-020", 201, "POST",
+                      "/api/parametrizacion/productos",
                       headers=self.h, json_={
-                          "codigo": codigo, "nombre": "Cerveza Duff QA", "sede_id": sede_id,
+                          "codigo": codigo, "nombre": "Cerveza Duff QA",
                           "tipo_producto_id": tipo.json()["id"], "proveedor_id": proveedor.json()["id"],
                           "valor_compra": "2500", "valor_venta": "6000"})
             self.paso("Crear mesa en la sede", "HU-018", 201, "POST", "/api/parametrizacion/mesas",
@@ -183,7 +184,8 @@ class PruebaHumo:
 
             def contiene_producto(resp):
                 codigos = [p["codigo"] for p in resp.json()]
-                assert codigos == [codigo], f"el catálogo de la sede devolvió {codigos}"
+                # Sprint 2: la sede nueva recibe todos los productos; basta con que esté el creado.
+                assert codigo in codigos, f"el catálogo de la sede devolvió {codigos}"
 
             self.paso("Consultar catálogo filtrado por sede", "HU-020", 200, "GET",
                       "/api/parametrizacion/productos", headers=self.h, params={"sede_id": sede_id},
