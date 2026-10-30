@@ -936,6 +936,11 @@ tbody tr:hover {
   align-items: start;
   margin-bottom: 20px;
 }
+/* Sin esto, la tabla del catálogo (min-width 520px) ensancha la columna y la
+   pantalla se desplaza de lado en el celular. */
+.pos-layout > * {
+  min-width: 0;
+}
 .catalog-list-wrap {
   max-height: 520px;
   overflow-y: auto;
@@ -1032,6 +1037,10 @@ tbody tr:hover {
   border-radius: 30px;
   box-shadow: rgba(7, 60, 94, 0.35) 0 30px 34px -18px;
 }
+/* Historial de movimientos de inventario (CU-32): tabla de 7 columnas. */
+.modal.modal-wide {
+  width: min(100%, 920px);
+}
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1082,7 +1091,7 @@ tbody tr:hover {
 }
 @media (max-width: 960px) {
   .pos-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .mesas-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1107,6 +1116,7 @@ tbody tr:hover {
   }
   .user-mini {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
     gap: 10px;

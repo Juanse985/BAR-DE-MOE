@@ -2,9 +2,8 @@ const API = "/api",
   SESSION_KEY = "barmoe_access_token",
   USER_KEY = "barmoe_user",
   LANG_KEY = "barmoe_lang",
-  LOCAL_STOCK_KEY = "barmoe_local_stock",
-  LOCAL_ORDERS_KEY = "barmoe_local_orders",
-  LOCAL_TABLES_KEY = "barmoe_local_tables";
+  // HU-007 y HU-008: tamaño de página de los listados que pagina el servidor.
+  TAMANO_PAGINA = 20;
 
 const MENU = {
   ADMINISTRADOR: [
@@ -16,6 +15,7 @@ const MENU = {
     "inventario",
     "pedidos",
     "usuarios",
+    "auditoria",
   ],
   MESERO: ["mesas", "inventario", "pedidos"],
   CAJERO: [
@@ -47,6 +47,42 @@ const I18N = {
     currentPassLabel: "Contraseña actual",
     newPassLabel: "Nueva contraseña",
     savePassBtn: "Guardar contraseña",
+    changeMyPass: "Cambiar mi contraseña",
+    myAccount: "Mi cuenta",
+    voluntaryPassPrompt: "Escribe tu contraseña actual y la nueva.",
+    confirmPassLabel: "Confirmar contraseña nueva",
+    passMismatch: "La confirmación no coincide con la contraseña nueva.",
+    passRules:
+      "Mínimo 8 caracteres, con al menos una mayúscula, una minúscula y un número. No se puede repetir la anterior.",
+    closedBySystem: "Tu sesión fue cerrada. Ingresa nuevamente.",
+    inactiveUserClosed: "Tu usuario está inactivo. Contacta al administrador.",
+    pager: {
+      prev: "Anterior",
+      next: "Siguiente",
+      pageOf: "Página {p} de {n} · {t} registros",
+    },
+    audit: {
+      eyebrow: "HU-008 · Seguridad",
+      title: "Consulta de auditoría",
+      sub: "Quién hizo qué, en qué sede y a qué hora.",
+      moduleAuth: "Seguridad y usuarios",
+      moduleParam: "Parametrización, inventario y pedidos",
+      from: "Desde",
+      to: "Hasta",
+      user: "Usuario",
+      filter: "Filtrar",
+      colDate: "Fecha y hora",
+      colUser: "Usuario",
+      colBranch: "Sede",
+      colAction: "Acción",
+      colEntity: "Entidad",
+      colResult: "Resultado",
+      colIp: "IP",
+      readOnly:
+        "Resultado paginado, del más reciente al más antiguo. Los registros no se editan ni se borran.",
+      dateError: "La fecha Desde no puede ser posterior a Hasta.",
+      empty: "No hay registros para esos filtros.",
+    },
     logoutBtn: "Cerrar sesión",
     sessionClosed: "Has cerrado sesión correctamente.",
     sessionExpired:
@@ -76,6 +112,7 @@ const I18N = {
       facturacion: "Facturación",
       "consulta-facturas": "Consulta de facturas",
       "reporte-ventas": "Reporte de ventas",
+      auditoria: "Auditoría",
     },
     fields: {
       nombre: "Nombre completo",
@@ -166,6 +203,7 @@ const I18N = {
       promptNewPass:
         "Escribe la nueva contraseña temporal (mínimo 8 caracteres, con mayúscula, minúscula y número):",
       confirmToggle: "¿Confirmas que deseas {action} esta cuenta de usuario?",
+      allProfiles: "Todos los perfiles",
     },
     inventory: {
       eyebrow: "HU-012 · M3 Inventario",
@@ -192,6 +230,23 @@ const I18N = {
       reasonLabel: "Motivo / Observación",
       reasonPlaceholder: "Ej: Recepción proveedor Bavaria, conteo físico...",
       saveAdjust: "Aplicar en esta sede",
+      reasonRequired: "El motivo es obligatorio (HU-021).",
+      minOnlyWithAdjust:
+        "El stock mínimo se actualiza con un movimiento de salida o de ajuste.",
+      noChange: "La existencia quedaría igual: no hay nada que ajustar.",
+      movementsBtn: "Movimientos",
+      movementsTitle: "Movimientos de inventario",
+      colDate: "Fecha",
+      colType: "Tipo",
+      colQty: "Cantidad",
+      colBefore: "Antes",
+      colAfter: "Después",
+      colReason: "Motivo",
+      colUser: "Usuario",
+      noMovements: "Este producto todavía no tiene movimientos en la sede.",
+      enableInBranch: "Activar en la sede",
+      disableInBranch: "Inactivar en la sede",
+      inactiveInBranch: "Inactivo en la sede",
     },
     tables: {
       eyebrow: "HU-013 · M4 Mesas",
@@ -259,6 +314,16 @@ const I18N = {
       deliverBtn: "Entregar",
       closeOrderBtn: "Cerrar y liberar mesa",
       cancelOrderBtn: "Cancelar (devolver stock)",
+      addToOrderBtn: "Agregar productos",
+      addedToOrder:
+        "Se agregaron los productos al pedido #{id}: la mesa ya tenía un pedido abierto.",
+      closesAtBilling:
+        "El pedido se cierra al facturar (HU-023, Sprint 3). Mientras tanto se pueden agregar productos.",
+      changeBtn: "Calcular vueltas",
+      changePrompt: "¿Con cuánto paga el cliente? Total del pedido: ${total}",
+      changeResult: "Pedido #{id} · vueltas ${cambio}: {piezas}",
+      cashierHint:
+        "El cajero consulta los pedidos de su sede y calcula las vueltas. Los pedidos los toma el mesero.",
     },
   },
   en: {
@@ -279,6 +344,41 @@ const I18N = {
     currentPassLabel: "Current password",
     newPassLabel: "New password",
     savePassBtn: "Save new password",
+    changeMyPass: "Change my password",
+    myAccount: "My account",
+    voluntaryPassPrompt: "Enter your current password and the new one.",
+    confirmPassLabel: "Confirm new password",
+    passMismatch: "The confirmation does not match the new password.",
+    passRules:
+      "At least 8 characters, with one uppercase letter, one lowercase letter and one number. It cannot repeat the previous one.",
+    closedBySystem: "Your session was closed. Please sign in again.",
+    inactiveUserClosed: "Your user is inactive. Contact the administrator.",
+    pager: {
+      prev: "Previous",
+      next: "Next",
+      pageOf: "Page {p} of {n} · {t} records",
+    },
+    audit: {
+      eyebrow: "HU-008 · Security",
+      title: "Audit log",
+      sub: "Who did what, in which branch and when.",
+      moduleAuth: "Security & users",
+      moduleParam: "Setup, inventory & orders",
+      from: "From",
+      to: "To",
+      user: "User",
+      filter: "Filter",
+      colDate: "Date & time",
+      colUser: "User",
+      colBranch: "Branch",
+      colAction: "Action",
+      colEntity: "Entity",
+      colResult: "Result",
+      colIp: "IP",
+      readOnly: "Paginated, newest first. Records cannot be edited or deleted.",
+      dateError: "The From date cannot be after the To date.",
+      empty: "No records match these filters.",
+    },
     logoutBtn: "Sign out",
     sessionClosed: "You have signed out successfully.",
     sessionExpired:
@@ -308,6 +408,7 @@ const I18N = {
       facturacion: "Billing",
       "consulta-facturas": "Invoices lookup",
       "reporte-ventas": "Sales report",
+      auditoria: "Audit log",
     },
     fields: {
       nombre: "Full name / Name",
@@ -398,6 +499,7 @@ const I18N = {
       promptNewPass:
         "Enter the new temporary password (min. 8 characters, with uppercase, lowercase, and number):",
       confirmToggle: "Are you sure you want to {action} this user account?",
+      allProfiles: "All profiles",
     },
     inventory: {
       eyebrow: "HU-012 · M3 Inventory",
@@ -424,6 +526,22 @@ const I18N = {
       reasonLabel: "Reason / Notes",
       reasonPlaceholder: "E.g., Supplier delivery, physical count...",
       saveAdjust: "Apply to this branch",
+      reasonRequired: "A reason is required (HU-021).",
+      minOnlyWithAdjust: "The minimum stock is updated with an exit or adjustment movement.",
+      noChange: "Stock would stay the same: there is nothing to adjust.",
+      movementsBtn: "Movements",
+      movementsTitle: "Stock movements",
+      colDate: "Date",
+      colType: "Type",
+      colQty: "Quantity",
+      colBefore: "Before",
+      colAfter: "After",
+      colReason: "Reason",
+      colUser: "User",
+      noMovements: "This product has no movements in this branch yet.",
+      enableInBranch: "Enable in branch",
+      disableInBranch: "Disable in branch",
+      inactiveInBranch: "Disabled in branch",
     },
     tables: {
       eyebrow: "HU-013 · M4 Tables",
@@ -491,6 +609,15 @@ const I18N = {
       deliverBtn: "Mark delivered",
       closeOrderBtn: "Close & free table",
       cancelOrderBtn: "Cancel (restore stock)",
+      addToOrderBtn: "Add products",
+      addedToOrder: "Products were added to order #{id}: the table already had an open order.",
+      closesAtBilling:
+        "The order is closed at billing (HU-023, Sprint 3). Until then products can be added.",
+      changeBtn: "Calculate change",
+      changePrompt: "How much does the customer pay? Order total: ${total}",
+      changeResult: "Order #{id} · change ${cambio}: {piezas}",
+      cashierHint:
+        "Cashiers review their branch's orders and calculate change. Waiters take the orders.",
     },
   },
 };
@@ -557,6 +684,21 @@ const ERROR_MESSAGES = {
       "La mesa seleccionada está inactiva y no admite pedidos en este momento.",
     PRODUCTO_INACTIVO:
       "Uno de los productos seleccionados está inactivo y no puede venderse.",
+    PRODUCTO_NO_DISPONIBLE_EN_SEDE:
+      "Ese producto no está en el catálogo de esta sede o está inactivo aquí.",
+    PRODUCTO_INACTIVO_EN_SEDE:
+      "El producto está inactivo en esta sede: actívalo antes de registrar existencias.",
+    EXISTENCIA_NEGATIVA:
+      "El ajuste dejaría la existencia por debajo de cero.",
+    PEDIDO_CERRADO: "Ese pedido ya está cerrado: no se le pueden agregar productos.",
+    MESA_CON_PEDIDO_ABIERTO:
+      "La mesa tiene un pedido abierto: no se puede liberar ni inactivar hasta cerrarlo.",
+    SEDE_INACTIVA: "La sede está inactiva.",
+    TIPO_INACTIVO: "El tipo de producto está inactivo.",
+    PROVEEDOR_INACTIVO: "El proveedor está inactivo.",
+    PAGO_INSUFICIENTE: "El pago no cubre el total del pedido.",
+    CAMBIO_IMPOSIBLE: "No se pueden dar esas vueltas con billetes y monedas colombianos.",
+    SIN_PEDIDO_ABIERTO: "La mesa no tiene un pedido abierto.",
   },
   en: {
     CREDENCIALES_INVALIDAS:
@@ -675,7 +817,6 @@ let state = {
   token: sessionStorage.getItem(SESSION_KEY),
   route: "inicio",
   items: [],
-  rawProducts: [],
   users: [],
   orders: [],
   mesasView: "map",
@@ -692,6 +833,13 @@ let state = {
   cat: { sedes: [], tipos: [], proveedores: [] },
   idleTimer: null,
   lastActivityAt: 0,
+  mesasList: [],
+  // HU-007: filtros y página del listado de usuarios (se piden al servidor).
+  userQuery: { sede_id: "", perfil: "", pagina: 1 },
+  usersTotal: 0,
+  // HU-008: filtros y página de la consulta de auditoría.
+  audit: { modulo: "auth", desde: "", hasta: "", usuario: "", sede_id: "", pagina: 1 },
+  lastTotal: 0,
 };
 
 function dict() {
@@ -711,6 +859,8 @@ function setLang(lang) {
     renderLogin();
   } else if (state.user.debe_cambiar_password) {
     renderPasswordChange();
+  } else if (document.getElementById("password-form")) {
+    renderPasswordChange("", true);
   } else {
     renderShell(state.route);
   }
@@ -730,14 +880,6 @@ function readJson(key, store = sessionStorage) {
   } catch {
     return null;
   }
-}
-function readLocalMap(key) {
-  return readJson(key, localStorage) || {};
-}
-function writeLocalMap(key, val) {
-  try {
-    localStorage.setItem(key, JSON.stringify(val));
-  } catch {}
 }
 
 function esc(value) {
@@ -807,6 +949,18 @@ function formatValidationDetail(item) {
   return f ? `${f}: ${clean}` : clean;
 }
 
+// Códigos cuyo mensaje del servidor trae el caso concreto (nombre, cantidades).
+const CON_DETALLE = new Set([
+  "STOCK_INSUFICIENTE",
+  "EXISTENCIA_NEGATIVA",
+  "PRODUCTO_NO_DISPONIBLE_EN_SEDE",
+  "PRODUCTO_INACTIVO_EN_SEDE",
+  "MESA_CON_PEDIDO_ABIERTO",
+  "PAGO_INSUFICIENTE",
+  "CAMBIO_IMPOSIBLE",
+  "SEDE_CON_RECURSOS_ACTIVOS",
+  "PEDIDO_CERRADO",
+]);
 function message(error) {
   const code = error?.error?.codigo;
   const details = error?.error?.detalle;
@@ -819,10 +973,10 @@ function message(error) {
         : "Por favor corrige los siguientes campos: ";
     return prefix + details.map(formatValidationDetail).join(" · ");
   }
+  const detalle = error?.error?.mensaje;
+  if (state.lang === "en" && detalle && CON_DETALLE.has(code)) return detalle;
   if (code && langMap[code]) {
-    if (code === "STOCK_INSUFICIENTE" && error?.error?.mensaje) {
-      return `${langMap[code]} (${error.error.mensaje})`;
-    }
+    if (detalle && CON_DETALLE.has(code)) return `${langMap[code]} (${detalle})`;
     return langMap[code];
   }
   return (
@@ -832,49 +986,6 @@ function message(error) {
       ? "Could not complete the operation. Please check your connection and input data."
       : "No fue posible completar la operación. Verifica los datos ingresados e inténtalo de nuevo.")
   );
-}
-
-// Per-branch stock helper (keyed by product.id, which is unique per branch + code)
-function getEffectiveStock(product) {
-  const overrides = readLocalMap(LOCAL_STOCK_KEY);
-  const saved = overrides[product.id];
-  const stock =
-    saved?.stock !== undefined
-      ? Number(saved.stock)
-      : product.stock !== undefined && product.stock !== null
-        ? Number(product.stock)
-        : 24;
-  const stock_minimo =
-    saved?.stock_minimo !== undefined
-      ? Number(saved.stock_minimo)
-      : product.stock_minimo !== undefined && product.stock_minimo !== null
-        ? Number(product.stock_minimo)
-        : 5;
-  return { ...product, stock, stock_minimo };
-}
-function saveLocalStock(productId, stock, stock_minimo) {
-  const overrides = readLocalMap(LOCAL_STOCK_KEY);
-  overrides[productId] = { stock: Number(stock), stock_minimo: Number(stock_minimo) };
-  writeLocalMap(LOCAL_STOCK_KEY, overrides);
-}
-function clearLocalMesaState(mesaId) {
-  const overrides = readLocalMap(LOCAL_TABLES_KEY);
-  if (overrides[mesaId] !== undefined) {
-    delete overrides[mesaId];
-    writeLocalMap(LOCAL_TABLES_KEY, overrides);
-  }
-}
-function getEffectiveMesa(mesa) {
-  const overrides = readLocalMap(LOCAL_TABLES_KEY);
-  if (overrides[mesa.id]) {
-    return { ...mesa, estado: overrides[mesa.id] };
-  }
-  return mesa;
-}
-function saveLocalMesaState(mesaId, estado) {
-  const overrides = readLocalMap(LOCAL_TABLES_KEY);
-  overrides[mesaId] = estado;
-  writeLocalMap(LOCAL_TABLES_KEY, overrides);
 }
 
 async function loadCatalogs() {
@@ -941,10 +1052,24 @@ async function request(path, options = {}) {
       "USUARIO_INACTIVO",
     ].includes(code)
   ) {
+    // Si otra petición en paralelo ya llevó al login, no se repinta.
+    if (!state.token) throw Error("sesion");
+    // HU-004 criterio 4: se vuelve al login indicando el motivo del cierre.
+    const motivo =
+      code === "SESION_EXPIRADA"
+        ? dict().inactivityClosed
+        : code === "USUARIO_INACTIVO"
+          ? dict().inactiveUserClosed
+          : code === "SESION_CERRADA"
+            ? dict().closedBySystem
+            : dict().sessionExpired;
     clearSession();
-    throw Error(dict().sessionExpired);
+    renderLogin(motivo);
+    throw Error("sesion");
   }
   if (!response.ok) throw Error(message(data));
+  // HU-007 y HU-008: el total de un listado paginado viene en esta cabecera.
+  state.lastTotal = Number(response.headers.get("X-Total-Count") || 0);
   return data;
 }
 
@@ -953,6 +1078,7 @@ function clearSession() {
   sessionStorage.removeItem(USER_KEY);
   state = { ...state, token: null, user: null, cart: [] };
   clearTimeout(state.idleTimer);
+  document.getElementById("modal")?.remove();
 }
 function esAdmin() {
   return state.user?.perfil === "ADMINISTRADOR";
@@ -1006,11 +1132,14 @@ function renderLogin(note = "") {
   bindLangSwitcher();
   const form = document.getElementById("login-form"),
     submit = document.getElementById("login-submit");
-  form.addEventListener("input", () => {
+  const habilitar = () => {
     submit.disabled = ![...form.elements]
       .slice(0, 2)
       .every((field) => field.value.trim());
-  });
+  };
+  // "change" cubre el autocompletado del navegador, que no siempre dispara "input".
+  form.addEventListener("input", habilitar);
+  form.addEventListener("change", habilitar);
   form.addEventListener("submit", login);
 }
 
@@ -1046,16 +1175,28 @@ async function login(event) {
   }
 }
 
-function renderPasswordChange(note = "") {
+// HU-005: cambio de la propia contraseña. Es obligatorio después de un
+// restablecimiento (HU-006) y voluntario desde "Cambiar mi contraseña".
+function renderPasswordChange(note = "", voluntario = false) {
   const d = dict();
+  const titulo = voluntario ? d.changeMyPass : d.updatePassTitle,
+    kicker = voluntario ? d.myAccount : d.mandatoryChange,
+    texto = voluntario ? d.voluntaryPassPrompt : d.updatePassPrompt;
   document.getElementById("app").innerHTML =
-    `<main class="login-shell"><section class="container"><div class="login-top-row"><div class="brand"><span class="brand-mark">M</span><span>BAR DE MOE</span></div>${langSwitcherHtml()}</div><h1 class="heading">${esc(d.updatePassTitle)}</h1><p class="login-kicker">${esc(d.mandatoryChange)}</p><p class="subtle">${esc(d.updatePassPrompt)}</p>${note ? `<p class="error" role="alert">${esc(note)}</p>` : ""}<form class="form" id="password-form"><label>${esc(d.currentPassLabel)}<input class="input" name="actual" type="password" autocomplete="current-password" placeholder="${esc(d.currentPassLabel)}" required></label><label>${esc(d.newPassLabel)}<input class="input" name="nueva" type="password" autocomplete="new-password" placeholder="${esc(d.newPassLabel)}" minlength="8" required></label><button class="login-button">${esc(d.savePassBtn)}</button></form></section></main>`;
+    `<main class="login-shell"><section class="container"><div class="login-top-row"><div class="brand"><span class="brand-mark">M</span><span>BAR DE MOE</span></div>${langSwitcherHtml()}</div><h1 class="heading">${esc(titulo)}</h1><p class="login-kicker">${esc(kicker)}</p><p class="subtle">${esc(texto)}</p>${note ? `<p class="error" role="alert">${esc(note)}</p>` : ""}<form class="form" id="password-form"><label>${esc(d.currentPassLabel)}<input class="input" name="actual" type="password" autocomplete="current-password" placeholder="${esc(d.currentPassLabel)}" required></label><label>${esc(d.newPassLabel)}<input class="input" name="nueva" type="password" autocomplete="new-password" placeholder="${esc(d.newPassLabel)}" minlength="8" maxlength="72" required></label><label>${esc(d.confirmPassLabel)}<input class="input" name="confirmar" type="password" autocomplete="new-password" placeholder="${esc(d.confirmPassLabel)}" minlength="8" maxlength="72" required></label><p class="subtle">${esc(d.passRules)}</p><button class="login-button">${esc(d.savePassBtn)}</button>${voluntario ? `<button type="button" class="ghost" id="cancel-password">${esc(d.common.cancel)}</button>` : ""}</form></section></main>`;
   bindLangSwitcher();
+  document
+    .getElementById("cancel-password")
+    ?.addEventListener("click", () => renderShell());
   document
     .getElementById("password-form")
     .addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = new FormData(event.target);
+      if (form.get("nueva") !== form.get("confirmar")) {
+        renderPasswordChange(d.passMismatch, voluntario);
+        return;
+      }
       try {
         await request("/auth/auth/cambiar-password", {
           method: "POST",
@@ -1068,11 +1209,8 @@ function renderPasswordChange(note = "") {
         sessionStorage.setItem(USER_KEY, JSON.stringify(state.user));
         renderShell();
       } catch (error) {
-        if (!state.token) {
-          renderLogin(error.message);
-        } else {
-          renderPasswordChange(error.message);
-        }
+        // Si la sesión se cerró, request() ya llevó al login con el motivo.
+        if (state.token) renderPasswordChange(error.message, voluntario);
       }
     });
 }
@@ -1087,7 +1225,7 @@ function renderShell(route = state.route) {
     )
     .join("");
   document.getElementById("app").innerHTML =
-    `<div class="shell"><aside class="sidebar"><div class="sidebar-header"><div class="brand" id="go-home" style="cursor:pointer"><span class="brand-mark">M</span><span>BAR DE MOE</span></div>${langSwitcherHtml()}</div><nav class="nav" aria-label="Menu principal">${links}</nav><div class="user-mini"><div><strong>${esc(state.user.nombre)}</strong><br><span style="opacity:0.85">${esc(state.user.perfil)}</span></div><button class="ghost" id="logout" style="margin-top:10px">${esc(d.logoutBtn)}</button></div></aside><main class="content"><div class="workspace-frame" id="view"></div></main></div>`;
+    `<div class="shell"><aside class="sidebar"><div class="sidebar-header"><div class="brand" id="go-home" style="cursor:pointer"><span class="brand-mark">M</span><span>BAR DE MOE</span></div>${langSwitcherHtml()}</div><nav class="nav" aria-label="Menu principal">${links}</nav><div class="user-mini"><div><strong>${esc(state.user.nombre)}</strong><br><span style="opacity:0.85">${esc(state.user.perfil)}</span></div><button class="ghost" id="change-password" style="margin-top:10px">${esc(d.changeMyPass)}</button><button class="ghost" id="logout" style="margin-top:8px">${esc(d.logoutBtn)}</button></div></aside><main class="content"><div class="workspace-frame" id="view"></div></main></div>`;
   bindLangSwitcher();
   document.getElementById("go-home")?.addEventListener("click", () => renderShell("inicio"));
   document
@@ -1101,6 +1239,9 @@ function renderShell(route = state.route) {
       }),
     );
   document.getElementById("logout").addEventListener("click", logout);
+  document
+    .getElementById("change-password")
+    .addEventListener("click", () => renderPasswordChange("", true));
   renderView();
 }
 
@@ -1115,6 +1256,7 @@ async function logout() {
 function renderView() {
   if (state.route === "inicio") return home();
   if (state.route === "usuarios") return users();
+  if (state.route === "auditoria") return auditoria();
   if (state.route === "inventario") return inventoryView();
   if (state.route === "mesas") return tablesMapView();
   if (state.route === "pedidos") return ordersPosView();
@@ -1137,50 +1279,6 @@ function home() {
   }
   document.getElementById("view").innerHTML =
     `<div class="dashboard-view"><div class="topbar"><div><p class="eyebrow">${esc(d.personalPanel)}</p><h1>${esc(d.hello)}, ${esc(state.user.nombre)}</h1></div></div><div class="profile-layout single-panel"><section class="panel profile-card"><h2>${esc(d.myInfo)}</h2><div class="profile-details"><div><span>${esc(d.fullName)}</span><strong>${esc(state.user.nombre)}</strong></div><div><span>${esc(d.idCard)}</span><strong>${esc(state.user.cedula)}</strong></div><div><span>${esc(d.usernameLabel)}</span><strong>${esc(state.user.usuario)}</strong></div><div><span>${esc(d.role)}</span><strong>${esc(state.user.perfil)}</strong></div><div><span>${esc(d.branch)}</span><strong id="home-sede">${state.user.sede_id ? `Sede #${state.user.sede_id}` : esc(d.allBranches)}</strong></div><div><span>${esc(d.status)}</span><strong><span class="badge active">${esc(state.user.estado)}</span></strong></div></div></section></div></div>`;
-}
-
-// Ensure every global product exists in every branch so branch inventory is always complete
-async function ensureProductsInAllBranches(rawProducts) {
-  if (!esAdmin() || !state.cat.sedes?.length || !rawProducts?.length) return rawProducts;
-  const byCode = new Map();
-  rawProducts.forEach((p) => {
-    if (!byCode.has(p.codigo)) byCode.set(p.codigo, p);
-  });
-  let createdAny = false;
-  for (const [codigo, template] of byCode.entries()) {
-    for (const sede of state.cat.sedes) {
-      const existsInSede = rawProducts.some(
-        (p) => p.codigo === codigo && Number(p.sede_id) === Number(sede.id),
-      );
-      if (!existsInSede) {
-        try {
-          await request("/parametrizacion/productos", {
-            method: "POST",
-            body: JSON.stringify({
-              codigo: template.codigo,
-              nombre: template.nombre,
-              sede_id: sede.id,
-              tipo_producto_id: template.tipo_producto_id,
-              proveedor_id: template.proveedor_id,
-              valor_compra: template.valor_compra,
-              valor_venta: template.valor_venta,
-              stock: 24,
-              stock_minimo: template.stock_minimo ?? 5,
-            }),
-          });
-          createdAny = true;
-        } catch {}
-      }
-    }
-  }
-  if (createdAny) {
-    try {
-      return await request("/parametrizacion/inventario?solo_activos=false");
-    } catch {
-      return await request("/parametrizacion/productos?solo_activos=false");
-    }
-  }
-  return rawProducts;
 }
 
 // ====================================================== HU-012: INVENTARIO POR SEDE
@@ -1215,14 +1313,22 @@ async function inventoryView() {
 async function loadInventory() {
   try {
     await loadCatalogs();
-    let raw = [];
-    try {
-      raw = await request("/parametrizacion/inventario?solo_activos=false");
-    } catch {
-      raw = await request("/parametrizacion/productos?solo_activos=false");
-    }
-    raw = await ensureProductsInAllBranches(raw);
-    state.items = raw.map(getEffectiveStock);
+    // CU-17 (David): existencias por sede. El catálogo global aporta el precio
+    // de venta y el tipo, que el inventario no repite.
+    const [inv, productos] = await Promise.all([
+      request("/parametrizacion/inventario?solo_activos=false"),
+      request("/parametrizacion/productos?solo_activos=false"),
+    ]);
+    const porId = new Map(productos.map((p) => [p.id, p]));
+    state.items = inv.map((i) => {
+      const p = porId.get(i.producto_id) || {};
+      return {
+        ...i,
+        clave: `${i.sede_id}-${i.producto_id}`,
+        valor_venta: p.valor_venta,
+        tipo_producto_id: p.tipo_producto_id,
+      };
+    });
     state.error = "";
     const sedeEl = document.getElementById("inv-sede-filter");
     const tipoEl = document.getElementById("inv-tipo-filter");
@@ -1236,14 +1342,15 @@ async function loadInventory() {
     }
     drawInventory();
   } catch (error) {
+    if (!state.token) return;
     state.error = error.message;
     drawInventory();
   }
 }
 
 function stockLevel(item) {
-  if ((item.stock ?? 0) <= 0) return "AGOTADO";
-  if ((item.stock ?? 0) <= (item.stock_minimo ?? 5)) return "BAJO";
+  if (item.agotado) return "AGOTADO";
+  if (item.bajo_minimo) return "BAJO";
   return "DISPONIBLE";
 }
 
@@ -1251,7 +1358,7 @@ function drawInventory() {
   const d = dict();
   const rows = (state.items || []).filter((item) => {
     const level = stockLevel(item);
-    const text = `${item.codigo} ${item.nombre} ${refName("sedes", item.sede_id)} ${refName("tipos", item.tipo_producto_id)}`.toLowerCase();
+    const text = `${item.codigo} ${item.nombre} ${refName("sedes", item.sede_id)} ${item.tipo_producto}`.toLowerCase();
     return (
       text.includes(state.filter) &&
       (!esAdmin() || !state.sedeFilter || String(item.sede_id) === state.sedeFilter) &&
@@ -1260,9 +1367,10 @@ function drawInventory() {
     );
   });
 
-  const totalRefs = rows.length;
-  const totalUnits = rows.reduce((acc, r) => acc + Number(r.stock || 0), 0);
-  const alerts = rows.filter((r) => stockLevel(r) !== "DISPONIBLE").length;
+  const activos = rows.filter((r) => r.activo);
+  const totalRefs = activos.length;
+  const totalUnits = activos.reduce((acc, r) => acc + Number(r.existencia || 0), 0);
+  const alerts = activos.filter((r) => stockLevel(r) !== "DISPONIBLE").length;
 
   const statsEl = document.getElementById("inv-stats");
   if (statsEl) {
@@ -1298,44 +1406,78 @@ function drawInventory() {
   </tr></thead><tbody>${rows
     .map((item) => {
       const level = stockLevel(item);
-      const badgeClass =
-        level === "DISPONIBLE" ? "active" : level === "BAJO" ? "warning" : "inactive";
-      const badgeText =
-        level === "DISPONIBLE"
+      const badgeClass = !item.activo
+        ? "inactive"
+        : level === "DISPONIBLE"
+          ? "active"
+          : level === "BAJO"
+            ? "warning"
+            : "inactive";
+      const badgeText = !item.activo
+        ? d.inventory.inactiveInBranch
+        : level === "DISPONIBLE"
           ? d.inventory.inStock
           : level === "BAJO"
             ? d.inventory.lowStock
             : d.inventory.outOfStock;
-      const pct = Math.min(100, Math.round((Number(item.stock || 0) / 40) * 100));
+      // La barra se llena al doble del stock mínimo, que es el nivel objetivo
+      // que usa la sugerencia de compra (HU-021).
+      const objetivo = Math.max(Number(item.stock_minimo || 0) * 2, 1);
+      const pct = Math.min(100, Math.round((Number(item.existencia || 0) / objetivo) * 100));
       const fillClass = level === "DISPONIBLE" ? "ok" : level === "BAJO" ? "low" : "out";
       return `<tr>
         <td><strong>${esc(item.codigo)}</strong></td>
         <td>${esc(item.nombre)}</td>
         <td><span class="role-badge">${esc(refName("sedes", item.sede_id))}</span></td>
-        <td>${esc(refName("tipos", item.tipo_producto_id))}</td>
-        <td>$${Number(item.valor_venta).toLocaleString()}</td>
-        <td><div class="stock-cell"><strong>${item.stock}</strong><div class="stock-bar-track"><div class="stock-bar-fill ${fillClass}" style="width:${pct}%"></div></div></div></td>
+        <td>${esc(item.tipo_producto)}</td>
+        <td>$${Number(item.valor_venta || 0).toLocaleString()}</td>
+        <td><div class="stock-cell"><strong>${item.existencia}</strong><div class="stock-bar-track"><div class="stock-bar-fill ${fillClass}" style="width:${pct}%"></div></div></div></td>
         <td>${item.stock_minimo}</td>
         <td><span class="badge ${badgeClass}">${esc(badgeText)}</span></td>
-        <td>${esAdmin() ? `<button class="ghost adjust-stock btn-uniform" data-id="${item.id}">${esc(d.inventory.adjustBtn)}</button>` : ""}</td>
+        <td>${
+          esAdmin()
+            ? `<div class="user-actions">
+                <button class="ghost adjust-stock btn-uniform" data-id="${item.clave}" ${item.activo ? "" : "disabled"}>${esc(d.inventory.adjustBtn)}</button>
+                <button class="ghost stock-moves btn-uniform" data-id="${item.clave}">${esc(d.inventory.movementsBtn)}</button>
+                <button class="ghost toggle-in-branch btn-uniform ${item.activo ? "deactivate" : "activate"}" data-id="${item.clave}" title="${esc(item.activo ? d.inventory.disableInBranch : d.inventory.enableInBranch)}">${esc(item.activo ? d.common.deactivate : d.common.activate)}</button>
+              </div>`
+            : ""
+        }</td>
       </tr>`;
     })
     .join("")}</tbody></table></div>`;
 
+  const porClave = (btn) => state.items.find((i) => i.clave === btn.dataset.id);
   document.querySelectorAll(".adjust-stock").forEach((btn) =>
     btn.addEventListener("click", () => {
-      const prod = state.items.find((i) => i.id === Number(btn.dataset.id));
-      if (prod) openInventoryModal(prod);
+      const item = porClave(btn);
+      if (item) openInventoryModal(item);
+    }),
+  );
+  document.querySelectorAll(".stock-moves").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const item = porClave(btn);
+      if (item) openMovementsModal(item);
+    }),
+  );
+  document.querySelectorAll(".toggle-in-branch").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const item = porClave(btn);
+      if (item) toggleInventoryInBranch(item);
     }),
   );
 }
 
-function openInventoryModal(prod) {
+// CU-15 (ingreso) y CU-16 (ajuste) de David. Las tres opciones de Felipe se
+// traducen a esas dos rutas: la entrada suma, la salida resta y el ajuste
+// exacto envía la diferencia contra la existencia actual.
+function openInventoryModal(item) {
   const d = dict();
   document.body.insertAdjacentHTML(
     "beforeend",
     `<div class="modal-backdrop" id="modal"><section class="modal">
-      <div class="topbar"><div><p class="eyebrow">${esc(prod.codigo)} · ${esc(refName("sedes", prod.sede_id))}</p><h2>${esc(d.inventory.modalTitle)}: ${esc(prod.nombre)}</h2></div><button class="ghost" id="close-modal">${esc(d.common.close)}</button></div>
+      <div class="topbar"><div><p class="eyebrow">${esc(item.codigo)} · ${esc(refName("sedes", item.sede_id))}</p><h2>${esc(d.inventory.modalTitle)}: ${esc(item.nombre)}</h2></div><button class="ghost" id="close-modal">${esc(d.common.close)}</button></div>
+      <p class="subtle">${esc(d.inventory.stockCol)}: <strong>${item.existencia}</strong></p>
       <form id="inv-form">
         <div class="form-grid">
           <label>${esc(d.inventory.moveType)}
@@ -1346,15 +1488,16 @@ function openInventoryModal(prod) {
             </select>
           </label>
           <label>${esc(d.inventory.qtyLabel)}
-            <input name="cantidad" type="number" min="0" max="5000" value="12" required>
+            <input name="cantidad" type="number" min="0" max="100000" value="12" required>
           </label>
           <label>${esc(d.inventory.minStockLabel)}
-            <input name="stock_minimo" type="number" min="0" max="500" value="${prod.stock_minimo ?? 5}" required>
+            <input name="stock_minimo" type="number" min="0" max="100000" value="${item.stock_minimo ?? 5}" disabled>
           </label>
           <label>${esc(d.inventory.reasonLabel)}
-            <input name="motivo" maxlength="150" placeholder="${esc(d.inventory.reasonPlaceholder)}">
+            <input name="motivo" maxlength="200" placeholder="${esc(d.inventory.reasonPlaceholder)}" required>
           </label>
         </div>
+        <p class="subtle">${esc(d.inventory.minOnlyWithAdjust)}</p>
         <div id="form-error"></div>
         <div class="modal-actions">
           <button type="button" class="ghost" id="cancel-modal">${esc(d.common.cancel)}</button>
@@ -1364,42 +1507,87 @@ function openInventoryModal(prod) {
     </section></div>`,
   );
   const close = () => document.getElementById("modal")?.remove();
+  const formEl = document.getElementById("inv-form");
   document.getElementById("close-modal").addEventListener("click", close);
   document.getElementById("cancel-modal").addEventListener("click", close);
-  document.getElementById("inv-form").addEventListener("submit", async (e) => {
+  formEl.tipo.addEventListener("change", () => {
+    formEl.stock_minimo.disabled = formEl.tipo.value === "ENTRADA";
+  });
+  formEl.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const values = Object.fromEntries(new FormData(e.target));
-    const payload = {
-      tipo: values.tipo,
-      cantidad: Number(values.cantidad),
-      stock_minimo: Number(values.stock_minimo),
-      motivo: values.motivo || null,
+    const tipo = formEl.tipo.value,
+      cantidad = Number(formEl.cantidad.value),
+      motivo = formEl.motivo.value.trim();
+    const error = (texto) => {
+      document.getElementById("form-error").innerHTML = `<p class="error">${esc(texto)}</p>`;
     };
+    if (!motivo) return error(d.inventory.reasonRequired);
+    const base = { sede_id: item.sede_id, producto_id: item.producto_id, motivo };
+    let ruta, cuerpo;
+    if (tipo === "ENTRADA") {
+      ruta = "/parametrizacion/inventario/ingresos";
+      cuerpo = { ...base, cantidad };
+    } else {
+      const delta = tipo === "SALIDA" ? -cantidad : cantidad - Number(item.existencia || 0);
+      if (delta === 0) return error(d.inventory.noChange);
+      ruta = "/parametrizacion/inventario/ajustes";
+      cuerpo = { ...base, cantidad: delta, stock_minimo: Number(formEl.stock_minimo.value) };
+    }
     try {
-      try {
-        const updated = await request(`/parametrizacion/inventario/${prod.id}/ajustar`, {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-        saveLocalStock(prod.id, updated.stock, updated.stock_minimo);
-      } catch {
-        const cur = prod.stock ?? 24;
-        let next = cur;
-        if (payload.tipo === "ENTRADA") next = cur + payload.cantidad;
-        else if (payload.tipo === "SALIDA") {
-          if (payload.cantidad > cur) {
-            throw Error(ERROR_MESSAGES[state.lang].STOCK_INSUFICIENTE);
-          }
-          next = cur - payload.cantidad;
-        } else next = payload.cantidad;
-        saveLocalStock(prod.id, next, payload.stock_minimo);
-      }
+      await request(ruta, { method: "POST", body: JSON.stringify(cuerpo) });
       close();
       await loadInventory();
-    } catch (error) {
-      document.getElementById("form-error").innerHTML = `<p class="error">${esc(error.message)}</p>`;
+    } catch (err) {
+      if (state.token) error(err.message);
     }
   });
+}
+
+// CU-32: historial de movimientos del producto en la sede (solo lectura).
+async function openMovementsModal(item) {
+  const d = dict();
+  let filas = [],
+    error = "";
+  try {
+    filas = await request(
+      `/parametrizacion/inventario/movimientos?sede_id=${item.sede_id}&producto_id=${item.producto_id}`,
+    );
+  } catch (e) {
+    if (!state.token) return;
+    error = e.message;
+  }
+  const cuerpo = error
+    ? `<p class="error">${esc(error)}</p>`
+    : filas.length
+      ? `<div class="table-wrap"><table><thead><tr><th>${esc(d.inventory.colDate)}</th><th>${esc(d.inventory.colType)}</th><th>${esc(d.inventory.colQty)}</th><th>${esc(d.inventory.colBefore)}</th><th>${esc(d.inventory.colAfter)}</th><th>${esc(d.inventory.colReason)}</th><th>${esc(d.inventory.colUser)}</th></tr></thead><tbody>${filas
+          .map(
+            (m) =>
+              `<tr><td>${esc(fechaLocal(m.creado_en))}</td><td><span class="role-badge">${esc(m.tipo)}</span></td><td><strong>${m.cantidad > 0 ? "+" : ""}${m.cantidad}</strong></td><td>${m.existencia_anterior}</td><td>${m.existencia_resultante}</td><td>${esc(m.motivo)}</td><td>${esc(m.usuario || "")}</td></tr>`,
+          )
+          .join("")}</tbody></table></div>`
+      : `<div class="empty">${esc(d.inventory.noMovements)}</div>`;
+  document.body.insertAdjacentHTML(
+    "beforeend",
+    `<div class="modal-backdrop" id="modal"><section class="modal modal-wide"><div class="topbar"><div><p class="eyebrow">${esc(item.codigo)} · ${esc(refName("sedes", item.sede_id))}</p><h2>${esc(d.inventory.movementsTitle)}: ${esc(item.nombre)}</h2></div><button class="ghost" id="close-modal">${esc(d.common.close)}</button></div>${cuerpo}</section></div>`,
+  );
+  document.getElementById("close-modal").addEventListener("click", () => document.getElementById("modal")?.remove());
+}
+
+// "Inactivar en todo" (corrección del docente): el producto deja de venderse
+// solo en esta sede; el catálogo global y las otras sedes no cambian.
+async function toggleInventoryInBranch(item) {
+  const accion = item.activo ? "inactivar" : "activar";
+  try {
+    await request(
+      `/parametrizacion/inventario/sedes/${item.sede_id}/productos/${item.producto_id}/${accion}`,
+      { method: "POST" },
+    );
+    await loadInventory();
+  } catch (error) {
+    if (!state.token) return;
+    state.error = error.message;
+    drawInventory();
+  }
 }
 
 // ====================================================== HU-013: MAPA DE MESAS DE LA SEDE (3xN Grid + Working Free Table + Equal Buttons)
@@ -1474,13 +1662,9 @@ async function tablesMapView() {
   await loadTablesMap();
 }
 
-async function fetchOrdersList() {
-  try {
-    const apiOrders = await request("/parametrizacion/pedidos");
-    return apiOrders;
-  } catch {
-    return readJson(LOCAL_ORDERS_KEY, localStorage) || [];
-  }
+// HU-013: los pedidos abiertos dicen qué mesa está ocupada y por cuánto.
+async function fetchOpenOrders() {
+  return request("/parametrizacion/pedidos?estado=ABIERTO");
 }
 
 async function loadTablesMap() {
@@ -1488,10 +1672,10 @@ async function loadTablesMap() {
     await loadCatalogs();
     const [rawMesas, orders] = await Promise.all([
       request("/parametrizacion/mesas"),
-      fetchOrdersList(),
+      fetchOpenOrders(),
     ]);
     state.orders = orders;
-    state.items = rawMesas.map(getEffectiveMesa);
+    state.items = rawMesas;
     state.error = "";
     const sedeEl = document.getElementById("mesa-sede-filter");
     if (sedeEl) {
@@ -1502,9 +1686,28 @@ async function loadTablesMap() {
     if (estEl) estEl.value = state.mesaEstadoFilter;
     drawTablesMap();
   } catch (error) {
+    if (!state.token) return;
     state.error = error.message;
     drawTablesMap();
   }
+}
+
+function openOrderOf(mesaId) {
+  return (state.orders || []).find((o) => o.mesa_id === mesaId && o.estado === "ABIERTO");
+}
+// El mesero y el administrador toman pedidos (CU-20); el cajero solo los consulta.
+function canTakeOrders() {
+  return state.user?.perfil !== "CAJERO";
+}
+// Liberar u ocupar a mano solo lo hace el administrador y solo si no hay un
+// pedido abierto: el servidor lo rechaza con MESA_CON_PEDIDO_ABIERTO.
+function canToggleMesa(m) {
+  return esAdmin() && m.activa !== false && !openOrderOf(m.id);
+}
+function orderButton(m, d, extraClass = "") {
+  const abierto = openOrderOf(m.id);
+  if (!canTakeOrders() && !abierto) return "";
+  return `<button type="button" class="primary go-order-mesa ${extraClass}" data-id="${m.id}">${esc(abierto ? d.tables.viewOrder : d.tables.takeOrder)}</button>`;
 }
 
 function drawTablesMap() {
@@ -1557,8 +1760,8 @@ function drawTablesMap() {
         <td>${m.capacidad} ${esc(d.tables.people)}</td>
         <td><span class="badge ${m.estado === "LIBRE" ? "active" : "warning"}">${esc(m.estado === "LIBRE" ? d.tables.free : d.tables.occupied)}</span></td>
         <td><div class="user-actions">
-          <button class="primary go-order-mesa btn-uniform" data-id="${m.id}">${esc(m.estado === "LIBRE" ? d.tables.takeOrder : d.tables.viewOrder)}</button>
-          <button class="ghost toggle-mesa-state btn-uniform" data-id="${m.id}" data-next="${m.estado === "LIBRE" ? "OCUPADA" : "LIBRE"}">${esc(m.estado === "LIBRE" ? d.tables.markOccupied : d.tables.markFree)}</button>
+          ${m.activa !== false ? orderButton(m, d, "btn-uniform") : ""}
+          ${canToggleMesa(m) ? `<button class="ghost toggle-mesa-state btn-uniform" data-id="${m.id}" data-next="${m.estado === "LIBRE" ? "OCUPADA" : "LIBRE"}">${esc(m.estado === "LIBRE" ? d.tables.markOccupied : d.tables.markFree)}</button>` : ""}
           ${esAdmin() ? `<button class="ghost edit-mesa btn-uniform" data-id="${m.id}">${esc(d.common.edit)}</button>` : ""}
         </div></td>
       </tr>`,
@@ -1569,15 +1772,9 @@ function drawTablesMap() {
       .map((m) => {
         const isFree = m.estado === "LIBRE";
         const cardClass = !m.activa ? "inactiva" : isFree ? "libre" : "ocupada";
-        const activeOrder = isFree
-          ? null
-          : (state.orders || []).find(
-              (o) =>
-                o.mesa_id === m.id &&
-                (o.estado === "ABIERTO" || o.estado === "ENTREGADO"),
-            );
+        const activeOrder = openOrderOf(m.id);
         const itemsCount = activeOrder
-          ? (activeOrder.detalles || []).reduce((a, b) => a + Number(b.cantidad || 0), 0)
+          ? (activeOrder.lineas || []).reduce((a, b) => a + Number(b.cantidad || 0), 0)
           : 0;
         const orderBadge = activeOrder
           ? `<div class="mesa-order-pill">${esc(
@@ -1602,8 +1799,8 @@ function drawTablesMap() {
           <div class="mesa-card-actions">
             ${
               m.activa
-                ? `<button type="button" class="primary go-order-mesa" data-id="${m.id}">${esc(isFree ? d.tables.takeOrder : d.tables.viewOrder)}</button>
-                   <button type="button" class="ghost toggle-mesa-state" data-id="${m.id}" data-next="${isFree ? "OCUPADA" : "LIBRE"}">${esc(isFree ? d.tables.markOccupied : d.tables.markFree)}</button>`
+                ? `${orderButton(m, d)}
+                   ${canToggleMesa(m) ? `<button type="button" class="ghost toggle-mesa-state" data-id="${m.id}" data-next="${isFree ? "OCUPADA" : "LIBRE"}">${esc(isFree ? d.tables.markOccupied : d.tables.markFree)}</button>` : ""}`
                 : ""
             }
             ${esAdmin() ? `<button type="button" class="ghost edit-mesa" data-id="${m.id}">${esc(d.common.edit)}</button>` : ""}
@@ -1636,55 +1833,13 @@ function drawTablesMap() {
 
 async function changeMesaState(mesaId, nuevoEstado) {
   try {
-    let backendUpdated = false;
-    try {
-      await request(`/parametrizacion/mesas/${mesaId}/estado`, {
-        method: "POST",
-        body: JSON.stringify({ estado: nuevoEstado }),
-      });
-      backendUpdated = true;
-    } catch {
-      if (esAdmin()) {
-        try {
-          await request(`/parametrizacion/mesas/${mesaId}`, {
-            method: "PATCH",
-            body: JSON.stringify({ estado: nuevoEstado }),
-          });
-          backendUpdated = true;
-        } catch {}
-      }
-    }
-
-    if (nuevoEstado === "LIBRE") {
-      const openOrders = (state.orders || []).filter(
-        (o) =>
-          o.mesa_id === mesaId &&
-          (o.estado === "ABIERTO" || o.estado === "ENTREGADO"),
-      );
-      for (const ord of openOrders) {
-        try {
-          await request(`/parametrizacion/pedidos/${ord.id}/estado`, {
-            method: "POST",
-            body: JSON.stringify({ estado: "CERRADO" }),
-          });
-        } catch {}
-      }
-      const localOrders = readJson(LOCAL_ORDERS_KEY, localStorage) || [];
-      localOrders.forEach((o) => {
-        if (o.mesa_id === mesaId && (o.estado === "ABIERTO" || o.estado === "ENTREGADO")) {
-          o.estado = "CERRADO";
-        }
-      });
-      writeLocalMap(LOCAL_ORDERS_KEY, localOrders);
-    }
-
-    if (backendUpdated) {
-      clearLocalMesaState(mesaId);
-    } else {
-      saveLocalMesaState(mesaId, nuevoEstado);
-    }
+    await request(`/parametrizacion/mesas/${mesaId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ estado: nuevoEstado }),
+    });
     await loadTablesMap();
   } catch (error) {
+    if (!state.token) return;
     state.error = error.message;
     drawTablesMap();
   }
@@ -1723,7 +1878,6 @@ async function ordersPosView() {
         <select id="pos-order-state-filter">
           <option value="">${esc(d.orders.allOrderStates)}</option>
           <option value="ABIERTO">${esc(d.orders.stateOpen)}</option>
-          <option value="ENTREGADO">${esc(d.orders.stateDelivered)}</option>
           <option value="CERRADO">${esc(d.orders.stateClosed)}</option>
         </select>
       </div>
@@ -1732,16 +1886,7 @@ async function ordersPosView() {
 
   document.getElementById("go-map-from-pos").addEventListener("click", () => renderShell("mesas"));
   document.getElementById("pos-refresh").addEventListener("click", loadOrdersPos);
-  document.getElementById("pos-mesa-select").addEventListener("change", (e) => {
-    const newMesaId = e.target.value;
-    const prevMesa = (state.mesasList || []).find((m) => String(m.id) === String(state.selectedMesaId));
-    const nextMesa = (state.mesasList || []).find((m) => String(m.id) === String(newMesaId));
-    if (prevMesa && nextMesa && prevMesa.sede_id !== nextMesa.sede_id) {
-      state.cart = [];
-    }
-    state.selectedMesaId = newMesaId;
-    drawOrdersPos();
-  });
+  document.getElementById("pos-mesa-select").addEventListener("change", (e) => selectPosMesa(e.target.value));
   document.getElementById("pos-search").addEventListener("input", (e) => {
     state.filter = e.target.value.toLowerCase();
     drawOrdersPos();
@@ -1761,29 +1906,23 @@ async function ordersPosView() {
 async function loadOrdersPos() {
   try {
     await loadCatalogs();
-    let rawProducts = [];
-    try {
-      rawProducts = await request("/parametrizacion/inventario?solo_activos=true");
-    } catch {
-      rawProducts = await request("/parametrizacion/productos?solo_activos=true");
-    }
-    rawProducts = await ensureProductsInAllBranches(rawProducts);
     if (esAdmin() && !state.users.length) {
       try {
-        state.users = await request("/auth/usuarios");
+        state.users = await request("/auth/usuarios?tamano=500");
       } catch {}
     }
     const [rawMesas, orders] = await Promise.all([
       request("/parametrizacion/mesas"),
-      fetchOrdersList(),
+      request("/parametrizacion/pedidos"),
     ]);
-    state.items = rawProducts.filter((p) => p.activo !== false).map(getEffectiveStock);
-    state.mesasList = rawMesas.map(getEffectiveMesa).filter((m) => m.activa !== false);
+    state.mesasList = rawMesas.filter((m) => m.activa !== false);
     state.orders = orders;
 
     if (!state.selectedMesaId && state.mesasList.length) {
       state.selectedMesaId = String(state.mesasList[0].id);
     }
+    await loadPosProducts();
+    state.error = "";
 
     const tipoEl = document.getElementById("pos-tipo-filter");
     if (tipoEl) {
@@ -1794,9 +1933,43 @@ async function loadOrdersPos() {
     drawOrdersPos();
     drawOrdersHistory();
   } catch (error) {
+    if (!state.token) return;
     state.error = error.message;
     drawOrdersPos();
   }
+}
+
+function selectedPosMesa() {
+  return (state.mesasList || []).find((m) => String(m.id) === String(state.selectedMesaId));
+}
+
+// CU-17: el catálogo de la toma de pedido es el de la sede de la mesa, con su
+// existencia. Solo trae lo que se vende en esa sede (activo en la sede).
+async function loadPosProducts() {
+  const mesa = selectedPosMesa();
+  const sedeId = mesa ? mesa.sede_id : state.user?.sede_id;
+  if (!sedeId) {
+    state.items = [];
+    return;
+  }
+  const productos = await request(`/parametrizacion/productos?sede_id=${sedeId}`);
+  state.items = productos.map((p) => ({ ...p, stock: Number(p.existencia || 0) }));
+}
+
+async function selectPosMesa(mesaId) {
+  const antes = selectedPosMesa();
+  state.selectedMesaId = String(mesaId || "");
+  const despues = selectedPosMesa();
+  if (!antes || !despues || antes.sede_id !== despues.sede_id) {
+    state.cart = [];
+    try {
+      await loadPosProducts();
+    } catch (error) {
+      if (!state.token) return;
+      state.error = error.message;
+    }
+  }
+  drawOrdersPos();
 }
 
 function drawOrdersPos() {
@@ -1811,9 +1984,7 @@ function drawOrdersPos() {
   }
 
   const mesaSelect = document.getElementById("pos-mesa-select");
-  const selectedMesa = (state.mesasList || []).find(
-    (m) => String(m.id) === String(state.selectedMesaId),
-  );
+  const selectedMesa = selectedPosMesa();
   if (mesaSelect) {
     mesaSelect.innerHTML =
       `<option value="">${esc(d.orders.selectTablePrompt)}</option>` +
@@ -1825,15 +1996,13 @@ function drawOrdersPos() {
         .join("");
   }
 
-  const targetSedeId = selectedMesa ? selectedMesa.sede_id : state.user?.sede_id;
+  const puedeTomar = canTakeOrders();
   const catalog = (state.items || []).filter((p) => {
-    const matchSede = !targetSedeId || p.sede_id === Number(targetSedeId);
     const matchTipo = !state.tipoFilter || String(p.tipo_producto_id) === state.tipoFilter;
     const matchText = `${p.codigo} ${p.nombre}`.toLowerCase().includes(state.filter);
-    return matchSede && matchTipo && matchText;
+    return matchTipo && matchText;
   });
 
-  // Render products as a clean List / Table (not a grid)
   const catalogEl = document.getElementById("pos-catalog");
   if (catalogEl) {
     catalogEl.innerHTML = catalog.length
@@ -1853,10 +2022,10 @@ function drawOrdersPos() {
               <td><span class="role-badge">${esc(p.codigo)}</span></td>
               <td><strong>${esc(p.nombre)}</strong></td>
               <td>${esc(refName("tipos", p.tipo_producto_id))}</td>
-              <td><span class="badge ${remaining > (p.stock_minimo ?? 5) ? "active" : remaining > 0 ? "warning" : "inactive"}">${remaining}</span></td>
+              <td><span class="badge ${remaining > 5 ? "active" : remaining > 0 ? "warning" : "inactive"}">${remaining}</span></td>
               <td><strong>$${Number(p.valor_venta).toLocaleString()}</strong></td>
               <td style="text-align:right">
-                <button type="button" class="primary add-to-cart btn-uniform" data-id="${p.id}" ${isOut ? "disabled" : ""}>${esc(isOut ? d.orders.outBtn : d.orders.addBtn)}</button>
+                ${puedeTomar ? `<button type="button" class="primary add-to-cart btn-uniform" data-id="${p.id}" ${isOut || !selectedMesa ? "disabled" : ""}>${esc(isOut ? d.orders.outBtn : d.orders.addBtn)}</button>` : ""}
               </td>
             </tr>`;
           })
@@ -1871,11 +2040,16 @@ function drawOrdersPos() {
   const ticketEl = document.getElementById("pos-ticket-body");
   if (!ticketEl) return;
 
+  if (!puedeTomar) {
+    ticketEl.innerHTML = `<p class="subtle">${esc(d.orders.cashierHint)}</p>`;
+    return;
+  }
   if (!selectedMesa) {
     ticketEl.innerHTML = `<p class="subtle">${esc(d.orders.noTableSelected)}</p>`;
     return;
   }
 
+  const abierto = openOrderOf(selectedMesa.id);
   const total = state.cart.reduce(
     (sum, item) => sum + item.cantidad * Number(item.valor_venta),
     0,
@@ -1885,6 +2059,16 @@ function drawOrdersPos() {
     <div style="margin-bottom:10px;padding:10px 12px;border-radius:14px;background:var(--cream-surface);border:1px solid var(--cream-border)">
       <strong>Mesa #${selectedMesa.numero}</strong> · ${esc(refName("sedes", selectedMesa.sede_id))}
       <span class="badge ${selectedMesa.estado === "LIBRE" ? "active" : "warning"}" style="float:right">${esc(selectedMesa.estado === "LIBRE" ? d.tables.free : d.tables.occupied)}</span>
+      ${
+        abierto
+          ? `<div class="subtle" style="margin-top:6px;font-size:0.78rem">${esc(
+              d.tables.activeOrderBadge
+                .replace("{id}", abierto.id)
+                .replace("{total}", Number(abierto.total).toLocaleString())
+                .replace("{items}", (abierto.lineas || []).reduce((a, l) => a + l.cantidad, 0)),
+            )}<br>${esc(d.orders.closesAtBilling)}</div>`
+          : ""
+      }
     </div>
     ${
       state.cart.length
@@ -1905,10 +2089,6 @@ function drawOrdersPos() {
             .join("")}</div>`
         : `<p class="subtle" style="margin:18px 0">${esc(d.orders.emptyCart)}</p>`
     }
-    <label style="display:grid;gap:6px;font-size:0.8rem;font-weight:700;margin-top:10px">
-      ${esc(d.orders.notesLabel)}
-      <input id="pos-order-note" value="${esc(state.orderNote)}" placeholder="${esc(d.orders.notesPlaceholder)}" style="padding:10px 14px;border-radius:14px;border:1px solid var(--cream-border);background:var(--cream-input)">
-    </label>
     <div class="order-total-row">
       <span>${esc(d.orders.totalLabel)}</span>
       <span>$${total.toLocaleString()}</span>
@@ -1919,9 +2099,6 @@ function drawOrdersPos() {
     </div>
   `;
 
-  document.getElementById("pos-order-note")?.addEventListener("input", (e) => {
-    state.orderNote = e.target.value;
-  });
   document.querySelectorAll(".cart-inc").forEach((btn) =>
     btn.addEventListener("click", () => addToCart(Number(btn.dataset.id))),
   );
@@ -1977,6 +2154,9 @@ function decFromCart(productId) {
   drawOrdersPos();
 }
 
+// CU-20, CU-21 y CU-18 (David): POST /pedidos abre el pedido de la mesa o, si
+// ya tenía uno abierto, le agrega las líneas. Verifica y descuenta la
+// existencia en una sola transacción: entran todas las líneas o ninguna.
 async function submitOrder() {
   const d = dict();
   if (!state.selectedMesaId) {
@@ -1989,76 +2169,25 @@ async function submitOrder() {
     drawOrdersPos();
     return;
   }
-  const selectedMesa = (state.mesasList || []).find(
-    (m) => String(m.id) === String(state.selectedMesaId),
-  );
-  const payload = {
-    mesa_id: Number(state.selectedMesaId),
-    mesero_nombre: state.user?.nombre || state.user?.usuario,
-    observaciones: state.orderNote || null,
-    items: state.cart.map((c) => ({
-      producto_id: c.producto_id,
-      cantidad: c.cantidad,
-    })),
-  };
-
+  const mesaId = Number(state.selectedMesaId);
+  const yaAbierto = openOrderOf(mesaId);
   try {
-    let createdOrder = null;
-    try {
-      createdOrder = await request("/parametrizacion/pedidos", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      state.cart.forEach((c) => {
-        const prod = state.items.find((p) => p.id === c.producto_id);
-        if (prod) {
-          saveLocalStock(prod.id, Math.max(0, prod.stock - c.cantidad), prod.stock_minimo);
-        }
-      });
-      clearLocalMesaState(payload.mesa_id);
-    } catch (apiErr) {
-      if (/No existe|404|Not Found/i.test(apiErr.message)) {
-        const localOrders = readJson(LOCAL_ORDERS_KEY, localStorage) || [];
-        const total = state.cart.reduce((s, c) => s + c.cantidad * c.valor_venta, 0);
-        createdOrder = {
-          id: (localOrders[0]?.id || 100) + 1,
-          sede_id: selectedMesa?.sede_id || state.user?.sede_id || 1,
-          mesa_id: payload.mesa_id,
-          mesero: state.user?.nombre || state.user?.usuario || "Mesero",
-          estado: "ABIERTO",
-          observaciones: payload.observaciones,
-          total,
-          creado_en: new Date().toISOString(),
-          detalles: state.cart.map((c, idx) => ({
-            id: idx + 1,
-            producto_id: c.producto_id,
-            codigo_producto: c.codigo,
-            nombre_producto: c.nombre,
-            cantidad: c.cantidad,
-            precio_unitario: c.valor_venta,
-            subtotal: c.cantidad * c.valor_venta,
-          })),
-        };
-        localOrders.unshift(createdOrder);
-        writeLocalMap(LOCAL_ORDERS_KEY, localOrders);
-        state.cart.forEach((c) => {
-          const prod = state.items.find((p) => p.id === c.producto_id);
-          if (prod) {
-            saveLocalStock(prod.id, Math.max(0, prod.stock - c.cantidad), prod.stock_minimo);
-          }
-        });
-        saveLocalMesaState(payload.mesa_id, "OCUPADA");
-      } else {
-        throw apiErr;
-      }
-    }
-
+    const pedido = await request("/parametrizacion/pedidos", {
+      method: "POST",
+      body: JSON.stringify({
+        mesa_id: mesaId,
+        lineas: state.cart.map((c) => ({ producto_id: c.producto_id, cantidad: c.cantidad })),
+      }),
+    });
     state.cart = [];
-    state.orderNote = "";
     state.error = "";
-    state.orderBanner = d.orders.orderCreatedSuccess.replace("{id}", createdOrder.id);
+    state.orderBanner = (yaAbierto ? d.orders.addedToOrder : d.orders.orderCreatedSuccess).replace(
+      "{id}",
+      pedido.id,
+    );
     await loadOrdersPos();
   } catch (error) {
+    if (!state.token) return;
     state.error = error.message;
     drawOrdersPos();
   }
@@ -2078,12 +2207,11 @@ function drawOrdersHistory() {
     return;
   }
 
-  const stateBadge = (st) => {
-    if (st === "ABIERTO") return `<span class="badge warning">${esc(d.orders.stateOpen)}</span>`;
-    if (st === "ENTREGADO") return `<span class="badge active">${esc(d.orders.stateDelivered)}</span>`;
-    if (st === "CERRADO") return `<span class="role-badge">${esc(d.orders.stateClosed)}</span>`;
-    return `<span class="badge inactive">${esc(d.orders.stateCancelled)}</span>`;
-  };
+  const stateBadge = (st) =>
+    st === "ABIERTO"
+      ? `<span class="badge warning">${esc(d.orders.stateOpen)}</span>`
+      : `<span class="role-badge">${esc(d.orders.stateClosed)}</span>`;
+  const puedeCobrar = state.user?.perfil !== "MESERO";
 
   tableEl.innerHTML = `<div class="table-wrap"><table><thead><tr>
     <th>${esc(d.orders.colOrder)}</th>
@@ -2098,75 +2226,84 @@ function drawOrdersHistory() {
     .map((o) => {
       const mesaObj = (state.mesasList || []).find((m) => m.id === o.mesa_id);
       const mesaLabel = mesaObj ? `Mesa #${mesaObj.numero}` : `Mesa #${o.mesa_id}`;
-      const summary = (o.detalles || [])
-        .map((det) => `${det.cantidad}x ${det.nombre_producto}`)
-        .join(", ");
-      const canOperate = o.estado === "ABIERTO" || o.estado === "ENTREGADO";
+      // Cada vez que se agregan productos queda una línea nueva (CU-21); en el
+      // resumen se agrupan por producto para que se lea como una comanda.
+      const porProducto = new Map();
+      (o.lineas || []).forEach((l) =>
+        porProducto.set(l.nombre, (porProducto.get(l.nombre) || 0) + Number(l.cantidad)),
+      );
+      const summary = [...porProducto].map(([nombre, cant]) => `${cant}x ${nombre}`).join(", ");
+      const abierto = o.estado === "ABIERTO";
       return `<tr>
         <td><strong>#${o.id}</strong></td>
         <td>${esc(mesaLabel)}</td>
         <td>${esc(refName("sedes", o.sede_id))}</td>
         <td><strong>${esc(resolveUserFullName(o.mesero))}</strong></td>
-        <td>${esc(summary)}${o.observaciones ? `<div class="subtle" style="font-size:0.74rem;display:flex;align-items:center;gap:4px;margin-top:3px">${ICON_SVG.note} <span>${esc(o.observaciones)}</span></div>` : ""}</td>
+        <td>${esc(summary)}</td>
         <td><strong>$${Number(o.total).toLocaleString()}</strong></td>
         <td>${stateBadge(o.estado)}</td>
         <td><div class="user-actions">
-          ${o.estado === "ABIERTO" ? `<button class="ghost order-state-btn btn-uniform" data-id="${o.id}" data-state="ENTREGADO">${esc(d.orders.deliverBtn)}</button>` : ""}
-          ${canOperate ? `<button class="ghost activate order-state-btn btn-uniform" data-id="${o.id}" data-state="CERRADO">${esc(d.orders.closeOrderBtn)}</button>` : ""}
+          ${abierto && canTakeOrders() ? `<button class="ghost add-to-order btn-uniform" data-mesa="${o.mesa_id}">${esc(d.orders.addToOrderBtn)}</button>` : ""}
+          ${abierto && puedeCobrar ? `<button class="ghost order-change btn-uniform" data-id="${o.id}">${esc(d.orders.changeBtn)}</button>` : ""}
         </div></td>
       </tr>`;
     })
     .join("")}</tbody></table></div>`;
 
-  document.querySelectorAll(".order-state-btn").forEach((btn) =>
+  document.querySelectorAll(".add-to-order").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      await selectPosMesa(btn.dataset.mesa);
+      document.getElementById("view")?.scrollIntoView({ behavior: "smooth" });
+    }),
+  );
+  document.querySelectorAll(".order-change").forEach((btn) =>
     btn.addEventListener("click", () =>
-      updateOrderState(Number(btn.dataset.id), btn.dataset.state),
+      askChange((state.orders || []).find((o) => o.id === Number(btn.dataset.id))),
     ),
   );
 }
 
-async function updateOrderState(orderId, nextState) {
+// Algoritmo 5 de David (voraz de monedas): vueltas en billetes y monedas
+// colombianos. Prepara el cobro de HU-023 (Sprint 3).
+async function askChange(order) {
+  if (!order) return;
+  const d = dict();
+  const total = Number(order.total);
+  const valor = window.prompt(d.orders.changePrompt.replace("{total}", total.toLocaleString()));
+  if (!valor) return;
+  const pagado = Number(String(valor).replace(/\D/g, ""));
   try {
-    const targetOrder = (state.orders || []).find((o) => o.id === orderId);
-    try {
-      await request(`/parametrizacion/pedidos/${orderId}/estado`, {
-        method: "POST",
-        body: JSON.stringify({ estado: nextState }),
-      });
-      if (targetOrder && (nextState === "CERRADO" || nextState === "CANCELADO")) {
-        clearLocalMesaState(targetOrder.mesa_id);
-      }
-    } catch {
-      const localOrders = readJson(LOCAL_ORDERS_KEY, localStorage) || [];
-      const target = localOrders.find((o) => o.id === orderId);
-      if (target) {
-        if (nextState === "CANCELADO" && target.estado !== "CANCELADO") {
-          (target.detalles || []).forEach((det) => {
-            const prod = state.items.find((p) => p.id === det.producto_id);
-            if (prod) {
-              saveLocalStock(prod.id, (prod.stock || 0) + det.cantidad, prod.stock_minimo);
-            }
-          });
-        }
-        target.estado = nextState;
-        if (nextState === "CERRADO" || nextState === "CANCELADO") {
-          saveLocalMesaState(target.mesa_id, "LIBRE");
-        }
-        writeLocalMap(LOCAL_ORDERS_KEY, localOrders);
-      }
-    }
-    await loadOrdersPos();
+    const r = await request(`/parametrizacion/pedidos/${order.id}/cambio?pagado=${pagado}`);
+    const piezas =
+      r.piezas.map((p) => `${p.cantidad} × $${Number(p.denominacion).toLocaleString()}`).join(", ") ||
+      "—";
+    state.orderBanner = d.orders.changeResult
+      .replace("{id}", r.pedido_id)
+      .replace("{cambio}", Number(r.cambio).toLocaleString())
+      .replace("{piezas}", piezas);
+    state.error = "";
   } catch (error) {
+    if (!state.token) return;
     state.error = error.message;
-    drawOrdersPos();
+    state.orderBanner = "";
   }
+  drawOrdersPos();
 }
 
 // ====================================================== USUARIOS (Full CRUD + Full Names)
 async function users() {
   const d = dict();
   document.getElementById("view").innerHTML =
-    `<div class="topbar"><div><p class="eyebrow">${esc(d.common.security)}</p><h1>${esc(d.users.title)}</h1></div><div class="topbar-actions"><button class="primary" id="new-user">${esc(d.users.newBtn)}</button></div></div><section class="panel"><div class="toolbar"><input id="user-search" placeholder="${esc(d.users.searchPlaceholder)}" aria-label="${esc(d.users.searchPlaceholder)}"><button class="ghost" id="refresh-users">${esc(d.common.refresh)}</button></div><div id="users-table"></div></section>`;
+    `<div class="topbar"><div><p class="eyebrow">${esc(d.common.security)}</p><h1>${esc(d.users.title)}</h1></div><div class="topbar-actions"><button class="primary" id="new-user">${esc(d.users.newBtn)}</button></div></div><section class="panel"><div class="toolbar"><input id="user-search" placeholder="${esc(d.users.searchPlaceholder)}" aria-label="${esc(d.users.searchPlaceholder)}"><select id="user-sede" aria-label="${esc(d.fields.sede_id)}"></select><select id="user-perfil" aria-label="${esc(d.fields.perfil)}"><option value="">${esc(d.users.allProfiles)}</option><option value="ADMINISTRADOR">ADMINISTRADOR</option><option value="CAJERO">CAJERO</option><option value="MESERO">MESERO</option></select><button class="ghost" id="refresh-users">${esc(d.common.refresh)}</button></div><div id="users-table"></div><div class="toolbar" id="users-pager"></div></section>`;
+  // HU-007 criterio 4 (Angel): filtro por sede y perfil en el servidor, paginado.
+  document.getElementById("user-perfil").value = state.userQuery.perfil;
+  ["sede", "perfil"].forEach((campo) =>
+    document.getElementById(`user-${campo}`).addEventListener("change", (event) => {
+      state.userQuery[campo === "sede" ? "sede_id" : "perfil"] = event.target.value;
+      state.userQuery.pagina = 1;
+      loadUsers();
+    }),
+  );
   document
     .getElementById("new-user")
     .addEventListener("click", () => userForm());
@@ -2183,7 +2320,17 @@ async function users() {
 async function loadUsers() {
   try {
     await loadCatalogs();
-    state.users = await request("/auth/usuarios");
+    const sede = document.getElementById("user-sede");
+    if (sede) {
+      sede.innerHTML = refOptions("sedes", state.userQuery.sede_id, dict().common.allBranchesFilter);
+      sede.value = state.userQuery.sede_id;
+    }
+    const q = state.userQuery,
+      params = new URLSearchParams({ pagina: q.pagina, tamano: TAMANO_PAGINA });
+    if (q.sede_id) params.set("sede_id", q.sede_id);
+    if (q.perfil) params.set("perfil", q.perfil);
+    state.users = await request(`/auth/usuarios?${params}`);
+    state.usersTotal = state.lastTotal;
     state.error = "";
     drawUsers();
   } catch (error) {
@@ -2194,8 +2341,21 @@ async function loadUsers() {
   }
 }
 
+// Botones Anterior / Siguiente para un listado paginado por el servidor (Angel).
+function drawPager(id, pagina, total, irA) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const d = dict();
+  const paginas = Math.max(1, Math.ceil(total / TAMANO_PAGINA));
+  el.innerHTML = `<button class="ghost" data-pag="-1" ${pagina <= 1 ? "disabled" : ""}>${esc(d.pager.prev)}</button><span class="subtle">${esc(d.pager.pageOf.replace("{p}", pagina).replace("{n}", paginas).replace("{t}", total))}</span><button class="ghost" data-pag="1" ${pagina >= paginas ? "disabled" : ""}>${esc(d.pager.next)}</button>`;
+  el.querySelectorAll("[data-pag]").forEach((button) =>
+    button.addEventListener("click", () => irA(pagina + Number(button.dataset.pag))),
+  );
+}
+
 function drawUsers() {
   const d = dict();
+  if (!document.getElementById("users-table")) return;
   const usersList = (state.users || []).filter((item) =>
     `${item.cedula} ${item.nombre} ${item.usuario} ${item.perfil}`
       .toLowerCase()
@@ -2233,6 +2393,10 @@ function drawUsers() {
           )
           .join("")}</tbody></table></div>`
       : `<div class="empty">${esc(d.common.noRecords)}</div>`;
+  drawPager("users-pager", state.userQuery.pagina, state.usersTotal || 0, (pagina) => {
+    state.userQuery.pagina = pagina;
+    loadUsers();
+  });
 
   document
     .querySelectorAll(".edit-user")
@@ -2382,6 +2546,76 @@ async function toggleUserStatus(userId, currentState) {
   }
 }
 
+// ====================================================== HU-008: CONSULTA DE AUDITORÍA (Angel)
+// Solo ADMINISTRADOR. Filtros por fecha, usuario y sede; resultado paginado del
+// más reciente al más antiguo. De solo lectura: no hay botones para editar ni borrar.
+async function auditoria() {
+  const d = dict(),
+    a = state.audit;
+  document.getElementById("view").innerHTML =
+    `<div class="topbar"><div><p class="eyebrow">${esc(d.audit.eyebrow)}</p><h1>${esc(d.audit.title)}</h1><p class="subtle">${esc(d.audit.sub)}</p></div></div><section class="panel"><form class="toolbar" id="audit-form"><select name="modulo" aria-label="${esc(d.audit.title)}"><option value="auth">${esc(d.audit.moduleAuth)}</option><option value="parametrizacion">${esc(d.audit.moduleParam)}</option></select><label class="subtle">${esc(d.audit.from)} <input type="date" name="desde" value="${esc(a.desde)}"></label><label class="subtle">${esc(d.audit.to)} <input type="date" name="hasta" value="${esc(a.hasta)}"></label><input name="usuario" placeholder="${esc(d.audit.user)}" aria-label="${esc(d.audit.user)}" value="${esc(a.usuario)}"><select name="sede_id" aria-label="${esc(d.fields.sede_id)}"></select><button class="primary">${esc(d.audit.filter)}</button></form><div id="audit-table"></div><div class="toolbar" id="audit-pager"></div><p class="subtle">${esc(d.audit.readOnly)}</p></section>`;
+  const form = document.getElementById("audit-form");
+  form.modulo.value = a.modulo;
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const datos = Object.fromEntries(new FormData(form));
+    if (datos.desde && datos.hasta && datos.desde > datos.hasta) {
+      document.getElementById("audit-table").innerHTML = `<p class="error">${esc(d.audit.dateError)}</p>`;
+      return;
+    }
+    state.audit = { ...datos, usuario: datos.usuario.trim(), pagina: 1 };
+    loadAudit();
+  });
+  try {
+    await loadCatalogs();
+    form.sede_id.innerHTML = refOptions("sedes", a.sede_id, d.common.allBranchesFilter);
+    form.sede_id.value = a.sede_id;
+  } catch {
+    if (!state.token) return;
+  }
+  await loadAudit();
+}
+
+function fechaLocal(valor) {
+  // El servidor guarda en UTC; si la fecha llega sin zona, se toma como UTC.
+  const texto = /[zZ]|[+-]\d\d:?\d\d$/.test(valor) ? valor : `${valor}Z`;
+  return new Date(texto).toLocaleString(state.lang === "en" ? "en-US" : "es-CO", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+}
+
+async function loadAudit() {
+  const d = dict(),
+    a = state.audit,
+    params = new URLSearchParams({ pagina: a.pagina, tamano: TAMANO_PAGINA });
+  // Los días se toman en la hora local del navegador y se envían en UTC.
+  if (a.desde) params.set("desde", new Date(`${a.desde}T00:00:00`).toISOString());
+  if (a.hasta) params.set("hasta", new Date(`${a.hasta}T23:59:59.999`).toISOString());
+  if (a.usuario) params.set("usuario", a.usuario);
+  if (a.sede_id) params.set("sede_id", a.sede_id);
+  let filas = [],
+    error = "";
+  try {
+    filas = await request(`/${a.modulo === "parametrizacion" ? "parametrizacion" : "auth"}/auditoria?${params}`);
+  } catch (e) {
+    if (!state.token) return;
+    error = e.message;
+  }
+  const total = state.lastTotal,
+    destino = document.getElementById("audit-table");
+  if (!destino) return;
+  destino.innerHTML = error
+    ? `<p class="error">${esc(error)}</p>`
+    : filas.length
+      ? `<div class="table-wrap"><table><thead><tr><th>${esc(d.audit.colDate)}</th><th>${esc(d.audit.colUser)}</th><th>${esc(d.audit.colBranch)}</th><th>${esc(d.audit.colAction)}</th><th>${esc(d.audit.colEntity)}</th><th>${esc(d.audit.colResult)}</th><th>${esc(d.audit.colIp)}</th></tr></thead><tbody>${filas.map((r) => `<tr><td>${esc(fechaLocal(r.fecha))}</td><td>${esc(r.usuario || "")}</td><td>${r.sede_id ? esc(refName("sedes", r.sede_id)) : ""}</td><td>${esc(r.accion)}${r.detalle ? `<br><span class="subtle">${esc(r.detalle)}</span>` : ""}</td><td>${esc(r.entidad || "")}${r.entidad_id ? ` #${esc(r.entidad_id)}` : ""}</td><td><span class="badge ${r.resultado === "OK" ? "active" : "inactive"}">${esc(r.resultado)}</span></td><td>${esc(r.ip || "")}</td></tr>`).join("")}</tbody></table></div>`
+      : `<div class="empty">${esc(d.audit.empty)}</div>`;
+  drawPager("audit-pager", a.pagina, error ? 0 : total, (pagina) => {
+    state.audit.pagina = pagina;
+    loadAudit();
+  });
+}
+
 // ====================================================== GENERIC PARAMETRIZACION RESOURCES (M2: Sedes, Tipos, Proveedores, Productos Globales)
 async function resource(key) {
   const d = dict();
@@ -2427,20 +2661,8 @@ async function load(key) {
     let raw = await request(
       `/parametrizacion/${RESOURCES[key].endpoint}?${queryParam}`,
     );
-    if (key === "productos") {
-      raw = await ensureProductsInAllBranches(raw);
-      state.rawProducts = raw;
-      // Deduplicate by codigo so Products shows global catalog items once
-      const seen = new Map();
-      raw.forEach((p) => {
-        if (!seen.has(p.codigo)) {
-          seen.set(p.codigo, p);
-        }
-      });
-      state.items = Array.from(seen.values());
-    } else {
-      state.items = raw;
-    }
+    // Con el modelo de David el producto ya viene una sola vez (catálogo global).
+    state.items = raw;
     state.error = "";
     fillFilters();
     table(key);
@@ -2530,19 +2752,9 @@ async function toggleResourceActive(key, item, currentlyActive) {
   const nextActive = !currentlyActive;
   try {
     if (key === "productos") {
+      // Inactivar el producto lo saca de todas las sedes (David).
       const action = nextActive ? "activar" : "inactivar";
-      try {
-        await request(`/parametrizacion/productos/${item.id}/${action}?todas_las_sedes=true`, {
-          method: "POST",
-        });
-      } catch {
-        const siblings = (state.rawProducts || []).filter((p) => p.codigo === item.codigo);
-        for (const sib of siblings.length ? siblings : [item]) {
-          try {
-            await request(`/parametrizacion/productos/${sib.id}/${action}`, { method: "POST" });
-          } catch {}
-        }
-      }
+      await request(`/parametrizacion/productos/${item.id}/${action}`, { method: "POST" });
     } else {
       await request(`/parametrizacion/${r.endpoint}/${item.id}`, {
         method: "PATCH",
@@ -2588,55 +2800,20 @@ function form(key, item = null) {
             values[f.key] = Number(values[f.key]);
         });
       try {
-        if (key === "productos") {
-          if (item) {
-            try {
-              await request(`/parametrizacion/productos/${item.id}?todas_las_sedes=true`, {
-                method: "PATCH",
-                body: JSON.stringify(values),
-              });
-            } catch {
-              const siblings = (state.rawProducts || []).filter((p) => p.codigo === item.codigo);
-              for (const sib of siblings.length ? siblings : [item]) {
-                await request(`/parametrizacion/productos/${sib.id}`, {
-                  method: "PATCH",
-                  body: JSON.stringify(values),
-                });
-              }
-            }
-          } else {
-            try {
-              await request("/parametrizacion/productos?todas_las_sedes=true", {
-                method: "POST",
-                body: JSON.stringify(values),
-              });
-            } catch {
-              for (const s of state.cat.sedes || []) {
-                await request("/parametrizacion/productos", {
-                  method: "POST",
-                  body: JSON.stringify({ ...values, sede_id: s.id }),
-                });
-              }
-            }
-          }
-        } else if (key === "sedes" && !item) {
-          await request("/parametrizacion/sedes?copiar_catalogo=true", {
-            method: "POST",
-            body: JSON.stringify(values),
-          });
-        } else {
-          await request(
-            `/parametrizacion/${r.endpoint}${item ? `/${item.id}` : ""}`,
-            { method: item ? "PATCH" : "POST", body: JSON.stringify(values) },
-          );
-        }
+        // El producto se crea una vez y queda en el inventario de todas las sedes;
+        // una sede nueva recibe todo el catálogo activo (David). No hace falta
+        // copiar nada desde el navegador.
+        await request(`/parametrizacion/${r.endpoint}${item ? `/${item.id}` : ""}`, {
+          method: item ? "PATCH" : "POST",
+          body: JSON.stringify(values),
+        });
         close();
         state.filter = "";
         if (state.route === "mesas") await loadTablesMap();
         else await load(key);
       } catch (error) {
-        document.getElementById("form-error").innerHTML =
-          `<p class="error">${esc(error.message)}</p>`;
+        const destino = document.getElementById("form-error");
+        if (destino) destino.innerHTML = `<p class="error">${esc(error.message)}</p>`;
       }
     });
 }
