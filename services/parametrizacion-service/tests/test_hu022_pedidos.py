@@ -136,3 +136,46 @@ def test_cambio_voraz_del_pedido(cliente, bar):
     corto = cliente.get(f"/pedidos/{pedido['id']}/cambio", headers=bar["cajero"], params={"pagado": 30000})
     assert corto.status_code == 422
     assert "$5,000 missing" in corto.json()["error"]["mensaje"]
+
+
+# ------------------------------------------------- Algoritmos 6 y 7 sobre la API
+def _abrir(cliente, admin, sede, numero, mesero, cerveza):
+    mesa = cliente.post("/mesas", headers=admin, json={"sede_id": sede, "numero": numero}).json()
+    r = cliente.post("/pedidos", headers=mesero, json={
+        "mesa_id": mesa["id"], "lineas": [{"producto_id": cerveza, "cantidad": 1}]})
+    assert r.status_code == 201, r.text
+    return r.json()["id"]
+
+
+def test_ruta_de_entrega_y_cola_de_barra(cliente, admin, bar):
+    # Mesas 1..9 en el mapa (la 4 ya existe en el fixture); con pedido: 9, 1, 8 y 3 en ese orden.
+    for numero in (2, 5, 6, 7):
+        cliente.post("/mesas", headers=admin, json={"sede_id": bar["sede"], "numero": numero})
+    for numero in (9, 1, 8, 3):
+        _abrir(cliente, admin, bar["sede"], numero, bar["mesero"], bar["cerveza"])
+
+    r = cliente.get("/mesas/ruta-entrega", headers=bar["mesero"])
+    assert r.status_code == 200, r.text
+    ruta = r.json()
+    assert ruta["candidatos"] == ["BARRA", "1", "3", "8", "9"]
+    assert ruta["ruta"] == ["BARRA", "1", "3", "9", "8"]
+    assert ruta["distancia_total"] == 7
+    assert ruta["pasos"][0]["opciones"]["1"] == 2
+
+    r = cliente.get("/pedidos/cola-barra", headers=bar["cajero"])
+    assert r.status_code == 200, r.text
+    cola = r.json()
+    assert [c["mesa"] for c in cola["llegada"]] == [9, 1, 8, 3]
+    # Solo se puede poner al inicio o al final: la 3 llega tarde y queda al final.
+    assert [c["mesa"] for c in cola["cola"]] == [1, 9, 8, 3]
+    assert [p["posicion"] for p in cola["pasos"]] == ["INICIO", "INICIO", "FIN", "FIN"]
+
+
+def test_ruta_de_entrega_reglas_de_acceso(cliente, admin, bar):
+    assert cliente.get("/mesas/ruta-entrega", headers=bar["cajero"]).status_code == 403
+    r = cliente.get("/mesas/ruta-entrega", headers=admin)
+    assert r.status_code == 422 and r.json()["error"]["codigo"] == "SEDE_REQUERIDA"
+    r = cliente.get(f"/mesas/ruta-entrega?sede_id={bar['otra']}", headers=bar["mesero"])
+    assert r.json()["error"]["codigo"] == "SEDE_NO_AUTORIZADA"
+    vacia = cliente.get(f"/mesas/ruta-entrega?sede_id={bar['sede']}", headers=admin).json()
+    assert vacia["ruta"] == ["BARRA"] and vacia["distancia_total"] == 0

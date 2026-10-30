@@ -10,9 +10,14 @@ explicarla en la sustentación. Dónde se usa cada una:
 3. Mochila por razón beneficio/costo (voraz) ... respaldo si la tabla no cabe en 2 s (RNF-02)
 4. Existencia acumulada (iterativa y recursiva)  GET /inventario/conciliacion (HU-021, CU-32)
 5. Cambio con billetes y monedas (voraz) ....... GET /pedidos/{id}/cambio (prepara HU-023)
+6. Recorrido voraz en un grafo (conjuntos C y S)  GET /mesas/ruta-entrega (HU-013)
+7. Cadena lexicográficamente menor (voraz) ..... GET /pedidos/cola-barra (HU-022)
 """
-from dataclasses import dataclass
+from collections import deque
+from collections.abc import Callable, Hashable, Sequence
+from dataclasses import dataclass, field
 from functools import reduce
+from typing import Any
 
 
 # ---------------------------------------------------------------------------
@@ -198,3 +203,116 @@ def cambio_voraz(cambio: int, denominaciones: tuple[int, ...] = DENOMINACIONES_C
             f"(the smallest is {min(denominaciones)})."
         )
     return resultado
+
+
+# ---------------------------------------------------------------------------
+# 6. Recorrido voraz en un grafo · quiz "Algoritmos voraces", punto 1
+# ---------------------------------------------------------------------------
+# Idea de clase: C es el conjunto de candidatos (todos los nodos) y S la
+# solución que se va armando. En cada nodo se escoge la arista de menor costo
+# hacia un nodo que todavía no está en S, sin devolverse. Nunca se deshace una
+# elección: por eso es voraz y no garantiza el recorrido más corto posible.
+@dataclass(frozen=True)
+class PasoRecorrido:
+    desde: Hashable
+    opciones: dict[Hashable, int]     # nodo -> costo de las aristas que se podían tomar
+    elegido: Hashable
+    costo: int
+
+
+@dataclass(frozen=True)
+class ResultadoRecorrido:
+    candidatos: list[Hashable]        # conjunto C
+    solucion: list[Hashable]          # conjunto S, en el orden en que se eligió
+    costo_total: int
+    pasos: list[PasoRecorrido] = field(default_factory=list)
+    completo: bool = True             # llegó al destino (o visitó todos si no había destino)
+
+
+def recorrido_voraz(grafo: dict[Hashable, dict[Hashable, int]], origen: Hashable,
+                    destino: Hashable | None = None) -> ResultadoRecorrido:
+    """Desde `origen`, toma siempre la arista más barata hacia un nodo no visitado.
+
+    - Con `destino`: se detiene al llegar (punto 1 del quiz: de A hasta F).
+    - Sin `destino`: sigue hasta visitar todos los nodos alcanzables (ruta del mesero).
+
+    Empates: gana el nodo "menor" (str), para que el resultado siempre sea el mismo.
+    Complejidad: O(n²) con n nodos (en cada paso se revisan las aristas del nodo actual).
+    """
+    candidatos = sorted({origen, *grafo, *(v for aristas in grafo.values() for v in aristas)}, key=str)
+    solucion, visitados = [origen], {origen}
+    pasos: list[PasoRecorrido] = []
+    actual, costo_total = origen, 0
+    while actual != destino:
+        opciones = {v: c for v, c in grafo.get(actual, {}).items() if v not in visitados}
+        if not opciones:
+            break
+        elegido = min(opciones, key=lambda v: (opciones[v], str(v)))
+        pasos.append(PasoRecorrido(actual, opciones, elegido, opciones[elegido]))
+        costo_total += opciones[elegido]
+        solucion.append(elegido)
+        visitados.add(elegido)
+        actual = elegido
+    completo = actual == destino if destino is not None else True
+    return ResultadoRecorrido(candidatos, solucion, costo_total, pasos, completo)
+
+
+BARRA = "BARRA"
+COLUMNAS_MAPA = 3   # el mapa de mesas del frontend es una rejilla 3×N (HU-013)
+
+
+def posicion_en_mapa(indice: int) -> tuple[int, int]:
+    """(fila, columna) de la mesa número `indice` (desde 0) en la rejilla 3×N."""
+    return divmod(indice, COLUMNAS_MAPA)
+
+
+# La barra está arriba del mapa, centrada sobre la columna del medio.
+POSICION_BARRA = (-1, 1)
+
+
+def distancia(a: tuple[int, int], b: tuple[int, int]) -> int:
+    """Pasos entre dos casillas moviéndose por los pasillos (distancia Manhattan)."""
+    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+
+def grafo_de_mesas(posiciones: dict[Hashable, tuple[int, int]]) -> dict[Hashable, dict[Hashable, int]]:
+    """Grafo completo: la barra y cada mesa, con la distancia como costo de la arista."""
+    nodos = {BARRA: POSICION_BARRA, **posiciones}
+    return {a: {b: distancia(pa, pb) for b, pb in nodos.items() if b != a} for a, pa in nodos.items()}
+
+
+def costo_de_ruta(grafo: dict[Hashable, dict[Hashable, int]], ruta: list[Hashable]) -> int:
+    return sum(grafo[a][b] for a, b in zip(ruta, ruta[1:], strict=False))
+
+
+# ---------------------------------------------------------------------------
+# 7. Cadena lexicográficamente menor · quiz "Algoritmos voraces", punto 2
+# ---------------------------------------------------------------------------
+# Idea de clase: se leen los caracteres uno por uno y cada uno solo puede ir al
+# inicio o al final del resultado. Regla voraz: si el nuevo es menor o igual que
+# el primero del resultado, va al inicio; si es mayor, va al final.
+@dataclass(frozen=True)
+class PasoCadena:
+    elemento: Any
+    posicion: str          # "INICIO" o "FIN"
+    resultado: list[Any]   # cómo quedó el resultado después de este paso
+
+
+def menor_lexicografico(elementos: Sequence[Any], clave: Callable[[Any], Any] = lambda x: x
+                        ) -> tuple[list[Any], list[PasoCadena]]:
+    """Arma con una deque la secuencia lexicográficamente menor. O(n): cada paso es O(1).
+
+    >>> "".join(menor_lexicografico("JUANJUAN")[0])
+    'AAJUNJUN'
+    """
+    resultado: deque[Any] = deque()
+    pasos: list[PasoCadena] = []
+    for elemento in elementos:
+        if not resultado or clave(elemento) <= clave(resultado[0]):
+            resultado.appendleft(elemento)
+            posicion = "INICIO"
+        else:
+            resultado.append(elemento)
+            posicion = "FIN"
+        pasos.append(PasoCadena(elemento, posicion, list(resultado)))
+    return list(resultado), pasos

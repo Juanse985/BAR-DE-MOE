@@ -47,7 +47,7 @@ bar-de-moe/
 ├── gateway/                       Punto de entrada único (:8000)
 ├── services/
 │   ├── auth-service/              M1 · seguridad y usuarios
-│   └── parametrizacion-service/   M2 · sedes, mesas, productos, proveedores
+│   └── parametrizacion-service/   M2 · M3 · M4 · parametrización, inventario, pedidos y algoritmos
 ├── libs/common/                   Config, BD, JWT, cifrado, auditoría, middlewares
 ├── infra/postgres/init.sql        Una base de datos por microservicio
 ├── scripts/                       seed de datos e inicialización del repo
@@ -59,7 +59,7 @@ bar-de-moe/
 
 | Documento | Para qué |
 |---|---|
-| [`docs/arquitectura/`](docs/arquitectura/Documento_Arquitectura_Bar_de_Moe_v1.1.pdf) | **Documento de arquitectura** (PDF): diagramas, modelo entidad-relación, buenas prácticas y diccionario |
+| [`docs/arquitectura/`](docs/arquitectura/Documento_Arquitectura_Bar_de_Moe_v1.2.pdf) | **Documento de arquitectura v1.2** (PDF): diagramas, modelo entidad-relación, buenas prácticas, diccionario y, en la sección 12, los cambios del Sprint 2 (ADR-08 y ADR-09) |
 | [`docs/01-arquitectura.md`](docs/01-arquitectura.md) | Las decisiones y su porqué. **Léanlo antes de la sustentación.** |
 | [`docs/02-plan-ramas-sprint-1.md`](docs/02-plan-ramas-sprint-1.md) | Qué le toca a cada uno en este sprint |
 | [`docs/03-convenciones-git.md`](docs/03-convenciones-git.md) | Ramas, commits y Pull Requests |
@@ -70,8 +70,9 @@ bar-de-moe/
 | [`docs/08-integracion-sprint-1.md`](docs/08-integracion-sprint-1.md) | Qué aportó cada integrante y cómo se unieron las ramas |
 | [`docs/09-sprint-2-david.md`](docs/09-sprint-2-david.md) | Sprint 2 · inventario por sede, pedidos y algoritmos (David) |
 | [`docs/10-integracion-sprint-2.md`](docs/10-integracion-sprint-2.md) | Integración del Sprint 2: qué aportó cada uno y cómo se unió |
-| [`docs/postman/`](docs/postman/) | Colección Postman de la API del Sprint 1 |
-| [`docs/evidencias/`](docs/evidencias/) | Reporte de pruebas, prueba de humo y medición del RNF-02 para la Review |
+| [`docs/11-algoritmos.md`](docs/11-algoritmos.md) | Los 7 algoritmos de Diseño de Algoritmos: idea de clase, uso en el bar y ejemplos |
+| [`docs/postman/`](docs/postman/) | Colecciones Postman de la API (Sprint 1 y Sprint 2) |
+| [`docs/evidencias/`](docs/evidencias/) | Evidencias del Sprint 2: pruebas, prueba de humo, RNF-02, algoritmos, capturas y Postman |
 
 ## Pruebas
 

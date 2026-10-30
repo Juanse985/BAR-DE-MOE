@@ -28,12 +28,17 @@ UMBRAL_COBERTURA = 70
 COMPONENTES = [
     ("libs/common", "barmoe_common", "Librería común"),
     ("services/auth-service", "app", "auth-service (M1)"),
-    ("services/parametrizacion-service", "app", "parametrizacion-service (M2)"),
+    ("services/parametrizacion-service", "app", "parametrizacion-service (M2 · M3 · M4)"),
     ("gateway", "app", "API Gateway"),
 ]
 
 # Qué requisito cubre cada prueba, según su archivo o su nombre.
 REQUISITOS = [
+    (r"test_algoritmos|ruta_de_entrega", "Diseño de Algoritmos · los 7 algoritmos"),
+    (r"hu001_a_hu008", "HU-001 a HU-008 · Criterios de aceptación (Angel)"),
+    (r"hu021", "HU-021 · Inventario por sede (M3)"),
+    (r"hu022", "HU-022 · Pedidos y mesas (M4)"),
+    (r"hallazgos", "Hallazgos del docente · Sprint 1"),
     (r"hu002|obs02", "HU-002 · Bloqueo por reintentos (usuario e IP)"),
     (r"hu007", "HU-007 · Gestión de usuarios"),
     (r"hu008", "HU-008 · Consulta de la auditoría"),
@@ -102,7 +107,7 @@ def main() -> int:
     bajo_umbral = [n for n, r in resultados.items() if (r["cobertura"] or 0) < UMBRAL_COBERTURA]
 
     lineas = [
-        "# Reporte de pruebas · Sprint 1",
+        "# Reporte de pruebas · Sprint 2",
         "",
         f"Generado el {datetime.now():%Y-%m-%d %H:%M} con `python scripts/reporte_pruebas.py`.",
         "",
@@ -156,6 +161,7 @@ def main() -> int:
 
     humo = EVIDENCIAS / "prueba-humo.json"
     rnf02 = EVIDENCIAS / "rnf02-tiempo-respuesta.json"
+    algoritmos = EVIDENCIAS / "algoritmos.md"
     if humo.exists() or rnf02.exists():
         lineas += ["", "## Evidencias contra la plataforma levantada", ""]
     if humo.exists():
@@ -169,6 +175,9 @@ def main() -> int:
         lineas.append(f"- **RNF-02** ({m['fecha']}): {'✅ cumple' if m['aprobado'] else '❌ no cumple'}; "
                       f"el p95 más alto fue {peor['p95_ms']} ms en «{peor['operacion']}» "
                       f"· detalle en `rnf02-tiempo-respuesta.md`")
+    if algoritmos.exists():
+        lineas.append("- **Algoritmos:** los 7 corriendo por el gateway sobre un escenario propio "
+                      "· detalle en `algoritmos.md`")
     if (EVIDENCIAS / "frontend-perfiles.md").exists():
         lineas.append("- **Frontend por perfiles:** revisión en navegador con los 3 perfiles · detalle en "
                       "`frontend-perfiles.md`")

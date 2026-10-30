@@ -10,7 +10,7 @@
 
 | Verificación | Resultado |
 |---|---|
-| Pruebas automáticas (4 componentes) | **383 en verde, 0 fallidas**: common 66 · auth 157 · parametrización 126 · gateway 34 |
+| Pruebas automáticas (4 componentes) | **383 en verde, 0 fallidas**: common 66 · auth 157 · parametrización 126 · gateway 34 (394 después de agregar los algoritmos 6 y 7) |
 | Estilo (`ruff`) | Sin errores |
 | Prueba de humo por el gateway | **22/22 pasos** |
 | Recorrido en navegador con los 3 perfiles | **39/39 verificaciones**, sin errores de consola, en español e inglés y en celular (390 px) |
@@ -95,15 +95,21 @@ Ahora todo sale del servidor. Así, lo que ve un perfil es lo mismo que ve otro.
 - **El `auth-service` sigue respondiendo en español.** David menciona en `09-sprint-2-david.md` §4
   un parche `angel-auth-mensajes-en-ingles.patch` para la rama de Angel, pero no está en
   ninguna rama. Hay que pedírselo a David y aplicarlo.
-- **Arquitectura.** Inventario y pedidos quedaron dentro del `parametrizacion-service`,
-  no en servicios propios con `inventario_db` y `pedidos_db`, como dicen el ADR-01 y el
-  documento de arquitectura v1.1. El motivo está en `09-sprint-2-david.md` §1: CU-18 exige
-  una sola transacción. Para la sustentación conviene registrarlo como **ADR-08** y
-  publicar la versión 1.2 del documento.
-- **Sin pantalla todavía:** la sugerencia de compra (mochila, algoritmos 1 a 3) y la
-  conciliación de inventario (algoritmo 4). Ya existen en la API y en Swagger.
 - **Cerrar el pedido y liberar la mesa** es HU-023 (Sprint 3).
-- **`docs/evidencias/`** no se regeneró: las capturas y reportes son del Sprint 1.
+- **Sin pantalla todavía:** la sugerencia de compra, la conciliación, la ruta del mesero y la
+  cola de la barra (algoritmos 1, 4, 6 y 7). Se usan por la API y por Postman.
+
+**Resuelto después de la integración (30/10/2026):**
+
+- Arquitectura: la decisión de dejar inventario y pedidos en `parametrizacion-service` quedó
+  registrada como **ADR-08** en `01-arquitectura.md` y en el documento de arquitectura **v1.2**
+  (sección 12).
+- Algoritmos: se agregaron el 6 (ruta voraz del mesero, conjuntos C y S) y el 7 (cola de la
+  barra, cadena lexicográficamente menor), tomados del quiz de algoritmos voraces. Con eso son
+  **7**. Detalle en `11-algoritmos.md`.
+- `docs/evidencias/` se regeneró para el Sprint 2. Quedaron 394 pruebas, 38 pasos de humo,
+  el RNF-02 con 16 operaciones, los algoritmos, 39 verificaciones en navegador con capturas y
+  la colección Postman del Sprint 2.
 
 ## 6. Cómo probarlo
 

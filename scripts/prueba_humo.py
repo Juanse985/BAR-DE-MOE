@@ -4,8 +4,10 @@
 Recorre el flujo que se muestra en la Sprint Review, siempre por el gateway:
 
     health → frontend → login → segunda sesión rechazada → crear sede, tipo,
-    proveedor, producto y mesa → consultar → mesero sin permisos ni acceso a
-    otra sede → auditoría → logout → token inservible
+    proveedor, producto y mesa → consultar → Sprint 2: ingreso de inventario,
+    pedido con descuento automático, mesa ocupada, sin existencia no se vende,
+    trazabilidad y los algoritmos → mesero sin permisos ni acceso a otra sede →
+    auditoría → logout → token inservible
 
 En cada paso verifica el código HTTP esperado y que el tiempo de respuesta
 esté bajo los 2 segundos (RNF-02, cabecera X-Tiempo-Ms y reloj del cliente).
@@ -173,14 +175,14 @@ class PruebaHumo:
         if all(x is not None and x.status_code == 201 for x in (sede, tipo, proveedor)):
             sede_id = sede.json()["id"]
             codigo = f"QA-{self.sufijo[-6:]}"
-            self.paso("Crear producto (queda en todas las sedes)", "HU-020", 201, "POST",
+            producto = self.paso("Crear producto (queda en todas las sedes)", "HU-020", 201, "POST",
                       "/api/parametrizacion/productos",
                       headers=self.h, json_={
                           "codigo": codigo, "nombre": "Cerveza Duff QA",
                           "tipo_producto_id": tipo.json()["id"], "proveedor_id": proveedor.json()["id"],
                           "valor_compra": "2500", "valor_venta": "6000"})
-            self.paso("Crear mesa en la sede", "HU-018", 201, "POST", "/api/parametrizacion/mesas",
-                      headers=self.h, json_={"sede_id": sede_id, "numero": 1, "capacidad": 4})
+            mesa = self.paso("Crear mesa en la sede", "HU-018", 201, "POST", "/api/parametrizacion/mesas",
+                             headers=self.h, json_={"sede_id": sede_id, "numero": 1, "capacidad": 4})
 
             def contiene_producto(resp):
                 codigos = [p["codigo"] for p in resp.json()]
@@ -192,6 +194,11 @@ class PruebaHumo:
                       validar=contiene_producto)
             self.paso("Consultar la sede creada", "HU-017", 200, "GET",
                       f"/api/parametrizacion/sedes/{sede_id}", headers=self.h)
+            if all(x is not None and x.status_code == 201 for x in (producto, mesa)):
+                self._flujo_sprint_2(sede_id, producto.json()["id"], mesa.json()["id"])
+            else:
+                self.omitir("Inventario y pedidos (Sprint 2)", "HU-021 · HU-022",
+                            "no se pudieron crear el producto o la mesa")
         else:
             self.omitir("Crear producto / mesa y consultar", "HU-018 · HU-020",
                         "no se pudieron crear sede, tipo o proveedor")
@@ -218,6 +225,78 @@ class PruebaHumo:
                   "/api/parametrizacion/sedes", headers=self.h, validar=trae_codigo("SESION_CERRADA"))
         return self.r
 
+    def _flujo_sprint_2(self, sede: int, producto: int, mesa: int) -> None:
+        """M3 inventario por sede + M4 pedidos y mesas + algoritmos 1 a 7."""
+        api, paso, h = "/api/parametrizacion", self.paso, self.h
+
+        def campo(nombre, esperado):
+            def _validar(resp):
+                valor = resp.json()[nombre]
+                assert valor == esperado, f"{nombre} = {valor!r}, se esperaba {esperado!r}"
+            return _validar
+
+        def existencia(esperada):
+            def _validar(resp):
+                fila = next((f for f in resp.json() if f["producto_id"] == producto), None)
+                assert fila is not None, "el producto no está en el inventario de la sede"
+                assert fila["existencia"] == esperada, f"existencia {fila['existencia']} != {esperada}"
+            return _validar
+
+        paso("Ingreso de inventario con motivo", "HU-021 · CU-15", 201, "POST", f"{api}/inventario/ingresos",
+             headers=h, validar=campo("existencia", 10),
+             json_={"sede_id": sede, "producto_id": producto, "cantidad": 10, "motivo": "Compra humo"})
+        paso("Ingreso sin motivo rechazado", "HU-021 c2", 422, "POST", f"{api}/inventario/ingresos",
+             headers=h, json_={"sede_id": sede, "producto_id": producto, "cantidad": 5, "motivo": " "})
+        paso("Existencia independiente por sede", "HU-012 · M3", 200, "GET", f"{api}/inventario",
+             headers=h, params={"sede_id": sede}, validar=existencia(10))
+
+        pedido = paso("Abrir pedido en la mesa (verifica y descuenta)", "HU-022 · CU-18/20", 201, "POST",
+                      f"{api}/pedidos", headers=h,
+                      json_={"mesa_id": mesa, "lineas": [{"producto_id": producto, "cantidad": 3}]},
+                      validar=campo("estado", "ABIERTO"))
+        paso("Descuento automático del inventario", "HU-022 c5 · M3", 200, "GET", f"{api}/inventario",
+             headers=h, params={"sede_id": sede}, validar=existencia(7))
+
+        def mesa_ocupada(resp):
+            fila = next(m for m in resp.json() if m["id"] == mesa)
+            assert fila["estado"] == "OCUPADA", f"la mesa quedó {fila['estado']}"
+
+        paso("La mesa queda ocupada", "HU-022 c6 · M4", 200, "GET", f"{api}/mesas", headers=h,
+             params={"sede_id": sede}, validar=mesa_ocupada)
+        paso("Misma mesa: se agrega al pedido abierto", "HU-022 c3 · CU-21", 200, "POST", f"{api}/pedidos",
+             headers=h, json_={"mesa_id": mesa, "lineas": [{"producto_id": producto, "cantidad": 2}]},
+             validar=campo("id", pedido.json()["id"]) if pedido is not None and pedido.status_code == 201
+             else None)
+        paso("Sin existencia suficiente no se registra", "HU-022 c4 · M3", 409, "POST", f"{api}/pedidos",
+             headers=h, json_={"mesa_id": mesa, "lineas": [{"producto_id": producto, "cantidad": 99}]},
+             validar=lambda r: self._codigo(r, "STOCK_INSUFICIENTE"))
+
+        def trae_venta(resp):
+            tipos = [m["tipo"] for m in resp.json()]
+            assert tipos.count("VENTA") == 2 and "INGRESO" in tipos, f"movimientos: {tipos}"
+
+        paso("Trazabilidad de movimientos", "HU-025 · CU-32", 200, "GET", f"{api}/inventario/movimientos",
+             headers=h, params={"sede_id": sede, "producto_id": producto}, validar=trae_venta)
+        paso("Alg. 4 · conciliación iterativa y recursiva", "HU-021 · CU-32", 200, "GET",
+             f"{api}/inventario/conciliacion", headers=h,
+             params={"sede_id": sede, "producto_id": producto}, validar=campo("cuadra", True))
+        paso("Alg. 1-3 · sugerencia de compra (mochila + MCD)", "HU-021", 200, "GET",
+             f"{api}/inventario/sugerencia-compra", headers=h,
+             params={"sede_id": sede, "presupuesto": 100000})
+        if pedido is not None and pedido.status_code == 201:
+            paso("Alg. 5 · vueltas con billetes y monedas", "HU-023 (prep.)", 200, "GET",
+                 f"{api}/pedidos/{pedido.json()['id']}/cambio", headers=h, params={"pagado": 50000},
+                 validar=campo("cambio", 20000))
+        paso("Alg. 6 · ruta voraz del mesero (C y S)", "HU-013", 200, "GET", f"{api}/mesas/ruta-entrega",
+             headers=h, params={"sede_id": sede}, validar=campo("ruta", ["BARRA", "1"]))
+        paso("Alg. 7 · cola de la barra (lexicográfica)", "HU-022", 200, "GET", f"{api}/pedidos/cola-barra",
+             headers=h, params={"sede_id": sede})
+        self.mesa_qa = mesa
+
+    @staticmethod
+    def _codigo(resp, codigo: str) -> None:
+        assert resp.json()["error"]["codigo"] == codigo, f"se esperaba {codigo}"
+
     def _mesero_sin_permisos(self, otra_sede: int | None) -> None:
         usuario, password = self.mesero
         try:
@@ -239,6 +318,12 @@ class PruebaHumo:
                       "/api/parametrizacion/mesas", headers=h, params={"sede_id": otra_sede})
         self.paso("Mesero ve las mesas de su sede", "HU-013 · C-1", 200, "GET",
                   "/api/parametrizacion/mesas", headers=h)
+        self.paso("Mesero no registra ingresos de inventario", "HU-021 · C-1", 403, "POST",
+                  "/api/parametrizacion/inventario/ingresos", headers=h,
+                  json_={"sede_id": 1, "producto_id": 1, "cantidad": 1, "motivo": "no autorizado"})
+        if getattr(self, "mesa_qa", None) is not None:
+            self.paso("Mesero no toma pedidos en otra sede", "HU-022 c2", 403, "POST",
+                      "/api/parametrizacion/pedidos", headers=h, json_={"mesa_id": self.mesa_qa})
         self.http.post("/api/auth/auth/logout", headers=h)
 
 

@@ -1,4 +1,4 @@
-.PHONY: help up down logs test test-common test-auth test-param test-gateway cov lint seed humo rnf02 reporte evidencias limpiar
+.PHONY: help up down logs test test-common test-auth test-param test-gateway cov lint seed humo rnf02 algoritmos reporte evidencias limpiar
 
 # Umbral mínimo de cobertura acordado por el equipo (Sprint 1). El CI usa el mismo.
 COBERTURA_MINIMA ?= 70
@@ -14,8 +14,9 @@ help:
 	@echo "seed          Carga datos de ejemplo del Bar de Moe"
 	@echo "humo          Prueba de humo de punta a punta contra la plataforma levantada"
 	@echo "rnf02         Mide el p95 de las operaciones (RNF-02, 2 segundos)"
+	@echo "algoritmos    Corre los 7 algoritmos por el gateway y deja la evidencia"
 	@echo "reporte       Reporte consolidado de pruebas para la Sprint Review"
-	@echo "evidencias    seed + humo + rnf02 + reporte, todo en docs/evidencias"
+	@echo "evidencias    seed + humo + rnf02 + algoritmos + reporte, todo en docs/evidencias"
 	@echo "limpiar       Borra volúmenes y bases de datos locales"
 
 up:
@@ -59,10 +60,13 @@ humo:
 rnf02:
 	python scripts/medir_rnf02.py --evidencia docs/evidencias
 
+algoritmos:
+	python scripts/evidencia_algoritmos.py --evidencia docs/evidencias
+
 reporte:
 	python scripts/reporte_pruebas.py
 
-evidencias: seed humo rnf02 reporte
+evidencias: seed humo rnf02 algoritmos reporte
 
 limpiar:
 	docker compose down -v

@@ -121,6 +121,9 @@ def medir(base_url: str, n: int, concurrencia: int, n_login: int, usuario: str, 
     try:
         sedes = http.get("/api/parametrizacion/sedes", headers=h).json()
         sede_id = sedes[0]["id"] if sedes else None
+        productos = http.get("/api/parametrizacion/productos", headers=h).json()
+        producto_id = productos[0]["id"] if productos else None
+        de_la_sede = {"sede_id": sede_id} if sede_id else {}
 
         operaciones = [
             ("Estado de la plataforma", "GET", "/health", {}),
@@ -133,6 +136,21 @@ def medir(base_url: str, n: int, concurrencia: int, n_login: int, usuario: str, 
             ("Listar tipos de producto", "GET", "/api/parametrizacion/tipos-producto", {"headers": h}),
             ("Listar proveedores", "GET", "/api/parametrizacion/proveedores", {"headers": h}),
             ("Listar usuarios", "GET", "/api/auth/usuarios", {"headers": h}),
+            # Sprint 2 · M3 inventario y M4 pedidos, con los algoritmos.
+            ("Inventario de la sede", "GET", "/api/parametrizacion/inventario",
+             {"headers": h, "params": de_la_sede}),
+            ("Pedidos abiertos de la sede", "GET", "/api/parametrizacion/pedidos",
+             {"headers": h, "params": {**de_la_sede, "estado": "ABIERTO"}}),
+            ("Movimientos de inventario", "GET", "/api/parametrizacion/inventario/movimientos",
+             {"headers": h, "params": {**de_la_sede, "producto_id": producto_id}}),
+            ("Alg. 4 · conciliación", "GET", "/api/parametrizacion/inventario/conciliacion",
+             {"headers": h, "params": {**de_la_sede, "producto_id": producto_id}}),
+            ("Alg. 1-3 · sugerencia de compra", "GET", "/api/parametrizacion/inventario/sugerencia-compra",
+             {"headers": h, "params": {**de_la_sede, "presupuesto": 2_000_000}}),
+            ("Alg. 6 · ruta del mesero", "GET", "/api/parametrizacion/mesas/ruta-entrega",
+             {"headers": h, "params": de_la_sede}),
+            ("Alg. 7 · cola de la barra", "GET", "/api/parametrizacion/pedidos/cola-barra",
+             {"headers": h, "params": de_la_sede}),
         ]
         mediciones = [login] if n_login else []
         with ThreadPoolExecutor(max_workers=concurrencia) as pool:

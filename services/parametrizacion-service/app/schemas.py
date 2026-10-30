@@ -326,3 +326,44 @@ class CambioSalida(BaseModel):
     cambio: int
     piezas: list[dict]
     total_piezas: int
+
+
+# ------------------------------------------------- Algoritmos 6 y 7 (voraces)
+class PasoRutaSalida(BaseModel):
+    desde: str
+    opciones: dict[str, int]
+    elegido: str
+    distancia: int
+
+
+class RutaEntregaSalida(BaseModel):
+    """Algoritmo 6 (voraz en grafo): C = barra + mesas con pedido abierto, S = la ruta."""
+
+    sede_id: int
+    candidatos: list[str]
+    ruta: list[str]
+    pasos: list[PasoRutaSalida]
+    distancia_total: int
+    distancia_en_orden_de_numero: int
+    unidad: str = "casillas del mapa 3×N"
+
+
+class ComandaEnCola(BaseModel):
+    pedido_id: int
+    mesa: int
+    distancia_a_barra: int
+
+
+class PasoColaSalida(BaseModel):
+    comanda: ComandaEnCola
+    posicion: Literal["INICIO", "FIN"]
+    cola: list[int]          # números de mesa, en el orden en que quedó la cola
+
+
+class ColaBarraSalida(BaseModel):
+    """Algoritmo 7 (cadena lexicográficamente menor): orden de despacho en la barra."""
+
+    sede_id: int
+    llegada: list[ComandaEnCola]
+    cola: list[ComandaEnCola]
+    pasos: list[PasoColaSalida]

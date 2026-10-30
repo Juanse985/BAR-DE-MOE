@@ -87,6 +87,40 @@ verificar, no solo escritos:
 | RNF-10 · sesión única | `servicio.login` | `test_rnf10_no_se_permite_una_segunda_sesion` |
 | RNF-12 · trazabilidad | `auditoria.registrar` | Dos pruebas, una por servicio |
 
+> ADR-06 (el código habla el idioma del negocio) y ADR-07 (librería común para lo
+> transversal) están en el documento de arquitectura en PDF (`docs/arquitectura/`).
+
+## ADR-08 · Inventario y pedidos viven en `parametrizacion-service` (Sprint 2)
+
+**Decisión.** Las tablas `inventario_sede`, `movimientos_inventario`, `pedidos` y
+`pedido_lineas` se crearon en `parametrizacion_db`, y sus rutas (`/inventario`,
+`/pedidos`) en `parametrizacion-service`. **No** se crearon `inventario-service` ni
+`pedidos-service` con `inventario_db` y `pedidos_db`, como preveía ADR-01.
+
+**Por qué.** CU-18 exige que registrar un producto en el pedido, verificar la
+existencia y descontarla ocurra **en una sola transacción**: o queda todo o no queda
+nada. Con dos servicios y dos bases eso pide una transacción distribuida (saga o
+patrón *outbox*) y compensaciones. Es mucho riesgo para un sprint de dos semanas y
+no lo necesita un bar con tres sedes. En una sola base, un `SELECT … FOR UPDATE`
+sobre la fila de inventario y un `CHECK existencia >= 0` lo garantizan.
+
+**Costo que aceptamos.** `parametrizacion-service` deja de ser solo configuración y
+crece. Si en el futuro hay que escalar pedidos por separado, se parte el servicio:
+las rutas ya están agrupadas en sus propios `APIRouter` y los algoritmos en un módulo
+aparte. Las bases `inventario_db` y `pedidos_db` siguen creadas en `init.sql`, pero
+están vacías. Detalle en `docs/09-sprint-2-david.md` §1.
+
+## ADR-09 · Los algoritmos de la asignatura son funciones puras (Sprint 2)
+
+**Decisión.** Los 7 algoritmos (mochila, MCD, existencia acumulada, vueltas, ruta
+voraz del mesero y cola de la barra) están en `app/algoritmos.py`. No importan nada
+de la base de datos ni de FastAPI. El endpoint consulta, les pasa listas simples y
+devuelve el resultado.
+
+**Por qué.** Así se prueban solos, contra fuerza bruta y con los ejemplos de clase,
+y se explican en la sustentación sin tener que mostrar SQL. Detalle en
+`docs/11-algoritmos.md`.
+
 ## Lo que este esqueleto todavía NO tiene
 
 Dicho de frente, para que nadie se lleve una sorpresa en la Review:
@@ -98,6 +132,8 @@ Dicho de frente, para que nadie se lleve una sorpresa en la Review:
 - **No hay rate limiting** en el gateway.
 - **No hay HTTPS.** En desarrollo va HTTP plano; para producción hay que poner
   un reverse proxy con TLS delante.
-- **Los servicios del Sprint 2 en adelante (M3 a M6) no existen todavía.** Las
-  bases de datos ya quedaron creadas en `init.sql` para no tener que borrar el
-  volumen más adelante.
+- **M3 y M4 (Sprint 2) quedaron dentro de `parametrizacion-service`** (ADR-08).
+  M5 y M6 (facturación y reportes) todavía no existen. Sus bases ya están creadas
+  en `init.sql`.
+- **No se puede cerrar un pedido todavía.** Llega con la facturación (HU-023,
+  Sprint 3). Al cerrarse, la mesa volverá a quedar libre.

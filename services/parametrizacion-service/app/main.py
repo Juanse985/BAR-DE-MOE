@@ -46,6 +46,8 @@ from .models import (
 from .schemas import (
     AjusteInventario,
     CambioSalida,
+    ColaBarraSalida,
+    ComandaEnCola,
     ConciliacionSalida,
     IngresoInventario,
     InventarioSalida,
@@ -56,6 +58,8 @@ from .schemas import (
     MesaCrear,
     MesaSalida,
     MovimientoSalida,
+    PasoColaSalida,
+    PasoRutaSalida,
     PedidoAbrir,
     PedidoSalida,
     ProductoActualizar,
@@ -66,6 +70,7 @@ from .schemas import (
     ProveedorActualizar,
     ProveedorCrear,
     ProveedorSalida,
+    RutaEntregaSalida,
     SedeActualizar,
     SedeCrear,
     SedeSalida,
@@ -376,6 +381,43 @@ def listar_mesas(usuario: UsuarioActual = Depends(usuario_actual), db: Session =
 
 def _pedido_abierto_de_mesa(db: Session, mesa_id: int) -> Pedido | None:
     return db.scalar(select(Pedido).where(Pedido.mesa_id == mesa_id, Pedido.estado == "ABIERTO"))
+
+
+def _sede_obligatoria(usuario: UsuarioActual, sede_id: int | None) -> int:
+    sede_id = sede_autorizada(usuario, sede_id)
+    if sede_id is None:
+        raise ErrorApp("SEDE_REQUERIDA", "Send sede_id: the map belongs to one branch.", 422)
+    return sede_id
+
+
+def _posiciones_en_mapa(db: Session, sede_id: int) -> dict[int, tuple[int, int]]:
+    """{numero de mesa: (fila, columna)} igual que el mapa 3×N del frontend (orden por número)."""
+    numeros = db.scalars(select(Mesa.numero).where(Mesa.sede_id == sede_id).order_by(Mesa.numero))
+    return {numero: algoritmos.posicion_en_mapa(i) for i, numero in enumerate(numeros)}
+
+
+@mesas.get("/ruta-entrega", response_model=RutaEntregaSalida,
+           summary="Waiter route through tables with open orders (greedy graph algorithm)")
+def ruta_de_entrega(sede_id: int | None = None, usuario: UsuarioActual = Depends(mesero_o_admin),
+                    db: Session = Depends(get_db)):
+    """Algoritmo 6. Sale de la barra y va siempre a la mesa con pedido abierto más cercana."""
+    sede_id = _sede_obligatoria(usuario, sede_id)
+    sede_activa(db, sede_id)
+    todas = _posiciones_en_mapa(db, sede_id)
+    con_pedido = sorted(set(db.scalars(select(Mesa.numero).join(Pedido, Pedido.mesa_id == Mesa.id)
+                                       .where(Pedido.sede_id == sede_id, Pedido.estado == "ABIERTO"))))
+    grafo = algoritmos.grafo_de_mesas({numero: todas[numero] for numero in con_pedido})
+    resultado = algoritmos.recorrido_voraz(grafo, algoritmos.BARRA)
+    return RutaEntregaSalida(
+        sede_id=sede_id,
+        candidatos=[str(n) for n in [algoritmos.BARRA, *con_pedido]],
+        ruta=[str(n) for n in resultado.solucion],
+        pasos=[PasoRutaSalida(desde=str(p.desde), elegido=str(p.elegido), distancia=p.costo,
+                              opciones={str(k): v for k, v in p.opciones.items()})
+               for p in resultado.pasos],
+        distancia_total=resultado.costo_total,
+        distancia_en_orden_de_numero=algoritmos.costo_de_ruta(grafo, [algoritmos.BARRA, *con_pedido]),
+    )
 
 
 @mesas.patch("/{mesa_id}", response_model=MesaSalida, summary="Update table")
@@ -902,6 +944,32 @@ def listar_pedidos(usuario: UsuarioActual = Depends(usuario_actual), db: Session
     if mesa_id is not None:
         consulta = consulta.where(Pedido.mesa_id == mesa_id)
     return list(db.scalars(consulta.order_by(Pedido.id.desc())))
+
+
+@pedidos.get("/cola-barra", response_model=ColaBarraSalida,
+             summary="Bar ticket queue: each new ticket goes first or last (greedy, lexicographic)")
+def cola_de_la_barra(sede_id: int | None = None, usuario: UsuarioActual = Depends(usuario_actual),
+                     db: Session = Depends(get_db)):
+    """Algoritmo 7. Las comandas llegan en el orden en que se abrieron los pedidos.
+
+    La barra solo puede poner la comanda nueva al inicio o al final de la fila.
+    Clave de comparación: (distancia de la mesa a la barra, número de mesa); así la
+    fila queda lexicográficamente menor y se despachan antes las mesas más cercanas.
+    """
+    sede_id = _sede_obligatoria(usuario, sede_id)
+    posiciones = _posiciones_en_mapa(db, sede_id)
+    abiertos = db.scalars(select(Pedido).where(Pedido.sede_id == sede_id, Pedido.estado == "ABIERTO")
+                          .order_by(Pedido.creado_en, Pedido.id))
+    llegada = [ComandaEnCola(pedido_id=p.id, mesa=p.mesa.numero,
+                             distancia_a_barra=algoritmos.distancia(algoritmos.POSICION_BARRA,
+                                                                    posiciones[p.mesa.numero]))
+               for p in abiertos]
+    cola, pasos = algoritmos.menor_lexicografico(llegada, clave=lambda c: (c.distancia_a_barra, c.mesa))
+    return ColaBarraSalida(
+        sede_id=sede_id, llegada=llegada, cola=cola,
+        pasos=[PasoColaSalida(comanda=p.elemento, posicion=p.posicion, cola=[c.mesa for c in p.resultado])
+               for p in pasos],
+    )
 
 
 @pedidos.get("/{pedido_id}", response_model=PedidoSalida, summary="Order detail (CU-22)")
