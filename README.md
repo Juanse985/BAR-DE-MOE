@@ -68,6 +68,8 @@ bar-de-moe/
 | [`docs/06-owasp.md`](docs/06-owasp.md) | Los cuatro controles de seguridad de la propuesta y su evidencia |
 | [`docs/07-informe-qa-sprint-1.md`](docs/07-informe-qa-sprint-1.md) | Defectos abiertos y riesgos de integración del Sprint 1 |
 | [`docs/08-integracion-sprint-1.md`](docs/08-integracion-sprint-1.md) | Qué aportó cada integrante y cómo se unieron las ramas |
+| [`docs/09-sprint-2-david.md`](docs/09-sprint-2-david.md) | Sprint 2 · inventario por sede, pedidos y algoritmos (David) |
+| [`docs/10-integracion-sprint-2.md`](docs/10-integracion-sprint-2.md) | Integración del Sprint 2: qué aportó cada uno y cómo se unió |
 | [`docs/postman/`](docs/postman/) | Colección Postman de la API del Sprint 1 |
 | [`docs/evidencias/`](docs/evidencias/) | Reporte de pruebas, prueba de humo y medición del RNF-02 para la Review |
 
