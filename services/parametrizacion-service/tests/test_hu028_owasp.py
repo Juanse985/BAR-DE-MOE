@@ -107,7 +107,8 @@ def test_c1_un_operario_no_abre_un_producto_de_otra_sede(cliente, admin, ids):
         "proveedor_id": ids["proveedor"], "valor_compra": "1", "valor_venta": "2",
     }).json()
     h = _encabezado(5, "barney", "MESERO", ids["sede"])
-    assert cliente.get(f"/productos/{ajeno['id']}", headers=h).status_code == 403
+    # Sprint 2: el producto es global; lo que es de cada sede es su existencia.
+    assert cliente.get(f"/productos/{ajeno['id']}", headers=h, params={"sede_id": otra}).status_code == 403
     assert cliente.get("/productos/por-codigo/SUR-1", headers=h, params={"sede_id": otra}).status_code == 403
     assert cliente.get("/productos/por-codigo/CERV-001", headers=h,
                        params={"sede_id": ids["sede"]}).status_code == 200

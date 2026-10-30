@@ -49,7 +49,7 @@ async def ciclo_de_vida(app: FastAPI):
 app = crear_app(
     config,
     titulo="Bar de Moe · API Gateway",
-    descripcion="Punto de entrada único. DATHEON S.A.S.",
+    descripcion="Single entry point. DATHEON S.A.S.",
     lifespan=ciclo_de_vida,
     incluir_health=False,  # el gateway publica un /health agregado, más abajo
 )
@@ -63,14 +63,14 @@ async def _validar_sesion(cliente: httpx.AsyncClient, authorization: str | None,
                           ip: str = ""):
     """Pregunta al auth-service si la sesión sigue viva. Refresca la inactividad."""
     if not authorization:
-        return _error("NO_AUTENTICADO", "Falta el token de acceso.", 401)
+        return _error("NO_AUTENTICADO", "The access token is missing.", 401)
     try:
         respuesta = await cliente.post(
             f"{config.AUTH_URL}/auth/validar-sesion",
             headers={"Authorization": authorization, "X-Request-Id": request_id, "X-Forwarded-For": ip},
         )
     except httpx.RequestError:
-        return _error("AUTH_NO_DISPONIBLE", "El servicio de autenticación no responde.", 503)
+        return _error("AUTH_NO_DISPONIBLE", "The authentication service is not responding.", 503)
     if respuesta.status_code != 200:
         return _reenviar(respuesta, request_id)
     return None
@@ -103,7 +103,7 @@ def _reenviar(respuesta: httpx.Response, request_id: str) -> JSONResponse:
         return JSONResponse(
             status_code=502,
             content={"error": {"codigo": "RESPUESTA_INVALIDA",
-                               "mensaje": "Un servicio interno respondió en un formato inesperado."}},
+                               "mensaje": "An internal service replied in an unexpected format."}},
             headers={"X-Request-Id": request_id},
         )
     return JSONResponse(status_code=respuesta.status_code, content=contenido, headers=cabeceras)
@@ -132,7 +132,7 @@ async def health(request: Request):
 async def proxy(servicio: str, ruta: str, request: Request):
     destino = RUTAS.get(servicio)
     if destino is None:
-        return _error("SERVICIO_DESCONOCIDO", f"No existe el servicio '{servicio}'.", 404)
+        return _error("SERVICIO_DESCONOCIDO", f"Service '{servicio}' does not exist.", 404)
 
     request_id = getattr(request.state, "request_id", "")
     ruta_completa = f"/api/{servicio}/{ruta}".rstrip("/")
@@ -162,7 +162,7 @@ async def proxy(servicio: str, ruta: str, request: Request):
             content=cuerpo,
         )
     except httpx.RequestError:
-        return _error("SERVICIO_NO_DISPONIBLE", f"El servicio '{servicio}' no responde.", 503)
+        return _error("SERVICIO_NO_DISPONIBLE", f"Service '{servicio}' is not responding.", 503)
 
     return _reenviar(respuesta, request_id)
 

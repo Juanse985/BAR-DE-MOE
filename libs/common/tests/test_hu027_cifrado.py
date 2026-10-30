@@ -34,7 +34,7 @@ def test_rnf08_un_hash_corrupto_nunca_valida(hash_invalido):
 def test_se_rechazan_passwords_que_no_cumplen_las_reglas(password):
     valida, mensaje = password_es_valida(password)
     assert valida is False
-    assert "Mínimo 8 caracteres" in mensaje
+    assert "At least 8 characters" in mensaje
 
 
 def test_una_password_que_cumple_las_reglas_es_valida():

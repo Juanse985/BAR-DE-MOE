@@ -193,7 +193,8 @@ def router_consulta(get_db, solo_admin, prefijo: str = "/auditoria"):
         # Fechas sin zona se toman como UTC; con zona (ej. -05:00) se pasan a UTC.
         desde, hasta = (_utc(f) for f in (desde, hasta))
         if desde and hasta and desde > hasta:
-            raise ErrorApp("RANGO_INVALIDO", "La fecha 'desde' no puede ser posterior a 'hasta'.", 422)
+            raise ErrorApp("RANGO_INVALIDO",
+                           "The 'desde' (from) date cannot be later than 'hasta' (to).", 422)
         filtros = []
         if usuario_id is not None:
             filtros.append(Auditoria.usuario_id == usuario_id)

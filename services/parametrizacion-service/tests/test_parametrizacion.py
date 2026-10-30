@@ -90,8 +90,8 @@ def test_el_valor_de_venta_no_puede_ser_menor_que_el_de_compra(cliente, admin, c
     assert respuesta.status_code == 422
 
 
-def test_el_catalogo_se_gestiona_por_sede(cliente, admin, catalogo):
-    """El mismo código puede existir en dos sedes, pero no dos veces en una."""
+def test_el_producto_se_crea_una_vez_para_todas_las_sedes(cliente, admin, catalogo):
+    """Corrección del docente: un producto, todas las sedes; el código no se repite."""
     otra = cliente.post("/sedes", headers=admin, json={"nombre": "Bar de Moe · Occidente"}).json()
     base = {
         "codigo": "CERV-001",
@@ -101,31 +101,35 @@ def test_el_catalogo_se_gestiona_por_sede(cliente, admin, catalogo):
         "valor_compra": "2500",
         "valor_venta": "6000",
     }
-    assert cliente.post("/productos", headers=admin,
-                        json={**base, "sede_id": catalogo["sede"]["id"]}).status_code == 201
-    assert cliente.post("/productos", headers=admin,
-                        json={**base, "sede_id": otra["id"]}).status_code == 201
-    repetido = cliente.post("/productos", headers=admin,
-                            json={**base, "sede_id": otra["id"]})
+    assert cliente.post("/productos", headers=admin, json=base).status_code == 201
+    for sede_id in (catalogo["sede"]["id"], otra["id"]):
+        en_sede = cliente.get(f"/productos?sede_id={sede_id}", headers=admin).json()
+        assert [(p["codigo"], p["existencia"]) for p in en_sede] == [("CERV-001", 0)]
+
+    repetido = cliente.post("/productos", headers=admin, json=base)
     assert repetido.status_code == 409
+    assert repetido.json()["error"]["codigo"] == "PRODUCTO_DUPLICADO"
 
 
-def test_los_productos_se_filtran_por_sede(cliente, admin, catalogo):
+def test_una_sede_nueva_recibe_los_productos_existentes(cliente, admin, catalogo):
+    cliente.post("/productos", headers=admin, json={
+        "codigo": "A-1", "nombre": "Cerveza Duff 330ml", "tipo_producto_id": catalogo["tipo"]["id"],
+        "proveedor_id": catalogo["proveedor"]["id"], "valor_compra": "2500", "valor_venta": "6000"})
+    nueva = cliente.post("/sedes", headers=admin, json={"nombre": "Bar de Moe · Sur"}).json()
+    codigos = [p["codigo"] for p in cliente.get(f"/productos?sede_id={nueva['id']}", headers=admin).json()]
+    assert codigos == ["A-1"]
+
+
+def test_inactivar_un_producto_en_una_sede_no_afecta_a_las_demas(cliente, admin, catalogo):
     otra = cliente.post("/sedes", headers=admin, json={"nombre": "Bar de Moe · Sur"}).json()
-    base = {
-        "nombre": "Cerveza Duff 330ml",
-        "tipo_producto_id": catalogo["tipo"]["id"],
-        "proveedor_id": catalogo["proveedor"]["id"],
-        "valor_compra": "2500",
-        "valor_venta": "6000",
-    }
-    cliente.post("/productos", headers=admin,
-                json={**base, "codigo": "A-1", "sede_id": catalogo["sede"]["id"]})
-    cliente.post("/productos", headers=admin,
-                json={**base, "codigo": "B-1", "sede_id": otra["id"]})
+    producto = cliente.post("/productos", headers=admin, json={
+        "codigo": "B-1", "nombre": "Cerveza Duff 330ml", "tipo_producto_id": catalogo["tipo"]["id"],
+        "proveedor_id": catalogo["proveedor"]["id"], "valor_compra": "2500", "valor_venta": "6000"}).json()
 
-    solo_una = cliente.get(f"/productos?sede_id={otra['id']}", headers=admin).json()
-    assert [p["codigo"] for p in solo_una] == ["B-1"]
+    r = cliente.post(f"/inventario/sedes/{otra['id']}/productos/{producto['id']}/inactivar", headers=admin)
+    assert r.status_code == 200, r.text
+    assert cliente.get(f"/productos?sede_id={otra['id']}", headers=admin).json() == []
+    assert len(cliente.get(f"/productos?sede_id={catalogo['sede']['id']}", headers=admin).json()) == 1
 
 
 def test_rnf12_las_escrituras_quedan_auditadas(cliente, admin):
@@ -194,7 +198,7 @@ def test_inactivar_y_activar_producto(cliente, admin, catalogo):
 
 
 def test_no_se_inactiva_una_sede_con_productos_activos(cliente, admin, catalogo):
-    cliente.post(
+    producto = cliente.post(
         "/productos",
         headers=admin,
         json={
@@ -206,7 +210,10 @@ def test_no_se_inactiva_una_sede_con_productos_activos(cliente, admin, catalogo)
             "valor_compra": "2500",
             "valor_venta": "6000",
         },
-    )
+    ).json()
+    cliente.post("/inventario/ingresos", headers=admin, json={
+        "sede_id": catalogo["sede"]["id"], "producto_id": producto["id"], "cantidad": 10,
+        "motivo": "Compra inicial"})
     resp = cliente.patch(f"/sedes/{catalogo['sede']['id']}", headers=admin, json={"activa": False})
     assert resp.status_code == 409
     assert resp.json()["error"]["codigo"] == "SEDE_CON_RECURSOS_ACTIVOS"
