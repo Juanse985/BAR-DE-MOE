@@ -5,6 +5,7 @@ Las evidencias se regeneraron el 30/10/2026 sobre la rama `integracion/sprint-2`
 
 | Archivo | Qué demuestra | Cómo se regenera |
 |---|---|---|
+| **`Informe_Pruebas_Sprint_2_Bar_de_Moe_v1.0.pdf`** | **Informe de QA del Sprint 2: consolida todo lo de esta tabla, los casos por criterio de aceptación y los defectos** | Se arma con las evidencias de abajo |
 | `reporte-pruebas.md` | Resultado de toda la suite (394 pruebas), cobertura por componente y por requisito | `make reporte` |
 | `prueba-humo.md` / `.json` | 38 pasos por el gateway: login, parametrización, **inventario, pedido con descuento automático, mesa ocupada, sin existencia no se vende, trazabilidad, los 7 algoritmos**, permisos y logout; cada paso tarda menos de 2 s | `make humo` (plataforma levantada y seed cargado) |
 | `rnf02-tiempo-respuesta.md` / `.json` | p95 bajo carga de 15 operaciones, incluidas las de inventario, pedidos y algoritmos (RNF-02 · HU-026) | `make rnf02` |
