@@ -71,6 +71,7 @@ bar-de-moe/
 | [`docs/09-sprint-2-david.md`](docs/09-sprint-2-david.md) | Sprint 2 · inventario por sede, pedidos y algoritmos (David) |
 | [`docs/10-integracion-sprint-2.md`](docs/10-integracion-sprint-2.md) | Integración del Sprint 2: qué aportó cada uno y cómo se unió |
 | [`docs/11-algoritmos.md`](docs/11-algoritmos.md) | Los 7 algoritmos de Diseño de Algoritmos: idea de clase, uso en el bar y ejemplos |
+| [`docs/Algoritmos_Bar_de_Moe_v1.0.pdf`](docs/Algoritmos_Bar_de_Moe_v1.0.pdf) | Los 7 algoritmos en PDF, con su código, ejemplos paso a paso y pruebas |
 | [`docs/postman/`](docs/postman/) | Colecciones Postman de la API (Sprint 1 y Sprint 2) |
 | [`docs/evidencias/`](docs/evidencias/) | Evidencias del Sprint 2: pruebas, prueba de humo, RNF-02, algoritmos, capturas y Postman |
 
