@@ -942,14 +942,25 @@ tbody tr:hover {
   min-width: 0;
 }
 .catalog-list-wrap {
-  max-height: 520px;
-  overflow-y: auto;
+  overflow: hidden;
   border-radius: 18px;
   border: 1px solid var(--cream-border);
   background: var(--cream-card);
 }
-.catalog-list-wrap table {
-  min-width: 520px;
+.catalog-list-wrap table,
+.compact-table-wrap table {
+  min-width: 0 !important;
+  width: 100%;
+}
+.compact-table-wrap {
+  overflow-x: hidden;
+}
+.catalog-list-wrap th,
+.catalog-list-wrap td,
+.compact-table-wrap th,
+.compact-table-wrap td {
+  padding: 10px 10px;
+  font-size: 0.82rem;
 }
 .catalog-list-wrap tr.out-of-stock {
   opacity: 0.56;
@@ -972,6 +983,11 @@ tbody tr:hover {
   padding: 20px;
   position: sticky;
   top: 0;
+}
+.sticky-panel {
+  position: sticky;
+  top: 0;
+  margin-bottom: 0;
 }
 .cart-list {
   display: grid;
@@ -1173,4 +1189,221 @@ tbody tr:hover {
 .user-mini #logout:hover {
   background: var(--cream-surface);
   color: var(--blue-navy) !important;
+}
+
+/* Sprint 3: Billing, Checkout & Printable Invoice Receipt (HU-015 & HU-023) */
+tbody tr.selected-row {
+  background: #e5eff5 !important;
+  outline: 2px solid var(--blue);
+}
+.billing-summary-box {
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--cream-surface);
+  border: 1.5px solid var(--cream-border-strong);
+  display: grid;
+  gap: 6px;
+}
+.billing-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+}
+.invoice-receipt-modal {
+  width: min(100%, 540px);
+}
+.receipt-paper {
+  background: var(--cream-card);
+  border: 2px dashed var(--cream-border-strong);
+  border-radius: 22px;
+  padding: 22px;
+  color: var(--ink);
+}
+.receipt-header {
+  text-align: center;
+  border-bottom: 1.5px dashed var(--cream-border-strong);
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+.receipt-number-box {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: var(--blue-navy);
+  color: var(--cream-card);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.receipt-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  font-size: 0.8rem;
+  margin-bottom: 14px;
+}
+.receipt-meta span {
+  color: var(--muted);
+}
+.receipt-items-table {
+  min-width: 100%;
+  margin-bottom: 14px;
+  border: 1px solid var(--cream-border);
+  border-radius: 12px;
+}
+.receipt-items-table th,
+.receipt-items-table td {
+  padding: 8px 10px;
+  font-size: 0.8rem;
+}
+.receipt-totals {
+  border-top: 1.5px dashed var(--cream-border-strong);
+  padding-top: 10px;
+  display: grid;
+  gap: 5px;
+}
+.receipt-footer {
+  text-align: center;
+  margin: 14px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+@media print {
+  @page {
+    margin: 12mm;
+  }
+  html,
+  body {
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+  .no-print,
+  .sidebar,
+  .topbar-actions {
+    display: none !important;
+  }
+  /* Si hay una factura abierta (#printable-receipt), ocultar por completo #app para que no genere páginas extra ni repita el position:fixed */
+  body:has(#printable-receipt) #app {
+    display: none !important;
+  }
+  .modal-backdrop,
+  #modal {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .modal,
+  .invoice-receipt-modal {
+    position: static !important;
+    width: 100% !important;
+    max-width: 520px !important;
+    max-height: none !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+  #printable-receipt {
+    position: static !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  /* Impresión limpia de reportes (#printable-report) */
+  .layout,
+  .content,
+  .workspace-frame,
+  #view,
+  #printable-report {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+}
+
+/* Sprint 4: Reporteria (HU-016 & HU-024), Responsive Tablet/Mobile (HU-029) & Chrome Compatibility (HU-030) */
+.report-kpi-grid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+.report-tables-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 18px;
+}
+.report-date-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--blue-navy);
+}
+.report-date-field input[type="date"] {
+  max-width: 165px;
+  padding: 9px 12px;
+  border-radius: 14px;
+}
+
+@media (max-width: 1180px) {
+  .report-tables-grid,
+  .pos-layout {
+    grid-template-columns: 1fr;
+  }
+  .pos-ticket-panel {
+    position: static;
+  }
+}
+
+@media (max-width: 768px) {
+  .toolbar input,
+  .toolbar select,
+  .custom-select {
+    max-width: 100%;
+    width: 100%;
+  }
+  .report-date-field {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .report-date-field input[type="date"] {
+    max-width: none;
+    flex: 1;
+  }
+  .topbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .topbar-actions button {
+    flex: 1 1 auto;
+  }
+  .receipt-meta {
+    grid-template-columns: 1fr;
+  }
 }

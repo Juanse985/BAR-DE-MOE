@@ -1275,8 +1275,13 @@ def _validar_rango(desde: date | None, hasta: date | None) -> tuple[date, date]:
 
 
 def _filas_reporte(db: Session, desde: date, hasta: date, sedes: list[int] | None,
-                   orden: str) -> list[reportes.Fila]:
-    """Una sola función arma las filas de la pantalla y del Excel (c7)."""
+                   orden: str, producto_id: int | None = None,
+                   tipo_producto_id: int | None = None) -> list[reportes.Fila]:
+    """Una sola función arma las filas de la pantalla y del Excel (c7).
+
+    Filtros de la propuesta (M6): rango de fechas, sede según el perfil, producto y tipo
+    de producto. El tipo se toma del catálogo actual del producto vendido.
+    """
     inicio, fin = reportes.rango_utc(desde, hasta)
     consulta = (select(FacturaLinea, Factura.emitida_en, Factura.sede_id, Sede.nombre)
                 .join(Factura, FacturaLinea.factura_id == Factura.id)
@@ -1284,6 +1289,11 @@ def _filas_reporte(db: Session, desde: date, hasta: date, sedes: list[int] | Non
                 .where(Factura.emitida_en >= inicio, Factura.emitida_en < fin))
     if sedes is not None:
         consulta = consulta.where(Factura.sede_id.in_(sedes))
+    if producto_id is not None:
+        consulta = consulta.where(FacturaLinea.producto_id == producto_id)
+    if tipo_producto_id is not None:
+        consulta = consulta.join(Producto, FacturaLinea.producto_id == Producto.id).where(
+            Producto.tipo_producto_id == tipo_producto_id)
     lineas = (reportes.LineaVendida(
         emitida_en=emitida, sede_id=sede_id, sede=nombre_sede, producto_id=li.producto_id,
         codigo=li.codigo, nombre=li.nombre, cantidad=li.cantidad,
@@ -1296,18 +1306,22 @@ ParametroOrden = Annotated[str, Query(pattern="^(fecha|ganancia|cantidad)$",
                                       description="fecha · ganancia · cantidad (merge sort, algoritmo 8)")]
 ParametroSedes = Annotated[str | None, Query(max_length=200,
                                              description="Branch ids separated by commas (admin only)")]
+ParametroProducto = Annotated[int | None, Query(ge=1, description="Only this product (M6 filter)")]
+ParametroTipo = Annotated[int | None, Query(ge=1, description="Only this product type (M6 filter)")]
 
 
 @reportes_router.get("/ventas", response_model=ReporteVentasSalida,
                      summary="Sales and profit report (HU-024)")
 def reporte_ventas(usuario: UsuarioActual = Depends(cajero_o_admin), db: Session = Depends(get_db),
                    desde: date | None = None, hasta: date | None = None,
-                   sedes: ParametroSedes = None, orden: ParametroOrden = "fecha"):
+                   sedes: ParametroSedes = None, orden: ParametroOrden = "fecha",
+                   producto_id: ParametroProducto = None, tipo_producto_id: ParametroTipo = None):
     desde, hasta = _validar_rango(desde, hasta)
     alcance, fija = _alcance_reporte(db, usuario, sedes)
-    filas = _filas_reporte(db, desde, hasta, alcance, orden)
+    filas = _filas_reporte(db, desde, hasta, alcance, orden, producto_id, tipo_producto_id)
     return ReporteVentasSalida(
         desde=desde, hasta=hasta, sedes=alcance, sede_fija=fija, orden=orden,
+        producto_id=producto_id, tipo_producto_id=tipo_producto_id,
         filas=[vars(f) for f in filas], totales_por_sede=reportes.totales_por_sede(filas),
         total_cantidad=sum(f.cantidad for f in filas),
         total_ventas=sum((f.valor_venta * f.cantidad for f in filas), Decimal(0)),
@@ -1320,10 +1334,11 @@ def reporte_ventas(usuario: UsuarioActual = Depends(cajero_o_admin), db: Session
 def exportar_reporte_ventas(request: Request, usuario: UsuarioActual = Depends(cajero_o_admin),
                             db: Session = Depends(get_db), desde: date | None = None,
                             hasta: date | None = None, sedes: ParametroSedes = None,
-                            orden: ParametroOrden = "fecha"):
+                            orden: ParametroOrden = "fecha", producto_id: ParametroProducto = None,
+                            tipo_producto_id: ParametroTipo = None):
     desde, hasta = _validar_rango(desde, hasta)
     alcance, _ = _alcance_reporte(db, usuario, sedes)
-    filas = _filas_reporte(db, desde, hasta, alcance, orden)
+    filas = _filas_reporte(db, desde, hasta, alcance, orden, producto_id, tipo_producto_id)
     if alcance is None:
         texto_alcance = "todas"
     else:

@@ -232,3 +232,61 @@ def test_excel_vacio_igual_se_genera():
     filas = list(load_workbook(BytesIO(contenido)).active.iter_rows(values_only=True))
     encabezado = filas.index(reportes.COLUMNAS)
     assert filas[encabezado + 1][0] == "TOTAL"
+
+
+# ------------------------------------------------ Filtros de la propuesta (M6): producto y tipo
+# Agregados en la integración de los Sprints 3 y 4 (QA): la propuesta comercial pide filtrar
+# por rango de fechas, sede, producto y tipo de producto.
+RANGO = "desde=2026-03-12&hasta=2026-03-13"
+
+
+def _producto_id(cliente, admin, codigo: str) -> int:
+    return next(p["id"] for p in cliente.get("/productos", headers=admin).json() if p["codigo"] == codigo)
+
+
+def test_m6_filtro_por_producto(cliente, admin, ventas):
+    cerveza = _producto_id(cliente, admin, "CER-001")
+    r = cliente.get(f"/reportes/ventas?{RANGO}&producto_id={cerveza}", headers=admin).json()
+    assert {f["codigo"] for f in r["filas"]} == {"CER-001"}
+    assert r["total_cantidad"] == 128 + 10 and r["producto_id"] == cerveza
+
+
+def test_m6_filtro_por_tipo_de_producto(cliente, admin, catalogo, ventas):
+    comida = cliente.post("/tipos-producto", headers=admin, json={"nombre": "Comida QA"}).json()["id"]
+    picada = _producto_id(cliente, admin, "PIC-001")
+    cliente.patch(f"/productos/{picada}", headers=admin, json={"tipo_producto_id": comida})
+    filas = _filas(cliente.get(f"/reportes/ventas?{RANGO}&tipo_producto_id={comida}", headers=admin))
+    assert {f["codigo"] for f in filas} == {"PIC-001"}
+    assert sum(f["cantidad"] for f in filas) == 22 + 5
+    otro = _filas(cliente.get(f"/reportes/ventas?{RANGO}&tipo_producto_id={catalogo['tipo']['id']}",
+                              headers=admin))
+    assert {f["codigo"] for f in otro} == {"CER-001"}
+
+
+def test_m6_el_cajero_filtra_por_producto_sin_salir_de_su_sede(cliente, admin, ventas):
+    picada = _producto_id(cliente, admin, "PIC-001")
+    r = cliente.get(f"/reportes/ventas?{RANGO}&producto_id={picada}", headers=ventas["cajero_norte"]).json()
+    assert r["sede_fija"] is True
+    filas = [(f["sede_id"], f["codigo"], f["cantidad"]) for f in r["filas"]]
+    assert filas == [(ventas["norte"], "PIC-001", 5)]
+
+
+def test_m6_el_excel_respeta_los_mismos_filtros(cliente, admin, ventas):
+    cerveza = _producto_id(cliente, admin, "CER-001")
+    r = cliente.get(f"/reportes/ventas/excel?{RANGO}&producto_id={cerveza}", headers=admin)
+    assert r.status_code == 200
+    hoja = load_workbook(BytesIO(r.content)).active
+    codigos = {c.value for c in hoja["B"] if c.value not in (None, "CÓD. PRODUCTO", "Código", "CÓD.")}
+    assert "PIC-001" not in codigos and "CER-001" in codigos
+
+
+@pytest.mark.parametrize("malicioso", ["1 OR 1=1", "1;DROP TABLE facturas", "' OR ''='", "-1"])
+def test_c3_owasp_inyeccion_en_los_filtros_del_reporte(cliente, admin, ventas, malicioso):
+    """C-3: cadenas de inyección en los filtros del reporte se rechazan por tipo (422)."""
+    for campo in ("producto_id", "tipo_producto_id"):
+        r = cliente.get(f"/reportes/ventas?{RANGO}&{campo}={malicioso}", headers=admin)
+        assert r.status_code == 422, (campo, malicioso, r.text)
+    r = cliente.get(f"/reportes/ventas?{RANGO}&sedes={malicioso}", headers=admin)
+    assert r.status_code in (403, 404, 422), r.text   # rechazada, nunca ejecutada
+    # Las facturas siguen ahí: nada alteró la consulta.
+    assert len(_filas(cliente.get(f"/reportes/ventas?{RANGO}", headers=admin))) > 0

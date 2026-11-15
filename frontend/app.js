@@ -14,6 +14,9 @@ const MENU = {
     "productos",
     "inventario",
     "pedidos",
+    "facturacion",
+    "consulta-facturas",
+    "reporte-ventas",
     "usuarios",
     "auditoria",
   ],
@@ -269,6 +272,93 @@ const I18N = {
       markOccupied: "Ocupar mesa",
       activeOrderBadge: "Pedido #{id} · ${total} ({items} ítems)",
       searchTable: "Buscar por número de mesa o sede...",
+    },
+    billing: {
+      eyebrow: "Facturación",
+      title: "Cobro y factura",
+      subtitle: "Cierra el pedido, registra el medio de pago y libera la mesa en un solo paso (HU-023).",
+      lookupTitle: "Consulta de facturas",
+      lookupSub: "Busca por número, sede, medio de pago o fechas. Cada reimpresión queda en la auditoría.",
+      pendingOrdersKpi: "Pedidos por cobrar",
+      invoicesTodayKpi: "Facturas de hoy",
+      totalTodayKpi: "Facturado hoy",
+      pendingTitle: "1. Pedidos abiertos por cobrar",
+      checkoutTitle: "2. Medio de pago y factura",
+      todayTitle: "Facturas emitidas hoy",
+      noPendingOrders: "No hay pedidos abiertos por cobrar.",
+      noInvoices: "No hay facturas con esos filtros.",
+      searchOrderPlaceholder: "Buscar por mesa, pedido o mesero",
+      selectToBillBtn: "Cobrar",
+      selectedBtn: "Seleccionado",
+      selectOrderPrompt: "Selecciona un pedido de la lista para cobrarlo.",
+      paymentMethodLabel: "Medio de pago",
+      methodCash: "Efectivo",
+      methodCreditCard: "Tarjeta de crédito",
+      methodDebitCard: "Tarjeta débito",
+      allMethods: "Todos los medios de pago",
+      cashReceivedLabel: "Valor recibido",
+      exactBtn: "Exacto",
+      cardNote: "Con tarjeta se cobra el total exacto del pedido.",
+      totalToPayLabel: "Total a pagar",
+      changeDueLabel: "Vueltas",
+      changePiecesLabel: "Entregar",
+      insufficientCashText: "Faltan ${diff}",
+      emitInvoiceBtn: "Cobrar y emitir factura",
+      invoiceCreatedSuccess: "Factura {num} emitida. El pedido quedó cerrado y la mesa libre.",
+      searchNumberPlaceholder: "N.º de factura (ej. 0001-0000012)",
+      searchBtn: "Buscar",
+      colInvoiceNum: "Factura",
+      colDate: "Fecha",
+      colCashier: "Cajero",
+      colMethod: "Medio de pago",
+      colTotal: "Total",
+      viewBtn: "Ver",
+      printBtn: "Imprimir",
+      receiptTitle: "Factura de venta",
+      receiptInvoiceNo: "Factura de venta N.º",
+      receiptDate: "Fecha",
+      receiptTable: "Mesa",
+      orderLabel: "pedido",
+      receiptWaiter: "Mesero",
+      receiptCashier: "Cajero",
+      receiptQty: "Cant.",
+      receiptProduct: "Producto",
+      receiptUnit: "V. unit.",
+      receiptLineTotal: "Subtotal",
+      receiptFooter: "Gracias por visitar el Bar de Moe.",
+    },
+    reports: {
+      eyebrow: "Reportería",
+      title: "Reporte de ventas y ganancia",
+      sub: "Ganancia = (valor de venta − valor de compra) × cantidad. El alcance depende de tu perfil y tu sede (HU-024).",
+      fromDateLabel: "Desde",
+      toDateLabel: "Hasta",
+      typeFilter: "Tipo de producto",
+      productFilter: "Producto",
+      allTypes: "Todos los tipos",
+      allProducts: "Todos los productos",
+      orderLabel: "Ordenar por",
+      orderBy: { fecha: "Ordenar por fecha", ganancia: "Ordenar por ganancia", cantidad: "Ordenar por cantidad" },
+      applyBtn: "Consultar",
+      exportExcelBtn: "Exportar a Excel",
+      printReportBtn: "Imprimir",
+      fixedBranchTitle: "Como cajero solo ves tu sede",
+      kpiUnits: "Unidades vendidas",
+      kpiSales: "Ventas",
+      kpiProfit: "Ganancia",
+      kpiMargin: "Margen",
+      byBranchTitle: "Totales por sede",
+      detailTitle: "Detalle",
+      noSales: "No hay ventas en ese rango.",
+      colDate: "Fecha",
+      colCode: "Cód. producto",
+      colName: "Nombre producto",
+      colUnits: "Cant. vendida",
+      colUnitCost: "Valor compra",
+      colUnitPrice: "Valor venta",
+      colProfit: "Ganancia",
+      colSales: "Ventas",
+      colBranch: "Sede",
     },
     orders: {
       eyebrow: "HU-014 · M4 Pedidos",
@@ -565,6 +655,93 @@ const I18N = {
       activeOrderBadge: "Order #{id} · ${total} ({items} items)",
       searchTable: "Search by table number or branch...",
     },
+    billing: {
+      eyebrow: "Billing",
+      title: "Checkout and invoice",
+      subtitle: "Closes the order, records the payment method and frees the table in one step (HU-023).",
+      lookupTitle: "Invoice lookup",
+      lookupSub: "Search by number, branch, payment method or dates. Every reprint is audited.",
+      pendingOrdersKpi: "Orders to charge",
+      invoicesTodayKpi: "Today's invoices",
+      totalTodayKpi: "Billed today",
+      pendingTitle: "1. Open orders to charge",
+      checkoutTitle: "2. Payment method and invoice",
+      todayTitle: "Invoices issued today",
+      noPendingOrders: "There are no open orders to charge.",
+      noInvoices: "No invoices match those filters.",
+      searchOrderPlaceholder: "Search by table, order or waiter",
+      selectToBillBtn: "Charge",
+      selectedBtn: "Selected",
+      selectOrderPrompt: "Pick an order from the list to charge it.",
+      paymentMethodLabel: "Payment method",
+      methodCash: "Cash",
+      methodCreditCard: "Credit card",
+      methodDebitCard: "Debit card",
+      allMethods: "All payment methods",
+      cashReceivedLabel: "Amount received",
+      exactBtn: "Exact",
+      cardNote: "Cards are charged the exact order total.",
+      totalToPayLabel: "Total due",
+      changeDueLabel: "Change",
+      changePiecesLabel: "Hand over",
+      insufficientCashText: "${diff} short",
+      emitInvoiceBtn: "Charge and issue invoice",
+      invoiceCreatedSuccess: "Invoice {num} issued. The order is closed and the table is free.",
+      searchNumberPlaceholder: "Invoice no. (e.g. 0001-0000012)",
+      searchBtn: "Search",
+      colInvoiceNum: "Invoice",
+      colDate: "Date",
+      colCashier: "Cashier",
+      colMethod: "Payment method",
+      colTotal: "Total",
+      viewBtn: "View",
+      printBtn: "Print",
+      receiptTitle: "Sales invoice",
+      receiptInvoiceNo: "Sales invoice no.",
+      receiptDate: "Date",
+      receiptTable: "Table",
+      orderLabel: "order",
+      receiptWaiter: "Waiter",
+      receiptCashier: "Cashier",
+      receiptQty: "Qty",
+      receiptProduct: "Product",
+      receiptUnit: "Unit price",
+      receiptLineTotal: "Subtotal",
+      receiptFooter: "Thanks for visiting Moe's Bar.",
+    },
+    reports: {
+      eyebrow: "Reports",
+      title: "Sales and profit report",
+      sub: "Profit = (sale price − purchase cost) × quantity. What you see depends on your profile and branch (HU-024).",
+      fromDateLabel: "From",
+      toDateLabel: "To",
+      typeFilter: "Product type",
+      productFilter: "Product",
+      allTypes: "All types",
+      allProducts: "All products",
+      orderLabel: "Sort by",
+      orderBy: { fecha: "Sort by date", ganancia: "Sort by profit", cantidad: "Sort by quantity" },
+      applyBtn: "Run report",
+      exportExcelBtn: "Export to Excel",
+      printReportBtn: "Print",
+      fixedBranchTitle: "As a cashier you only see your branch",
+      kpiUnits: "Units sold",
+      kpiSales: "Sales",
+      kpiProfit: "Profit",
+      kpiMargin: "Margin",
+      byBranchTitle: "Totals by branch",
+      detailTitle: "Detail",
+      noSales: "No sales in that range.",
+      colDate: "Date",
+      colCode: "Product code",
+      colName: "Product name",
+      colUnits: "Qty sold",
+      colUnitCost: "Purchase cost",
+      colUnitPrice: "Sale price",
+      colProfit: "Profit",
+      colSales: "Sales",
+      colBranch: "Branch",
+    },
     orders: {
       eyebrow: "HU-014 · M4 Orders",
       title: "Order taking screen",
@@ -699,6 +876,11 @@ const ERROR_MESSAGES = {
     PAGO_INSUFICIENTE: "El pago no cubre el total del pedido.",
     CAMBIO_IMPOSIBLE: "No se pueden dar esas vueltas con billetes y monedas colombianos.",
     SIN_PEDIDO_ABIERTO: "La mesa no tiene un pedido abierto.",
+    PEDIDO_NO_ABIERTO: "Ese pedido ya no está abierto: ya se facturó o se cerró.",
+    PEDIDO_SIN_PRODUCTOS: "El pedido no tiene productos: no se puede facturar.",
+    MEDIO_PAGO_INVALIDO: "Medio de pago no válido: usa efectivo, tarjeta débito o tarjeta de crédito.",
+    RANGO_INVALIDO: "El rango de fechas no es válido (la fecha inicial va antes y como máximo 366 días).",
+    SEDES_INVALIDAS: "La lista de sedes del filtro no es válida.",
   },
   en: {
     CREDENCIALES_INVALIDAS:
@@ -759,6 +941,12 @@ const ERROR_MESSAGES = {
       "The selected table is inactive and cannot take orders right now.",
     PRODUCTO_INACTIVO:
       "One of the selected products is inactive and cannot be ordered.",
+    PEDIDO_NO_ABIERTO: "That order is no longer open: it was already invoiced or closed.",
+    PEDIDO_SIN_PRODUCTOS: "The order has no products, so it cannot be invoiced.",
+    MEDIO_PAGO_INVALIDO: "Invalid payment method: use cash, debit card or credit card.",
+    PAGO_INSUFICIENTE: "The amount received does not cover the total.",
+    RANGO_INVALIDO: "Invalid date range (start date first, at most 366 days).",
+    SEDES_INVALIDAS: "The branch list in the filter is not valid.",
   },
 };
 
@@ -1260,6 +1448,9 @@ function renderView() {
   if (state.route === "inventario") return inventoryView();
   if (state.route === "mesas") return tablesMapView();
   if (state.route === "pedidos") return ordersPosView();
+  if (state.route === "facturacion") return billingView();
+  if (state.route === "consulta-facturas") return invoicesLookupView();
+  if (state.route === "reporte-ventas") return salesReportView();
   if (RESOURCES[state.route]) return resource(state.route);
   const d = dict();
   document.getElementById("view").innerHTML =
@@ -2244,7 +2435,7 @@ function drawOrdersHistory() {
         <td>${stateBadge(o.estado)}</td>
         <td><div class="user-actions">
           ${abierto && canTakeOrders() ? `<button class="ghost add-to-order btn-uniform" data-mesa="${o.mesa_id}">${esc(d.orders.addToOrderBtn)}</button>` : ""}
-          ${abierto && puedeCobrar ? `<button class="ghost order-change btn-uniform" data-id="${o.id}">${esc(d.orders.changeBtn)}</button>` : ""}
+          ${abierto && puedeCobrar ? `<button class="primary order-charge btn-uniform" data-id="${o.id}">${esc(d.billing.selectToBillBtn)}</button>` : ""}
         </div></td>
       </tr>`;
     })
@@ -2256,38 +2447,640 @@ function drawOrdersHistory() {
       document.getElementById("view")?.scrollIntoView({ behavior: "smooth" });
     }),
   );
-  document.querySelectorAll(".order-change").forEach((btn) =>
-    btn.addEventListener("click", () =>
-      askChange((state.orders || []).find((o) => o.id === Number(btn.dataset.id))),
-    ),
+  // Sprint 3: el cajero cobra desde aquí; las vueltas (algoritmo 5) salen al facturar.
+  document.querySelectorAll(".order-charge").forEach((btn) =>
+    btn.addEventListener("click", () => goToBilling(btn.dataset.id)),
   );
 }
 
-// Algoritmo 5 de David (voraz de monedas): vueltas en billetes y monedas
-// colombianos. Prepara el cobro de HU-023 (Sprint 3).
-async function askChange(order) {
-  if (!order) return;
-  const d = dict();
-  const total = Number(order.total);
-  const valor = window.prompt(d.orders.changePrompt.replace("{total}", total.toLocaleString()));
-  if (!valor) return;
-  const pagado = Number(String(valor).replace(/\D/g, ""));
+// ====================================================== SPRINT 3 · M5 FACTURACIÓN (HU-015 · HU-023)
+// Pantallas de Felipe conectadas a la API de David (docs/11-sprint-3-4-david.md):
+//   POST /facturas {pedido_id, medio_pago, valor_recibido?} cierra el pedido, emite la
+//   factura con consecutivo único, calcula las vueltas (algoritmo 5) y libera la mesa.
+//   GET /facturas · /facturas/numero/{n} · /facturas/{id}/impresion (HTML de 80 mm).
+const MEDIOS_PAGO = ["EFECTIVO", "TARJETA_DEBITO", "TARJETA_CREDITO"];
+
+function methodLabel(code) {
+  const b = dict().billing;
+  if (code === "TARJETA_CREDITO") return b.methodCreditCard;
+  if (code === "TARJETA_DEBITO") return b.methodDebitCard;
+  return b.methodCash;
+}
+
+function methodOptionsHtml(selected = "", conTodos = true) {
+  const b = dict().billing;
+  const opciones = conTodos ? [["", b.allMethods]] : [];
+  MEDIOS_PAGO.forEach((m) => opciones.push([m, methodLabel(m)]));
+  return opciones
+    .map(([v, t]) => `<option value="${v}" ${v === selected ? "selected" : ""}>${esc(t)}</option>`)
+    .join("");
+}
+
+function pesos(valor) {
+  return `$${Number(valor || 0).toLocaleString("es-CO")}`;
+}
+
+function hoyLocal() {
+  // Fecha de hoy en Bogotá (el servidor también filtra en hora de Bogotá).
+  const ahora = new Date(Date.now() - 5 * 3600 * 1000);
+  return ahora.toISOString().slice(0, 10);
+}
+
+// Descarga un archivo de una ruta que exige token (el navegador no lo manda solo).
+async function fetchArchivo(path) {
+  const response = await fetch(`${API}${path}`, { headers: headers() });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw Error(message(data));
+  }
+  return response;
+}
+
+async function imprimirFactura(facturaId) {
   try {
-    const r = await request(`/parametrizacion/pedidos/${order.id}/cambio?pagado=${pagado}`);
-    const piezas =
-      r.piezas.map((p) => `${p.cantidad} × $${Number(p.denominacion).toLocaleString()}`).join(", ") ||
-      "—";
-    state.orderBanner = d.orders.changeResult
-      .replace("{id}", r.pedido_id)
-      .replace("{cambio}", Number(r.cambio).toLocaleString())
-      .replace("{piezas}", piezas);
+    const html = await (await fetchArchivo(`/parametrizacion/facturas/${facturaId}/impresion`)).text();
+    document.getElementById("print-frame")?.remove();
+    const frame = document.createElement("iframe");
+    frame.id = "print-frame";
+    frame.title = "factura";
+    frame.style.cssText = "position:fixed;width:0;height:0;border:0;right:0;bottom:0";
+    document.body.appendChild(frame);
+    // La tirilla trae onload="window.print()": al cargar abre el diálogo de impresión.
+    frame.srcdoc = html;
+  } catch (error) {
+    if (error.message !== "sesion") window.alert(error.message);
+  }
+}
+
+function mesaNumero(mesaId) {
+  return (state.mesasList || []).find((m) => m.id === mesaId)?.numero ?? mesaId;
+}
+
+function resumenLineas(lineas) {
+  const porProducto = new Map();
+  (lineas || []).forEach((l) =>
+    porProducto.set(l.nombre, (porProducto.get(l.nombre) || 0) + Number(l.cantidad)),
+  );
+  return [...porProducto].map(([nombre, cant]) => `${cant}× ${nombre}`).join(", ");
+}
+
+function goToBilling(pedidoId) {
+  state.selectedBillingOrderId = Number(pedidoId);
+  state.billingCashReceived = undefined;
+  renderShell("facturacion");
+}
+
+async function billingView() {
+  const d = dict();
+  const sedeSelect = esAdmin()
+    ? `<select id="bill-sede-filter" aria-label="${esc(d.fields.sede_id)}"></select>`
+    : "";
+  document.getElementById("view").innerHTML = `<div class="topbar">
+      <div><p class="eyebrow">${esc(d.billing.eyebrow)}</p><h1>${esc(d.billing.title)}</h1>
+      <p class="subtle">${esc(d.billing.subtitle)}</p></div>
+      <div class="topbar-actions">
+        <button class="ghost" id="go-lookup">${esc(d.nav["consulta-facturas"])}</button>
+        <button class="ghost" id="bill-refresh">${esc(d.common.refresh)}</button>
+      </div>
+    </div>
+    <div id="bill-banner"></div>
+    <div class="stats" id="bill-stats"></div>
+    <div class="pos-layout">
+      <section class="panel">
+        <h2>${esc(d.billing.pendingTitle)}</h2>
+        <div class="toolbar">
+          <input id="bill-order-search" placeholder="${esc(d.billing.searchOrderPlaceholder)}" value="${esc(state.billFilter || "")}">
+          ${sedeSelect}
+        </div>
+        <div id="bill-pending-orders"></div>
+      </section>
+      <aside class="order-ticket" id="bill-checkout-card">
+        <h2>${esc(d.billing.checkoutTitle)}</h2>
+        <div id="bill-checkout-body"></div>
+      </aside>
+    </div>
+    <section class="panel">
+      <h2>${esc(d.billing.todayTitle)}</h2>
+      <div id="bill-invoices-table"></div>
+    </section>`;
+  document.getElementById("go-lookup").addEventListener("click", () => renderShell("consulta-facturas"));
+  document.getElementById("bill-refresh").addEventListener("click", loadBillingData);
+  document.getElementById("bill-order-search").addEventListener("input", (e) => {
+    state.billFilter = e.target.value.toLowerCase();
+    drawBillingView();
+  });
+  document.getElementById("bill-sede-filter")?.addEventListener("change", (e) => {
+    state.billSede = e.target.value;
+    loadBillingData();
+  });
+  await loadBillingData();
+}
+
+async function loadBillingData() {
+  try {
+    await loadCatalogs();
+    const sede = esAdmin() ? state.billSede || "" : "";
+    const qs = sede ? `&sede_id=${sede}` : "";
+    const [mesas, pedidos, facturas] = await Promise.all([
+      request("/parametrizacion/mesas"),
+      request(`/parametrizacion/pedidos?estado=ABIERTO${qs}`),
+      request(`/parametrizacion/facturas?desde=${hoyLocal()}&hasta=${hoyLocal()}${qs}`),
+    ]);
+    state.mesasList = mesas;
+    state.billingOrders = pedidos.filter((p) => (p.lineas || []).length);
+    state.invoicesToday = facturas;
+    const sel = document.getElementById("bill-sede-filter");
+    if (sel) sel.innerHTML = refOptions("sedes", state.billSede || "", dict().common.allBranchesFilter);
+    if (!state.billingOrders.some((p) => p.id === Number(state.selectedBillingOrderId))) {
+      state.selectedBillingOrderId = state.billingOrders[0]?.id || null;
+    }
     state.error = "";
   } catch (error) {
-    if (!state.token) return;
+    if (error.message === "sesion") return;
     state.error = error.message;
-    state.orderBanner = "";
   }
-  drawOrdersPos();
+  drawBillingView();
+  drawInvoicesTable("bill-invoices-table", state.invoicesToday || []);
+}
+
+function drawBillingView() {
+  const d = dict();
+  const banner = document.getElementById("bill-banner");
+  if (!banner) return;
+  banner.innerHTML = state.error
+    ? `<p class="error">${esc(state.error)}</p>`
+    : state.billBanner
+      ? `<p class="success-note">${esc(state.billBanner)}</p>`
+      : "";
+
+  const facturas = state.invoicesToday || [];
+  const pendientes = state.billingOrders || [];
+  document.getElementById("bill-stats").innerHTML = `
+    <div class="stat ${pendientes.length ? "stat-warn" : ""}"><span>${esc(d.billing.pendingOrdersKpi)}</span><strong>${pendientes.length}</strong></div>
+    <div class="stat stat-ok"><span>${esc(d.billing.invoicesTodayKpi)}</span><strong>${facturas.length}</strong></div>
+    <div class="stat"><span>${esc(d.billing.totalTodayKpi)}</span><strong>${pesos(facturas.reduce((a, f) => a + Number(f.total), 0))}</strong></div>`;
+
+  const filtro = state.billFilter || "";
+  const visibles = pendientes.filter((p) =>
+    `#${p.id} mesa ${mesaNumero(p.mesa_id)} ${refName("sedes", p.sede_id)} ${resolveUserFullName(p.mesero)}`
+      .toLowerCase()
+      .includes(filtro),
+  );
+  const lista = document.getElementById("bill-pending-orders");
+  lista.innerHTML = visibles.length
+    ? `<div class="table-wrap"><table><thead><tr>
+        <th>${esc(d.orders.colTable)}</th><th>${esc(d.orders.colWaiter)}</th>
+        <th>${esc(d.orders.colItems)}</th><th>${esc(d.orders.colTotal)}</th><th></th>
+      </tr></thead><tbody>${visibles
+        .map((p) => {
+          const sel = Number(state.selectedBillingOrderId) === p.id;
+          return `<tr class="${sel ? "selected-row" : ""}">
+            <td><strong>Mesa #${esc(mesaNumero(p.mesa_id))}</strong> <span class="role-badge">#${p.id}</span>
+              <div class="subtle" style="font-size:0.74rem">${esc(refName("sedes", p.sede_id))}</div></td>
+            <td>${esc(resolveUserFullName(p.mesero))}</td>
+            <td>${esc(resumenLineas(p.lineas))}</td>
+            <td><strong>${pesos(p.total)}</strong></td>
+            <td style="text-align:right"><button type="button" class="${sel ? "primary" : "ghost"} select-bill-order btn-uniform" data-id="${p.id}">${esc(sel ? d.billing.selectedBtn : d.billing.selectToBillBtn)}</button></td>
+          </tr>`;
+        })
+        .join("")}</tbody></table></div>`
+    : `<div class="empty">${esc(d.billing.noPendingOrders)}</div>`;
+  lista.querySelectorAll(".select-bill-order").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      state.selectedBillingOrderId = Number(btn.dataset.id);
+      state.billingCashReceived = undefined;
+      drawBillingView();
+    }),
+  );
+
+  const cuerpo = document.getElementById("bill-checkout-body");
+  const pedido = pendientes.find((p) => p.id === Number(state.selectedBillingOrderId));
+  if (!pedido) {
+    cuerpo.innerHTML = `<p class="subtle">${esc(d.billing.selectOrderPrompt)}</p>`;
+    return;
+  }
+  const total = Number(pedido.total);
+  const medio = state.billingMethod || "EFECTIVO";
+  const efectivo = medio === "EFECTIVO";
+  const recibido = state.billingCashReceived ?? total;
+  const falta = efectivo && recibido < total;
+  cuerpo.innerHTML = `
+    <div style="margin-bottom:10px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <span class="role-badge">#${pedido.id} · Mesa #${esc(mesaNumero(pedido.mesa_id))} · ${esc(refName("sedes", pedido.sede_id))}</span>
+      <span class="subtle" style="font-size:0.78rem">${esc(d.orders.colWaiter)}: ${esc(resolveUserFullName(pedido.mesero))}</span>
+    </div>
+    <div class="cart-list" style="max-height:190px">${(pedido.lineas || [])
+      .map(
+        (l) => `<div class="cart-item"><div><strong>${l.cantidad}× ${esc(l.nombre)}</strong>
+          <div class="subtle" style="font-size:0.74rem">${pesos(l.precio_unitario)} c/u</div></div>
+          <strong>${pesos(l.subtotal)}</strong></div>`,
+      )
+      .join("")}</div>
+    <form id="bill-form" class="form" style="margin-top:10px;gap:10px">
+      <label>${esc(d.billing.paymentMethodLabel)}
+        <select id="bill-method">${methodOptionsHtml(medio, false)}</select>
+      </label>
+      ${
+        efectivo
+          ? `<label>${esc(d.billing.cashReceivedLabel)}
+              <input id="bill-cash" type="number" min="0" step="50" value="${recibido}" required>
+            </label>
+            <div class="user-actions" style="justify-content:flex-start">${[0, 20000, 50000, 100000]
+              .filter((v) => v === 0 || v > total)
+              .slice(0, 3)
+              .map((v) => `<button type="button" class="ghost cash-preset" data-v="${v || total}">${v ? pesos(v) : esc(d.billing.exactBtn)}</button>`)
+              .join("")}</div>`
+          : `<p class="subtle">${esc(d.billing.cardNote)}</p>`
+      }
+      <div class="billing-summary-box">
+        <div class="order-total-row"><span>${esc(d.billing.totalToPayLabel)}</span><span>${pesos(total)}</span></div>
+        ${
+          efectivo
+            ? `<div class="billing-row" style="margin-top:6px;font-weight:800;color:${falta ? "var(--red)" : "var(--green)"}">
+                <span>${esc(d.billing.changeDueLabel)}</span>
+                <strong>${falta ? esc(d.billing.insufficientCashText.replace("{diff}", (total - recibido).toLocaleString("es-CO"))) : pesos(recibido - total)}</strong></div>`
+            : ""
+        }
+      </div>
+      <button type="submit" class="primary" style="width:100%" ${falta ? "disabled" : ""}>${esc(d.billing.emitInvoiceBtn)}</button>
+    </form>`;
+  document.getElementById("bill-method").addEventListener("change", (e) => {
+    state.billingMethod = e.target.value;
+    drawBillingView();
+  });
+  document.getElementById("bill-cash")?.addEventListener("change", (e) => {
+    state.billingCashReceived = Math.max(0, Number(e.target.value || 0));
+    drawBillingView();
+  });
+  cuerpo.querySelectorAll(".cash-preset").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      state.billingCashReceived = Number(btn.dataset.v);
+      drawBillingView();
+    }),
+  );
+  document.getElementById("bill-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const cash = document.getElementById("bill-cash");
+    if (cash) state.billingCashReceived = Math.max(0, Number(cash.value || 0));
+    submitInvoice(pedido);
+  });
+}
+
+async function submitInvoice(pedido) {
+  const d = dict();
+  const medio = state.billingMethod || "EFECTIVO";
+  const cuerpo = { pedido_id: pedido.id, medio_pago: medio };
+  if (medio === "EFECTIVO") cuerpo.valor_recibido = Number(state.billingCashReceived ?? pedido.total);
+  try {
+    const factura = await request("/parametrizacion/facturas", {
+      method: "POST",
+      body: JSON.stringify(cuerpo),
+    });
+    state.billBanner = d.billing.invoiceCreatedSuccess.replace("{num}", factura.numero_formateado);
+    state.selectedBillingOrderId = null;
+    state.billingCashReceived = undefined;
+    state.error = "";
+    await loadBillingData();
+    openInvoiceModal(factura);
+  } catch (error) {
+    if (error.message === "sesion") return;
+    state.error = error.message;
+    state.billBanner = "";
+    drawBillingView();
+  }
+}
+
+function drawInvoicesTable(containerId, facturas) {
+  const d = dict();
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!facturas.length) {
+    el.innerHTML = `<div class="empty">${esc(d.billing.noInvoices)}</div>`;
+    return;
+  }
+  el.innerHTML = `<div class="table-wrap"><table><thead><tr>
+      <th>${esc(d.billing.colInvoiceNum)}</th><th>${esc(d.billing.colDate)}</th>
+      <th>${esc(d.fields.sede_id)}</th><th>${esc(d.orders.colTable)}</th>
+      <th>${esc(d.orders.colWaiter)}</th><th>${esc(d.billing.colCashier)}</th>
+      <th>${esc(d.billing.colMethod)}</th><th>${esc(d.billing.colTotal)}</th>
+      <th>${esc(d.orders.colActions)}</th>
+    </tr></thead><tbody>${facturas
+      .map(
+        (f) => `<tr>
+        <td><strong>${esc(f.numero_formateado)}</strong></td>
+        <td>${esc(fechaLocal(f.emitida_en))}</td>
+        <td>${esc(f.sede)}</td>
+        <td>Mesa #${esc(f.mesa_numero)}</td>
+        <td>${esc(resolveUserFullName(f.mesero))}</td>
+        <td>${esc(resolveUserFullName(f.cajero))}</td>
+        <td><span class="role-badge">${esc(methodLabel(f.medio_pago))}</span></td>
+        <td><strong>${pesos(f.total)}</strong></td>
+        <td><div class="user-actions">
+          <button type="button" class="ghost view-invoice btn-uniform" data-id="${f.id}">${esc(d.billing.viewBtn)}</button>
+          <button type="button" class="ghost print-invoice btn-uniform" data-id="${f.id}">${esc(d.billing.printBtn)}</button>
+        </div></td>
+      </tr>`,
+      )
+      .join("")}</tbody></table></div>`;
+  el.querySelectorAll(".view-invoice").forEach((btn) =>
+    btn.addEventListener("click", () =>
+      openInvoiceModal(facturas.find((f) => f.id === Number(btn.dataset.id))),
+    ),
+  );
+  el.querySelectorAll(".print-invoice").forEach((btn) =>
+    btn.addEventListener("click", () => imprimirFactura(btn.dataset.id)),
+  );
+}
+
+function openInvoiceModal(f) {
+  if (!f) return;
+  const d = dict();
+  const b = d.billing;
+  const piezas = (f.piezas_cambio || [])
+    .map((p) => `${p.cantidad} × ${pesos(p.denominacion)}`)
+    .join(" · ");
+  document.getElementById("modal")?.remove();
+  document.body.insertAdjacentHTML(
+    "beforeend",
+    `<div class="modal-backdrop" id="modal"><section class="modal invoice-receipt-modal" role="dialog" aria-modal="true">
+      <div class="topbar" style="margin-bottom:12px">
+        <div><p class="eyebrow">${esc(b.eyebrow)}</p><h2>${esc(b.receiptTitle)}</h2></div>
+        <button class="ghost" id="close-modal">${esc(d.common.close)}</button>
+      </div>
+      <div class="receipt-paper">
+        <div class="receipt-header">
+          <strong>BAR DE MOE · ${esc(f.sede)}</strong>
+          <div class="receipt-number-box">${esc(b.receiptInvoiceNo)} ${esc(f.numero_formateado)}</div>
+        </div>
+        <div class="receipt-meta">
+          <div><span>${esc(b.receiptDate)}:</span> <strong>${esc(fechaLocal(f.emitida_en))}</strong></div>
+          <div><span>${esc(b.receiptTable)}:</span> <strong>Mesa #${esc(f.mesa_numero)} · ${esc(b.orderLabel)} #${f.pedido_id}</strong></div>
+          <div><span>${esc(b.receiptWaiter)}:</span> <strong>${esc(resolveUserFullName(f.mesero))}</strong></div>
+          <div><span>${esc(b.receiptCashier)}:</span> <strong>${esc(resolveUserFullName(f.cajero))}</strong></div>
+          <div><span>${esc(b.paymentMethodLabel)}:</span> <strong>${esc(methodLabel(f.medio_pago))}</strong></div>
+        </div>
+        <table class="receipt-items-table"><thead><tr>
+          <th>${esc(b.receiptQty)}</th><th>${esc(b.receiptProduct)}</th><th>${esc(b.receiptUnit)}</th>
+          <th style="text-align:right">${esc(b.receiptLineTotal)}</th></tr></thead>
+          <tbody>${(f.lineas || [])
+            .map(
+              (l) => `<tr><td>${l.cantidad}</td><td>${esc(l.nombre)}</td><td>${pesos(l.precio_unitario)}</td>
+              <td style="text-align:right"><strong>${pesos(l.subtotal)}</strong></td></tr>`,
+            )
+            .join("")}</tbody></table>
+        <div class="receipt-totals">
+          <div class="order-total-row"><span>${esc(b.totalToPayLabel)}</span><span>${pesos(f.total)}</span></div>
+          ${
+            f.valor_recibido != null
+              ? `<div class="billing-row"><span>${esc(b.cashReceivedLabel)}</span><strong>${pesos(f.valor_recibido)}</strong></div>
+                 <div class="billing-row"><span>${esc(b.changeDueLabel)}</span><strong>${pesos(f.cambio)}</strong></div>
+                 ${piezas ? `<div class="billing-row subtle"><span>${esc(b.changePiecesLabel)}</span><span>${esc(piezas)}</span></div>` : ""}`
+              : ""
+          }
+        </div>
+        <p class="receipt-footer">${esc(b.receiptFooter)}</p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost" id="close-receipt-btn">${esc(d.common.close)}</button>
+        <button type="button" class="primary" id="print-receipt-btn">${esc(b.printBtn)}</button>
+      </div>
+    </section></div>`,
+  );
+  const cerrar = () => document.getElementById("modal")?.remove();
+  document.getElementById("close-modal").addEventListener("click", cerrar);
+  document.getElementById("close-receipt-btn").addEventListener("click", cerrar);
+  document.getElementById("print-receipt-btn").addEventListener("click", () => imprimirFactura(f.id));
+}
+
+async function invoicesLookupView() {
+  const d = dict();
+  const b = d.billing;
+  state.lookup = state.lookup || { numero: "", sede: "", medio: "", desde: "", hasta: "" };
+  const L = state.lookup;
+  document.getElementById("view").innerHTML = `<div class="topbar">
+      <div><p class="eyebrow">${esc(b.eyebrow)}</p><h1>${esc(b.lookupTitle)}</h1>
+      <p class="subtle">${esc(b.lookupSub)}</p></div>
+      <div class="topbar-actions"><button class="primary" id="go-billing">${esc(d.nav.facturacion)}</button></div>
+    </div>
+    <div id="lookup-banner"></div>
+    <section class="panel">
+      <form class="toolbar" id="lookup-form">
+        <input id="lookup-numero" inputmode="numeric" placeholder="${esc(b.searchNumberPlaceholder)}" value="${esc(L.numero)}">
+        ${esAdmin() ? `<select id="lookup-sede" aria-label="${esc(d.fields.sede_id)}"></select>` : ""}
+        <select id="lookup-medio" aria-label="${esc(b.paymentMethodLabel)}">${methodOptionsHtml(L.medio)}</select>
+        <label class="report-date-field"><span>${esc(d.reports.fromDateLabel)}</span><input type="date" id="lookup-desde" value="${esc(L.desde)}"></label>
+        <label class="report-date-field"><span>${esc(d.reports.toDateLabel)}</span><input type="date" id="lookup-hasta" value="${esc(L.hasta)}"></label>
+        <button class="primary" type="submit">${esc(b.searchBtn)}</button>
+      </form>
+      <div id="lookup-invoices-table"></div>
+    </section>`;
+  await loadCatalogs();
+  const sel = document.getElementById("lookup-sede");
+  if (sel) sel.innerHTML = refOptions("sedes", L.sede, d.common.allBranchesFilter);
+  document.getElementById("go-billing").addEventListener("click", () => renderShell("facturacion"));
+  document.getElementById("lookup-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    L.numero = document.getElementById("lookup-numero").value.trim();
+    L.sede = sel ? sel.value : "";
+    L.medio = document.getElementById("lookup-medio").value;
+    L.desde = document.getElementById("lookup-desde").value;
+    L.hasta = document.getElementById("lookup-hasta").value;
+    loadLookup();
+  });
+  await loadLookup();
+}
+
+async function loadLookup() {
+  const L = state.lookup;
+  const banner = document.getElementById("lookup-banner");
+  try {
+    let facturas;
+    if (L.numero) {
+      // "0001-0000012", "12" o "0000012": se busca por el consecutivo.
+      const numero = Number(String(L.numero).split("-").pop().replace(/\D/g, ""));
+      facturas = [await request(`/parametrizacion/facturas/numero/${numero}`)];
+    } else {
+      const qs = new URLSearchParams();
+      if (L.sede) qs.set("sede_id", L.sede);
+      if (L.medio) qs.set("medio_pago", L.medio);
+      if (L.desde) qs.set("desde", L.desde);
+      if (L.hasta) qs.set("hasta", L.hasta);
+      facturas = await request(`/parametrizacion/facturas?${qs}`);
+    }
+    if (banner) banner.innerHTML = "";
+    drawInvoicesTable("lookup-invoices-table", facturas);
+  } catch (error) {
+    if (error.message === "sesion") return;
+    if (banner) banner.innerHTML = `<p class="error">${esc(error.message)}</p>`;
+    drawInvoicesTable("lookup-invoices-table", []);
+  }
+}
+
+// ====================================================== SPRINT 4 · M6 REPORTERÍA (HU-016 · HU-024)
+//   GET /reportes/ventas?desde&hasta&sedes&producto_id&tipo_producto_id&orden
+//   GET /reportes/ventas/excel (mismos filtros): exactamente las filas autorizadas.
+//   El cajero tiene la sede fija (sede_fija); el mesero no ve el menú y el servidor lo rechaza.
+async function salesReportView() {
+  const d = dict();
+  const r = d.reports;
+  const hoy = hoyLocal();
+  state.reportFilters = state.reportFilters || {
+    desde: hoy, hasta: hoy, sedes: "", producto: "", tipo: "", orden: "fecha",
+  };
+  const F = state.reportFilters;
+  document.getElementById("view").innerHTML = `<div class="topbar">
+      <div><p class="eyebrow">${esc(r.eyebrow)}</p><h1>${esc(r.title)}</h1><p class="subtle">${esc(r.sub)}</p></div>
+      <div class="topbar-actions">
+        <button class="ghost" id="rep-print">${esc(r.printReportBtn)}</button>
+        <button class="primary" id="rep-excel">${esc(r.exportExcelBtn)}</button>
+      </div>
+    </div>
+    <div id="rep-banner"></div>
+    <section class="panel">
+      <form class="toolbar" id="rep-form">
+        <label class="report-date-field"><span>${esc(r.fromDateLabel)}</span><input type="date" id="rep-desde" value="${esc(F.desde)}" required></label>
+        <label class="report-date-field"><span>${esc(r.toDateLabel)}</span><input type="date" id="rep-hasta" value="${esc(F.hasta)}" required></label>
+        ${
+          esAdmin()
+            ? `<select id="rep-sedes" aria-label="${esc(d.fields.sede_id)}"></select>`
+            : `<span class="badge" id="rep-sede-fija" title="${esc(r.fixedBranchTitle)}">🔒 ${esc(refName("sedes", state.user.sede_id) || "")}</span>`
+        }
+        <select id="rep-tipo" aria-label="${esc(r.typeFilter)}"></select>
+        <select id="rep-producto" aria-label="${esc(r.productFilter)}"></select>
+        <select id="rep-orden" aria-label="${esc(r.orderLabel)}">
+          ${["fecha", "ganancia", "cantidad"].map((o) => `<option value="${o}" ${F.orden === o ? "selected" : ""}>${esc(r.orderBy[o])}</option>`).join("")}
+        </select>
+        <button class="primary" type="submit">${esc(r.applyBtn)}</button>
+      </form>
+    </section>
+    <div class="stats" id="rep-stats"></div>
+    <section class="panel"><h2>${esc(r.byBranchTitle)}</h2><div id="rep-branches"></div></section>
+    <section class="panel"><h2>${esc(r.detailTitle)}</h2><div id="rep-rows"></div></section>`;
+
+  await loadCatalogs();
+  let productos = [];
+  try {
+    productos = await request("/parametrizacion/productos");
+  } catch (error) {
+    if (error.message === "sesion") return;
+  }
+  const sedes = document.getElementById("rep-sedes");
+  if (sedes) sedes.innerHTML = refOptions("sedes", F.sedes, d.common.allBranchesFilter);
+  document.getElementById("rep-tipo").innerHTML = refOptions("tipos", F.tipo, r.allTypes);
+  const pintarProductos = () => {
+    const tipo = document.getElementById("rep-tipo").value;
+    document.getElementById("rep-producto").innerHTML =
+      `<option value="">${esc(r.allProducts)}</option>` +
+      productos
+        .filter((p) => !tipo || String(p.tipo_producto_id) === tipo)
+        .map((p) => `<option value="${p.id}" ${String(p.id) === String(F.producto) ? "selected" : ""}>${esc(p.codigo)} · ${esc(p.nombre)}</option>`)
+        .join("");
+  };
+  pintarProductos();
+  document.getElementById("rep-tipo").addEventListener("change", pintarProductos);
+  document.getElementById("rep-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    F.desde = document.getElementById("rep-desde").value;
+    F.hasta = document.getElementById("rep-hasta").value;
+    F.sedes = sedes ? sedes.value : "";
+    F.tipo = document.getElementById("rep-tipo").value;
+    F.producto = document.getElementById("rep-producto").value;
+    F.orden = document.getElementById("rep-orden").value;
+    loadSalesReport();
+  });
+  document.getElementById("rep-print").addEventListener("click", () => window.print());
+  document.getElementById("rep-excel").addEventListener("click", exportSalesExcel);
+  await loadSalesReport();
+}
+
+function reportQuery() {
+  const F = state.reportFilters;
+  const qs = new URLSearchParams({ desde: F.desde, hasta: F.hasta, orden: F.orden });
+  if (F.sedes) qs.set("sedes", F.sedes);
+  if (F.producto) qs.set("producto_id", F.producto);
+  if (F.tipo) qs.set("tipo_producto_id", F.tipo);
+  return qs.toString();
+}
+
+async function loadSalesReport() {
+  const banner = document.getElementById("rep-banner");
+  try {
+    state.salesReport = await request(`/parametrizacion/reportes/ventas?${reportQuery()}`);
+    if (banner) banner.innerHTML = "";
+  } catch (error) {
+    if (error.message === "sesion") return;
+    state.salesReport = null;
+    if (banner) banner.innerHTML = `<p class="error">${esc(error.message)}</p>`;
+  }
+  drawSalesReport();
+}
+
+function drawSalesReport() {
+  const d = dict();
+  const r = d.reports;
+  const rep = state.salesReport;
+  const stats = document.getElementById("rep-stats");
+  if (!stats) return;
+  if (!rep) {
+    stats.innerHTML = "";
+    document.getElementById("rep-branches").innerHTML = "";
+    document.getElementById("rep-rows").innerHTML = "";
+    return;
+  }
+  const ventas = Number(rep.total_ventas);
+  const ganancia = Number(rep.total_ganancia);
+  const margen = ventas ? Math.round((ganancia / ventas) * 1000) / 10 : 0;
+  stats.innerHTML = `
+    <div class="stat"><span>${esc(r.kpiUnits)}</span><strong>${rep.total_cantidad.toLocaleString("es-CO")}</strong></div>
+    <div class="stat"><span>${esc(r.kpiSales)}</span><strong>${pesos(ventas)}</strong></div>
+    <div class="stat stat-ok"><span>${esc(r.kpiProfit)}</span><strong>${pesos(ganancia)}</strong></div>
+    <div class="stat"><span>${esc(r.kpiMargin)}</span><strong>${margen.toLocaleString("es-CO")} %</strong></div>`;
+
+  const porSede = rep.totales_por_sede || [];
+  document.getElementById("rep-branches").innerHTML = porSede.length
+    ? `<div class="table-wrap"><table><thead><tr>
+        <th>${esc(r.colBranch)}</th><th>${esc(r.colUnits)}</th><th>${esc(r.colSales)}</th><th>${esc(r.colProfit)}</th>
+      </tr></thead><tbody>${porSede
+        .map(
+          (t) => `<tr><td><strong>${esc(t.sede)}</strong></td><td>${t.cantidad.toLocaleString("es-CO")}</td>
+          <td>${pesos(t.ventas)}</td><td><strong>${pesos(t.ganancia)}</strong></td></tr>`,
+        )
+        .join("")}</tbody></table></div>`
+    : `<div class="empty">${esc(r.noSales)}</div>`;
+
+  const filas = rep.filas || [];
+  document.getElementById("rep-rows").innerHTML = filas.length
+    ? `<div class="table-wrap"><table><thead><tr>
+        <th>${esc(r.colDate)}</th><th>${esc(r.colCode)}</th><th>${esc(r.colName)}</th>
+        <th>${esc(r.colUnits)}</th><th>${esc(r.colUnitCost)}</th><th>${esc(r.colUnitPrice)}</th>
+        <th>${esc(r.colProfit)}</th><th>${esc(r.colBranch)}</th>
+      </tr></thead><tbody>${filas
+        .map(
+          (f) => `<tr><td>${esc(f.fecha)}</td><td>${esc(f.codigo)}</td><td>${esc(f.nombre)}</td>
+          <td>${f.cantidad}</td><td>${pesos(f.valor_compra)}</td><td>${pesos(f.valor_venta)}</td>
+          <td><strong>${pesos(f.ganancia)}</strong></td><td>${esc(f.sede)}</td></tr>`,
+        )
+        .join("")}</tbody></table></div>`
+    : `<div class="empty">${esc(r.noSales)}</div>`;
+}
+
+async function exportSalesExcel() {
+  const banner = document.getElementById("rep-banner");
+  try {
+    const response = await fetchArchivo(`/parametrizacion/reportes/ventas/excel?${reportQuery()}`);
+    const nombre =
+      /filename="?([^"]+)"?/.exec(response.headers.get("Content-Disposition") || "")?.[1] ||
+      "reporte-ventas.xlsx";
+    const url = URL.createObjectURL(await response.blob());
+    const a = Object.assign(document.createElement("a"), { href: url, download: nombre });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  } catch (error) {
+    if (error.message === "sesion") return;
+    if (banner) banner.innerHTML = `<p class="error">${esc(error.message)}</p>`;
+  }
 }
 
 // ====================================================== USUARIOS (Full CRUD + Full Names)

@@ -10,7 +10,10 @@ seed.py deja sedes, mesas, cervezas con 48 unidades y usuarios. Este script agre
   por sede, para que se vean las alertas;
 - movimientos de inventario: compras y ajustes por conteo físico;
 - pedidos abiertos tomados por el mesero de cada sede (mesas ocupadas y ventas
-  descontadas del inventario).
+  descontadas del inventario);
+- Sprints 3 y 4 (HU-032, MVP): pedidos ya cobrados por el cajero de cada sede, con
+  factura en efectivo, débito y crédito, para que la consulta de facturas y el reporte
+  de ventas y ganancia tengan datos del día.
 
 Todo pasa por el gateway, igual que seed.py. Los productos se pueden volver a crear sin
 duplicarse; el inventario y los pedidos solo se cargan la primera vez.
@@ -19,7 +22,7 @@ Uso (con la plataforma levantada):
     docker cp scripts/datos_demo.py barmoe-gateway:/tmp/datos_demo.py
     docker exec barmoe-gateway python /tmp/datos_demo.py
 
-Variables: BASE_URL, ADMIN_USUARIO, ADMIN_PASSWORD, MESERO_PASSWORD.
+Variables: BASE_URL, ADMIN_USUARIO, ADMIN_PASSWORD, MESERO_PASSWORD, CAJERO_PASSWORD.
 """
 import os
 import sys
@@ -30,6 +33,7 @@ BASE = os.environ.get("BASE_URL", "http://localhost:8000")
 USUARIO = os.environ.get("ADMIN_USUARIO", "admin")
 PASSWORD = os.environ.get("ADMIN_PASSWORD", "Admin2026")
 MESERO_PASSWORD = os.environ.get("MESERO_PASSWORD", "Mesero2026")
+CAJERO_PASSWORD = os.environ.get("CAJERO_PASSWORD", "Cajero2026")
 API = "/api/parametrizacion"
 
 GALERIAS, MODELIA, ZONA_T = "Galerías", "Modelia", "Zona T"
@@ -107,6 +111,17 @@ PEDIDOS = {
     ZONA_T: [(3, [("INT-002", 6), ("COM-001", 3)]),
              (6, [("LIC-005", 1), ("BEB-003", 4)]),
              (9, [("CERV-004", 5), ("CERV-007", 5), ("COM-004", 1)])],
+}
+
+# Pedidos que se toman y se cobran enseguida (HU-023): (mesa, líneas, medio de pago, valor recibido).
+CAJEROS = {GALERIAS: "ccarlson", MODELIA: "lleonard", ZONA_T: "pbouvier"}
+COBRADOS = {
+    GALERIAS: [(1, [("CERV-002", 4), ("COM-002", 1)], "EFECTIVO", 50000),
+               (3, [("LIC-003", 1), ("BEB-001", 2)], "TARJETA_CREDITO", None)],
+    MODELIA: [(2, [("CERV-005", 6)], "EFECTIVO", 40000),
+              (6, [("ART-002", 2), ("COM-004", 1)], "TARJETA_DEBITO", None)],
+    ZONA_T: [(1, [("INT-001", 3), ("BEB-002", 1)], "TARJETA_DEBITO", None),
+             (4, [("LIC-002", 1), ("CERV-001", 4), ("COM-001", 2)], "EFECTIVO", 100000)],
 }
 
 
@@ -200,7 +215,7 @@ def main() -> int:
                 print(f"  {'+' if ok else '!'} {sede} · {codigo} {cantidad:+d} · {motivo}"
                       + ("" if ok else f" -> {r.status_code} {r.text[:120]}"))
 
-            print("→ Pedidos abiertos (los toma el mesero de cada sede)")
+            print("→ Pedidos (los toma el mesero) y facturas (las emite el cajero de cada sede)")
             for sede, pedidos in PEDIDOS.items():
                 mesero = MESEROS[sede]
                 lm = http.post("/api/auth/auth/login", json={"usuario": mesero, "password": MESERO_PASSWORD})
@@ -223,7 +238,43 @@ def main() -> int:
                     else:
                         conteo["errores"] += 1
                         print(f"  ! {sede} · mesa {numero} -> {r.status_code} {r.text[:160]}")
+                # Pedidos que el cajero cobra de una vez (Sprints 3 y 4).
+                cobrados = []
+                for numero, lineas, medio, recibido in COBRADOS[sede]:
+                    r = http.post(API + "/pedidos", headers=hm, json={
+                        "mesa_id": mesas[numero],
+                        "lineas": [{"producto_id": productos[c]["id"], "cantidad": n} for c, n in lineas]})
+                    if r.status_code in (200, 201):
+                        cobrados.append((numero, r.json()["id"], medio, recibido))
+                    else:
+                        conteo["errores"] += 1
+                        print(f"  ! {sede} · mesa {numero} (para cobrar) -> {r.status_code} {r.text[:160]}")
                 http.post("/api/auth/auth/logout", headers=hm)
+
+                cajero = CAJEROS[sede]
+                lc = http.post("/api/auth/auth/login", json={"usuario": cajero, "password": CAJERO_PASSWORD})
+                if lc.status_code != 200:
+                    print(f"  ! No se pudo entrar como {cajero} ({lc.status_code}): no se cobran sus "
+                          "pedidos. Si cambió la clave, pásala con -e CAJERO_PASSWORD=...")
+                    conteo["errores"] += 1
+                    continue
+                hc = {"Authorization": f"Bearer {lc.json()['access_token']}"}
+                for numero, pedido_id, medio, recibido in cobrados:
+                    cuerpo = {"pedido_id": pedido_id, "medio_pago": medio}
+                    if recibido is not None:
+                        cuerpo["valor_recibido"] = recibido
+                    r = http.post(API + "/facturas", headers=hc, json=cuerpo)
+                    if r.status_code == 201:
+                        conteo["creados"] += 1
+                        f = r.json()
+                        cambio = f["cambio"]
+                        vueltas = f" · vueltas ${int(float(cambio)):,}" if cambio is not None else ""
+                        print(f"  + {sede} · mesa {numero} · factura {f['numero_formateado']} · {medio} · "
+                              f"${int(float(f['total'])):,}{vueltas}".replace(",", "."))
+                    else:
+                        conteo["errores"] += 1
+                        print(f"  ! factura {sede} · mesa {numero} -> {r.status_code} {r.text[:160]}")
+                http.post("/api/auth/auth/logout", headers=hc)
     finally:
         http.post("/api/auth/auth/logout", headers=h)
 

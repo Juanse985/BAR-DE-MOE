@@ -449,6 +449,8 @@ class ReporteVentasSalida(BaseModel):
     sedes: list[int] | None  # None = todas (consolidado del administrador)
     sede_fija: bool          # True para el cajero: no puede cambiar el filtro (c3)
     orden: str
+    producto_id: int | None = None       # filtros de la propuesta M6 (producto y tipo)
+    tipo_producto_id: int | None = None
     filas: list[FilaReporte]
     totales_por_sede: list[TotalSede]
     total_cantidad: int
