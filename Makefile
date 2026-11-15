@@ -1,4 +1,4 @@
-.PHONY: help up down logs test test-common test-auth test-param test-gateway cov lint seed humo rnf02 algoritmos reporte evidencias limpiar
+.PHONY: help up down logs test test-common test-auth test-param test-gateway cov lint seed demo humo rnf02 algoritmos reporte evidencias limpiar
 
 # Umbral mínimo de cobertura acordado por el equipo (Sprint 1). El CI usa el mismo.
 COBERTURA_MINIMA ?= 70
@@ -12,6 +12,7 @@ help:
 	@echo "cov           Pruebas con cobertura (falla por debajo de $(COBERTURA_MINIMA) %)"
 	@echo "lint          Revisa el estilo con ruff"
 	@echo "seed          Carga datos de ejemplo del Bar de Moe"
+	@echo "demo          Completa la demo: licores, bebidas, pasabocas, compras, ajustes y pedidos"
 	@echo "humo          Prueba de humo de punta a punta contra la plataforma levantada"
 	@echo "rnf02         Mide el p95 de las operaciones (RNF-02, 2 segundos)"
 	@echo "algoritmos    Corre los 7 algoritmos por el gateway y deja la evidencia"
@@ -53,6 +54,9 @@ lint:
 
 seed:
 	python scripts/seed.py
+
+demo:
+	python scripts/datos_demo.py
 
 humo:
 	python scripts/prueba_humo.py --evidencia docs/evidencias
