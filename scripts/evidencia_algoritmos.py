@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evidencia de los 7 algoritmos de Diseño de Algoritmos, corriendo en la plataforma.
+"""Evidencia de los 12 algoritmos de Diseño de Algoritmos, corriendo en la plataforma.
 
 Arma un escenario propio para no tocar los datos de la demo:
 
@@ -70,7 +70,8 @@ def armar(e: Escenario) -> dict:
         p = vendidos[i % len(vendidos)]
         pedidos.append(e.post("/pedidos", {"mesa_id": mesas[numero],
                                            "lineas": [{"producto_id": p["id"], "cantidad": 2 + i}]}))
-    return {"sede": sede, "nombre": f"QA Algoritmos {sello}", "vendido": vendidos[0], "pedido": pedidos[0]}
+    return {"sede": sede, "nombre": f"QA Algoritmos {sello}", "vendido": vendidos[0], "pedido": pedidos[0],
+            "pedidos": pedidos, "vendidos": vendidos}
 
 
 def escribir(e: Escenario, datos: dict, carpeta: Path) -> Path:
@@ -82,7 +83,7 @@ def escribir(e: Escenario, datos: dict, carpeta: Path) -> Path:
     ruta = e.get("/mesas/ruta-entrega", sede_id=sede)
     cola = e.get("/pedidos/cola-barra", sede_id=sede)
 
-    L = ["# Evidencia · los 7 algoritmos funcionando en la plataforma", "",
+    L = ["# Evidencia · los 12 algoritmos funcionando en la plataforma", "",
          f"- **Fecha:** {datetime.now().isoformat(timespec='seconds')}",
          f"- **Plataforma:** `{e.http.base_url}` (todo por el gateway)",
          f"- **Escenario:** sede `{datos['nombre']}` con 9 mesas (mapa 3×3), 3 cervezas con 24 unidades y "
@@ -130,6 +131,59 @@ def escribir(e: Escenario, datos: dict, carpeta: Path) -> Path:
         L.append(f"| Mesa {c['mesa']} (pedido #{c['pedido_id']}) | ({c['distancia_a_barra']}, {c['mesa']}) | "
                  f"{p['posicion']} | {' · '.join(map(str, p['cola']))} |")
     L += ["", f"Orden de despacho: **{' → '.join('Mesa ' + str(c['mesa']) for c in cola['cola'])}**", ""]
+
+    # ------------------------------------------------ Sprints 3 y 4 · algoritmos 8 a 12
+    # Se cobran dos pedidos para que el reporte tenga ventas (y se liberan sus mesas).
+    for p in datos["pedidos"][:2]:
+        e.post("/facturas", {"pedido_id": p["id"], "medio_pago": "TARJETA_DEBITO"})
+    hoy = datetime.now().date().isoformat()
+    reporte = e.get("/reportes/ventas", desde=hoy, hasta=hoy, sedes=str(sede), orden="ganancia")
+    orden = e.get("/algoritmos/ordenar-inventario", sede_id=sede, metodo="quicksort")
+    codigo = datos["vendidos"][1]["codigo"]
+    busqueda = e.get("/algoritmos/buscar-producto", codigo=codigo, modo="recursiva")
+    hanoi = e.get("/algoritmos/hanoi", discos=3, modo="recursivo")
+    combo = e.get("/algoritmos/combo", sede_id=sede, monto=39000)
+
+    bt, vz = combo["backtracking"], combo["voraz"]
+    L += ["## 8 · Merge sort estable · reporte de ventas", "",
+          "`GET /reportes/ventas?orden=ganancia`: dos pedidos cobrados en la sede de prueba, de mayor a "
+          "menor ganancia (estable: los empates conservan el orden por fecha).", "",
+          "| Código | Producto | Cant. | Ganancia |", "|---|---|---:|---:|"]
+    for f in reporte["filas"]:
+        L.append(f"| {f['codigo']} | {f['nombre']} | {f['cantidad']} | {pesos(f['ganancia'])} |")
+    L += ["", "## 9 · Burbuja, inserción, selección, quicksort y mezcla", "",
+          f"`GET /algoritmos/ordenar-inventario`: los {orden['n']} productos de la sede ordenados por "
+          "existencia con cada método; todos dan el mismo orden.", "",
+          "| Método | Complejidad | Comparaciones | Intercambios | ¿Mismo orden? |",
+          "|---|---|---:|---:|---|"]
+    for m in orden["comparativa"]:
+        igual = "✅" if m["mismo_orden"] else "❌"
+        L.append(f"| {m['metodo']} | {m['complejidad']} | {m['comparaciones']} | "
+                 f"{m['intercambios']} | {igual} |")
+    L += ["", "## 10 · Búsqueda binaria (recursiva)", "",
+          f"`GET /algoritmos/buscar-producto?codigo={codigo}`: {busqueda['n']} productos ordenados por "
+          f"código; lo encuentra en {len(busqueda['pasos'])} pasos "
+          f"(máximo teórico {busqueda['maximo_teorico']}).", "",
+          "| Paso | Bajo | Alto | Medio | Código en el medio | Decisión |", "|---:|---:|---:|---:|---|---|"]
+    for i, p in enumerate(busqueda["pasos"], 1):
+        L.append(f"| {i} | {p['bajo']} | {p['alto']} | {p['medio']} | {p['codigo_medio']} | "
+                 f"{p['decision']} |")
+    movimientos = " · ".join(f"{m['numero']}) canasta {m['canasta']}: {m['desde']}→{m['hacia']}"
+                             for m in hanoi["movimientos"])
+    L += ["", "## 11 · Torres de Hanoi (recursiva)", "",
+          f"`GET /algoritmos/hanoi?discos=3`: {hanoi['total_movimientos']} movimientos ({hanoi['formula']}); "
+          f"verificado por simulación: {'✅' if hanoi['verificado'] else '❌'}.", "", movimientos, "",
+          "## 12 · Backtracking · combo por monto exacto", ""]
+    hallado = (f"encontró un combo de {pesos(bt['total'])}" if bt["encontrado"]
+               else "no encontró ningún combo")
+    voraz = ("también lo encontró." if vz["encontrado"]
+             else f"no lo encontró (le faltaron {pesos(vz['faltante'])}).")
+    L += [f"`GET /algoritmos/combo?monto=39000` en la sede de prueba: el backtracking {hallado} "
+          f"explorando {bt['nodos_explorados']} nodos con {bt['podas']} podas; el voraz {voraz}", ""]
+    if bt["encontrado"]:
+        L += ["", "| Producto | Unidades | Subtotal |", "|---|---:|---:|"]
+        L += [f"| {c['nombre']} | {c['unidades']} | {pesos(c['subtotal'])} |" for c in bt["combo"]]
+        L.append("")
 
     carpeta.mkdir(parents=True, exist_ok=True)
     destino = carpeta / "algoritmos.md"

@@ -2875,6 +2875,7 @@ async function invoicesLookupView() {
       <div id="lookup-invoices-table"></div>
     </section>`;
   await loadCatalogs();
+  if (!document.getElementById("lookup-form")) return;
   const sel = document.getElementById("lookup-sede");
   if (sel) sel.innerHTML = refOptions("sedes", L.sede, d.common.allBranchesFilter);
   document.getElementById("go-billing").addEventListener("click", () => renderShell("facturacion"));
@@ -2964,6 +2965,8 @@ async function salesReportView() {
   } catch (error) {
     if (error.message === "sesion") return;
   }
+  // Si mientras cargaba se cambió de pantalla, no hay nada que pintar.
+  if (!document.getElementById("rep-form")) return;
   const sedes = document.getElementById("rep-sedes");
   if (sedes) sedes.innerHTML = refOptions("sedes", F.sedes, d.common.allBranchesFilter);
   document.getElementById("rep-tipo").innerHTML = refOptions("tipos", F.tipo, r.allTypes);

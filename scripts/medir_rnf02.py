@@ -28,7 +28,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -124,6 +124,8 @@ def medir(base_url: str, n: int, concurrencia: int, n_login: int, usuario: str, 
         productos = http.get("/api/parametrizacion/productos", headers=h).json()
         producto_id = productos[0]["id"] if productos else None
         de_la_sede = {"sede_id": sede_id} if sede_id else {}
+        hoy = date.today().isoformat()
+        hace_30 = (date.today() - timedelta(days=30)).isoformat()
 
         operaciones = [
             ("Estado de la plataforma", "GET", "/health", {}),
@@ -151,6 +153,20 @@ def medir(base_url: str, n: int, concurrencia: int, n_login: int, usuario: str, 
              {"headers": h, "params": de_la_sede}),
             ("Alg. 7 · cola de la barra", "GET", "/api/parametrizacion/pedidos/cola-barra",
              {"headers": h, "params": de_la_sede}),
+            # Sprints 3 y 4 · M5 facturación y M6 reportería, con los algoritmos 8 a 12.
+            ("Listar facturas de la sede", "GET", "/api/parametrizacion/facturas",
+             {"headers": h, "params": de_la_sede}),
+            ("Reporte de ventas (30 días)", "GET", "/api/parametrizacion/reportes/ventas",
+             {"headers": h, "params": {"desde": hace_30, "hasta": hoy}}),
+            ("Reporte de ventas a Excel (30 días)", "GET", "/api/parametrizacion/reportes/ventas/excel",
+             {"headers": h, "params": {"desde": hace_30, "hasta": hoy}}),
+            ("Alg. 9 · ordenar inventario (quicksort)", "GET",
+             "/api/parametrizacion/algoritmos/ordenar-inventario",
+             {"headers": h, "params": {**de_la_sede, "metodo": "quicksort"}}),
+            ("Alg. 10 · búsqueda binaria", "GET", "/api/parametrizacion/algoritmos/buscar-producto",
+             {"headers": h, "params": {"codigo": "CERV-001"}}),
+            ("Alg. 12 · combo por monto (backtracking)", "GET", "/api/parametrizacion/algoritmos/combo",
+             {"headers": h, "params": {**de_la_sede, "monto": 30000}}),
         ]
         mediciones = [login] if n_login else []
         with ThreadPoolExecutor(max_workers=concurrencia) as pool:
