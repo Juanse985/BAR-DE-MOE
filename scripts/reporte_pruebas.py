@@ -28,13 +28,15 @@ UMBRAL_COBERTURA = 70
 COMPONENTES = [
     ("libs/common", "barmoe_common", "Librería común"),
     ("services/auth-service", "app", "auth-service (M1)"),
-    ("services/parametrizacion-service", "app", "parametrizacion-service (M2 · M3 · M4)"),
+    ("services/parametrizacion-service", "app", "parametrizacion-service (M2 a M6)"),
     ("gateway", "app", "API Gateway"),
 ]
 
 # Qué requisito cubre cada prueba, según su archivo o su nombre.
 REQUISITOS = [
-    (r"test_algoritmos|ruta_de_entrega", "Diseño de Algoritmos · los 7 algoritmos"),
+    (r"test_algoritmos|ruta_de_entrega", "Diseño de Algoritmos · los 12 algoritmos"),
+    (r"hu023", "HU-023 · Facturación y medio de pago (M5)"),
+    (r"hu024", "HU-024 · Reporte de ventas y ganancia (M6)"),
     (r"hu001_a_hu008", "HU-001 a HU-008 · Criterios de aceptación (Angel)"),
     (r"hu021", "HU-021 · Inventario por sede (M3)"),
     (r"hu022", "HU-022 · Pedidos y mesas (M4)"),
@@ -107,7 +109,7 @@ def main() -> int:
     bajo_umbral = [n for n, r in resultados.items() if (r["cobertura"] or 0) < UMBRAL_COBERTURA]
 
     lineas = [
-        "# Reporte de pruebas · Sprint 2",
+        "# Reporte de pruebas · Sprints 3 y 4 (versión final)",
         "",
         f"Generado el {datetime.now():%Y-%m-%d %H:%M} con `python scripts/reporte_pruebas.py`.",
         "",

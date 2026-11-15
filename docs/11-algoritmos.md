@@ -4,7 +4,10 @@
 **Pruebas:** `tests/test_algoritmos.py` (unitarias) y `tests/test_hu022_pedidos.py` (por la API)
 **Evidencia en la plataforma:** `docs/evidencias/algoritmos.md` (`make algoritmos`)
 
-El sistema usa **7 algoritmos**. Todos son funciones puras: no tocan la base de datos, así que
+El sistema usa **12 algoritmos**. Este documento explica del 1 al 7; los del 8 al 12 (merge sort,
+ordenamientos, búsqueda binaria, Torres de Hanoi y backtracking, Sprints 3 y 4) están en
+`docs/12-algoritmos-david.md`, y los doce juntos en `docs/Algoritmos_Bar_de_Moe_v1.1.pdf`.
+De los primeros siete: Todos son funciones puras: no tocan la base de datos, así que
 se pueden probar solos y explicar en la sustentación. El servicio les pasa los datos, recibe el
 resultado y lo devuelve por la API. Cuatro de las técnicas vienen de los trabajos de clase:
 

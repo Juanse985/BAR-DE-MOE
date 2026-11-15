@@ -70,14 +70,13 @@ bar-de-moe/
 | [`docs/08-integracion-sprint-1.md`](docs/08-integracion-sprint-1.md) | Qué aportó cada integrante y cómo se unieron las ramas |
 | [`docs/09-sprint-2-david.md`](docs/09-sprint-2-david.md) | Sprint 2 · inventario por sede, pedidos y algoritmos (David) |
 | [`docs/10-integracion-sprint-2.md`](docs/10-integracion-sprint-2.md) | Integración del Sprint 2: qué aportó cada uno y cómo se unió |
-| [`docs/11-algoritmos.md`](docs/11-algoritmos.md) | Los 7 algoritmos de Diseño de Algoritmos: idea de clase, uso en el bar y ejemplos |
-| [`docs/Algoritmos_Bar_de_Moe_v1.0.pdf`](docs/Algoritmos_Bar_de_Moe_v1.0.pdf) | Los 7 algoritmos en PDF, con su código, ejemplos paso a paso y pruebas |
-| [`docs/postman/`](docs/postman/) | Colecciones Postman de la API (Sprint 1 y Sprint 2) |
-| [`docs/evidencias/`](docs/evidencias/) | Evidencias del Sprint 2: pruebas, prueba de humo, RNF-02, algoritmos, capturas y Postman |
+| [`docs/11-algoritmos.md`](docs/11-algoritmos.md) | Algoritmos 1 a 7 de Diseño de Algoritmos: idea de clase, uso en el bar y ejemplos |
 | [`docs/11-sprint-3-4-david.md`](docs/11-sprint-3-4-david.md) | Sprints 3 y 4 · facturación (HU-023), reporte de ventas y ganancia con Excel (HU-024) y `auth-service` en inglés (David) |
-| [`docs/12-algoritmos-david.md`](docs/12-algoritmos-david.md) | Los algoritmos de la asignatura (mochila, voraz, iterativo/recursivo, ordenamientos, búsqueda binaria, Hanoi, backtracking) y su endpoint |
-| [`docs/postman/`](docs/postman/) | Colección Postman de la API del Sprint 1 |
-| [`docs/evidencias/`](docs/evidencias/) | Reporte de pruebas, prueba de humo y medición del RNF-02 para la Review |
+| [`docs/12-algoritmos-david.md`](docs/12-algoritmos-david.md) | Algoritmos 8 a 12 (merge sort, ordenamientos, búsqueda binaria, Hanoi y backtracking) y su endpoint |
+| [`docs/13-integracion-sprints-3-4.md`](docs/13-integracion-sprints-3-4.md) | Integración de los Sprints 3 y 4: qué aportó cada uno, conflictos, lo que agregó QA y lo pendiente |
+| [`docs/Algoritmos_Bar_de_Moe_v1.1.pdf`](docs/Algoritmos_Bar_de_Moe_v1.1.pdf) | Los 12 algoritmos en PDF, con su código, ejemplos paso a paso y pruebas |
+| [`docs/postman/`](docs/postman/) | Colecciones Postman: Sprint 1, Sprint 2 y Sprints 3-4 (la final cubre toda la API) |
+| [`docs/evidencias/`](docs/evidencias/) | Evidencias de pruebas (E-07) e informes de QA en PDF de cada sprint |
 
 ## Pruebas
 
@@ -86,7 +85,7 @@ make test       # los cuatro componentes
 make cov        # con cobertura; falla por debajo del 70 %
 ```
 
-**292 pruebas** entre la librería común, los dos servicios y el gateway,
+**514 pruebas** entre la librería común, los dos servicios y el gateway,
 todas en verde y sin defectos abiertos. Las que
 verifican un requisito del tablero lo llevan en el nombre, para que la
 evidencia de la Sprint Review salga directo del reporte de pytest:

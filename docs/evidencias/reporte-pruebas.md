@@ -1,11 +1,11 @@
-# Reporte de pruebas · Sprint 2
+# Reporte de pruebas · Sprints 3 y 4 (versión final)
 
-Generado el 2026-10-30 18:35 con `python scripts/reporte_pruebas.py`.
+Generado el 2026-11-15 11:12 con `python scripts/reporte_pruebas.py`.
 
 ## Resumen
 
-- **Pruebas ejecutadas:** 394
-- **En verde:** 394
+- **Pruebas ejecutadas:** 514
+- **En verde:** 514
 - **Fallidas:** 0
 - **Defectos abiertos documentados (xfail):** 0
 - **Umbral de cobertura acordado:** 70 %
@@ -15,14 +15,16 @@ Generado el 2026-10-30 18:35 con `python scripts/reporte_pruebas.py`.
 |---|---:|---:|---:|---:|---:|
 | Librería común | 66 | 66 | 0 | 0 | 97.5 % |
 | auth-service (M1) | 157 | 157 | 0 | 0 | 98.7 % |
-| parametrizacion-service (M2 · M3 · M4) | 137 | 137 | 0 | 0 | 94.8 % |
-| API Gateway | 34 | 34 | 0 | 0 | 99.0 % |
+| parametrizacion-service (M2 a M6) | 255 | 255 | 0 | 0 | 96.6 % |
+| API Gateway | 36 | 36 | 0 | 0 | 99.0 % |
 
 ## Cobertura por requisito
 
 | Requisito | Pruebas en verde | Defectos abiertos |
 |---|---:|---:|
-| Diseño de Algoritmos · los 7 algoritmos | 24 | 0 |
+| Diseño de Algoritmos · los 12 algoritmos | 86 | 0 |
+| HU-023 · Facturación y medio de pago (M5) | 31 | 0 |
+| HU-024 · Reporte de ventas y ganancia (M6) | 27 | 0 |
 | HU-001 a HU-008 · Criterios de aceptación (Angel) | 41 | 0 |
 | HU-021 · Inventario por sede (M3) | 10 | 0 |
 | HU-022 · Pedidos y mesas (M4) | 12 | 0 |
@@ -46,7 +48,7 @@ Ninguno. Los defectos DEF-02 a DEF-10 del informe de QA se corrigieron al integr
 
 ## Evidencias contra la plataforma levantada
 
-- **Prueba de humo** (2026-10-30T18:30:28): 38/38 pasos OK → ✅ aprobada · detalle en `prueba-humo.md`
-- **RNF-02** (2026-10-30T18:30:49): ✅ cumple; el p95 más alto fue 297.4 ms en «Login (bcrypt 12 rondas)» · detalle en `rnf02-tiempo-respuesta.md`
+- **Prueba de humo** (2026-11-15T11:03:53): 44/44 pasos OK → ✅ aprobada · detalle en `prueba-humo.md`
+- **RNF-02** (2026-11-15T11:04:13): ✅ cumple; el p95 más alto fue 305.9 ms en «Login (bcrypt 12 rondas)» · detalle en `rnf02-tiempo-respuesta.md`
 - **Algoritmos:** los 7 corriendo por el gateway sobre un escenario propio · detalle en `algoritmos.md`
 - **Frontend por perfiles:** revisión en navegador con los 3 perfiles · detalle en `frontend-perfiles.md`
