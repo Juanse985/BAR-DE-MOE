@@ -343,3 +343,189 @@ def test_hu013_hu014_mapa_mesas_y_toma_de_pedido(cliente, admin, mesero, catalog
     assert cerrado.status_code == 200
     mesa_libre = next(m for m in cliente.get("/mesas", headers=mesero).json() if m["id"] == mesa["id"])
     assert mesa_libre["estado"] == "LIBRE"
+
+
+def test_hu015_hu023_hu032_facturacion_pago_y_liberacion_mesa(
+    cliente, admin, mesero, catalogo
+):
+    cajero = mesero
+    sede_id = catalogo["sede"]["id"]
+    mesa = cliente.post("/mesas", headers=admin, json={"sede_id": sede_id, "numero": 9}).json()
+    prod = cliente.post(
+        "/productos",
+        headers=admin,
+        json={
+            "codigo": "CERV-401",
+            "nombre": "Cerveza Factura",
+            "sede_id": sede_id,
+            "tipo_producto_id": catalogo["tipo"]["id"],
+            "proveedor_id": catalogo["proveedor"]["id"],
+            "valor_compra": "2500",
+            "valor_venta": "7000",
+            "stock": 10,
+        },
+    ).json()
+
+    pedido = cliente.post(
+        "/pedidos",
+        headers=mesero,
+        json={
+            "mesa_id": mesa["id"],
+            "mesero_nombre": "Barney Gumble",
+            "items": [{"producto_id": prod["id"], "cantidad": 2}],
+        },
+    ).json()
+
+    # 1. Monto recibido menor al total en efectivo debe rechazarse con 400 MONTO_INSUFICIENTE
+    insuficiente = cliente.post(
+        "/facturas",
+        headers=cajero,
+        json={
+            "pedido_id": pedido["id"],
+            "medio_pago": "EFECTIVO",
+            "propina": "2000",
+            "monto_recibido": "10000",
+        },
+    )
+    assert insuficiente.status_code == 400
+    assert insuficiente.json()["error"]["codigo"] == "MONTO_INSUFICIENTE"
+
+    # 2. Emisión de factura exitosa: calcula subtotal, propina, total, cambio y libera la mesa
+    fac_resp = cliente.post(
+        "/facturas",
+        headers=cajero,
+        json={
+            "pedido_id": pedido["id"],
+            "medio_pago": "EFECTIVO",
+            "propina": "2000",
+            "monto_recibido": "20000",
+            "cliente_nombre": "Homero Simpson",
+            "cliente_documento": "79123456",
+            "cajero_nombre": "Carl Carlson",
+        },
+    )
+    assert fac_resp.status_code == 201, fac_resp.text
+    factura = fac_resp.json()
+    assert factura["numero_factura"].startswith("FAC-")
+    assert float(factura["subtotal"]) == 14000.0
+    assert float(factura["propina"]) == 2000.0
+    assert float(factura["total"]) == 16000.0
+    assert float(factura["cambio"]) == 4000.0
+    assert len(factura["detalles"]) == 1
+
+    # 3. La mesa debe quedar LIBRE tras emitir la factura
+    mesa_post = next(m for m in cliente.get("/mesas", headers=cajero).json() if m["id"] == mesa["id"])
+    assert mesa_post["estado"] == "LIBRE"
+
+    # 4. No se puede volver a facturar el mismo pedido (409 PEDIDO_YA_FACTURADO)
+    duplicada = cliente.post(
+        "/facturas",
+        headers=cajero,
+        json={"pedido_id": pedido["id"], "medio_pago": "TARJETA"},
+    )
+    assert duplicada.status_code == 409
+    assert duplicada.json()["error"]["codigo"] == "PEDIDO_YA_FACTURADO"
+
+    # 5. Consulta de facturas emitidas por sede
+    lista = cliente.get("/facturas", headers=cajero).json()
+    assert any(f["id"] == factura["id"] for f in lista)
+
+
+def test_hu015_hu023_tarjetas_y_hu016_hu024_reporte_ventas_ganancia(
+    cliente, admin, mesero, catalogo
+):
+    cajero = mesero
+    sede_id = catalogo["sede"]["id"]
+    mesa1 = cliente.post("/mesas", headers=admin, json={"sede_id": sede_id, "numero": 21}).json()
+    mesa2 = cliente.post("/mesas", headers=admin, json={"sede_id": sede_id, "numero": 22}).json()
+    prod = cliente.post(
+        "/productos",
+        headers=admin,
+        json={
+            "codigo": "CERV-501",
+            "nombre": "Cerveza Duff Especial",
+            "sede_id": sede_id,
+            "tipo_producto_id": catalogo["tipo"]["id"],
+            "proveedor_id": catalogo["proveedor"]["id"],
+            "valor_compra": "3000",
+            "valor_venta": "8000",
+            "stock": 20,
+        },
+    ).json()
+
+    ped1 = cliente.post(
+        "/pedidos",
+        headers=mesero,
+        json={
+            "mesa_id": mesa1["id"],
+            "items": [{"producto_id": prod["id"], "cantidad": 2}],
+        },
+    ).json()
+    ped2 = cliente.post(
+        "/pedidos",
+        headers=mesero,
+        json={
+            "mesa_id": mesa2["id"],
+            "items": [{"producto_id": prod["id"], "cantidad": 3}],
+        },
+    ).json()
+
+    # Pago con TARJETA_CREDITO (subtotal 16000 + propina 1600 = 17600)
+    fac_tc = cliente.post(
+        "/facturas",
+        headers=cajero,
+        json={
+            "pedido_id": ped1["id"],
+            "medio_pago": "TARJETA_CREDITO",
+            "propina": "1600",
+            "observaciones": "[Aprobación/Voucher: TC-9988]",
+        },
+    )
+    assert fac_tc.status_code == 201, fac_tc.text
+    datos_tc = fac_tc.json()
+    assert datos_tc["medio_pago"] == "TARJETA_CREDITO"
+    assert float(datos_tc["total"]) == 17600.0
+    assert float(datos_tc["cambio"]) == 0.0
+
+    # Pago con TARJETA_DEBITO (subtotal 24000 + propina 1000 = 25000)
+    fac_td = cliente.post(
+        "/facturas",
+        headers=cajero,
+        json={
+            "pedido_id": ped2["id"],
+            "medio_pago": "TARJETA_DEBITO",
+            "propina": "1000",
+            "observaciones": "[Aprobación/Voucher: TD-7744]",
+        },
+    )
+    assert fac_td.status_code == 201, fac_td.text
+    datos_td = fac_td.json()
+    assert datos_td["medio_pago"] == "TARJETA_DEBITO"
+    assert float(datos_td["total"]) == 25000.0
+
+    # Reporte de ventas y ganancia (HU-016 y HU-024)
+    rep_resp = cliente.get(f"/reportes/ventas?sede_id={sede_id}", headers=admin)
+    assert rep_resp.status_code == 200, rep_resp.text
+    rep = rep_resp.json()
+
+    # 5 unidades vendidas: subtotal_ventas = 5 * 8000 = 40000, costo_total = 5 * 3000 = 15000, ganancia_neta = 25000
+    assert rep["resumen"]["total_facturas"] == 2
+    assert rep["resumen"]["unidades_vendidas"] == 5
+    assert float(rep["resumen"]["subtotal_ventas"]) == 40000.0
+    assert float(rep["resumen"]["costo_total"]) == 15000.0
+    assert float(rep["resumen"]["ganancia_neta"]) == 25000.0
+    assert float(rep["resumen"]["margen_porcentaje"]) == 62.5
+    assert float(rep["resumen"]["total_facturado"]) == 42600.0
+
+    medios = {m["medio_pago"]: m for m in rep["por_medio_pago"]}
+    assert "TARJETA_CREDITO" in medios
+    assert "TARJETA_DEBITO" in medios
+    assert float(medios["TARJETA_CREDITO"]["total_facturado"]) == 17600.0
+    assert float(medios["TARJETA_DEBITO"]["total_facturado"]) == 25000.0
+
+    # Exportación CSV (HU-016)
+    csv_resp = cliente.get(f"/reportes/ventas/csv?sede_id={sede_id}", headers=admin)
+    assert csv_resp.status_code == 200
+    assert "TARJETA_CREDITO" in csv_resp.text
+    assert "TARJETA_DEBITO" in csv_resp.text
+    assert "Cerveza Duff Especial" in csv_resp.text

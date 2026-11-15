@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from io import StringIO
 
 from fastapi import APIRouter, Depends, FastAPI, File, Request, UploadFile
+from fastapi.responses import Response
 from sqlalchemy import inspect, select, text
 from sqlalchemy.orm import Session
 
@@ -21,9 +22,12 @@ from barmoe_common.deps import UsuarioActual, construir_autenticacion
 from barmoe_common.errors import ErrorApp
 
 from .config import config
-from .models import Mesa, Pedido, PedidoDetalle, Producto, Proveedor, Sede, TipoProducto
+from .models import Factura, Mesa, Pedido, PedidoDetalle, Producto, Proveedor, Sede, TipoProducto
 from .schemas import (
+    FacturaCrear,
+    FacturaSalida,
     InventarioAjuste,
+    MedioPago,
     MesaActualizar,
     MesaCrear,
     MesaEstadoActualizar,
@@ -39,6 +43,12 @@ from .schemas import (
     ProveedorActualizar,
     ProveedorCrear,
     ProveedorSalida,
+    ReportePorMedioPagoItem,
+    ReportePorProductoItem,
+    ReportePorRolItem,
+    ReportePorSedeItem,
+    ReporteResumenSalida,
+    ReporteVentasSalida,
     SedeActualizar,
     SedeCrear,
     SedeSalida,
@@ -701,7 +711,447 @@ def cambiar_estado_pedido(pedido_id: int, datos: PedidoEstadoActualizar, request
     return pedido
 
 
-for router in (sedes, mesas, tipos, proveedores, productos, inventario, pedidos):
+# =============================================== Sprint 3 · M5 Facturación
+facturas = APIRouter(prefix="/facturas", tags=["facturas"])
+
+
+@facturas.get("", response_model=list[FacturaSalida], summary="HU-015/HU-023 · Consultar facturas")
+def listar_facturas(
+    sede_id: int | None = None,
+    mesa_id: int | None = None,
+    medio_pago: MedioPago | None = None,
+    usuario: UsuarioActual = Depends(usuario_actual),
+    db: Session = Depends(get_db),
+):
+    sede_filtrada = sede_autorizada(usuario, sede_id)
+    consulta = select(Factura).order_by(Factura.id.desc())
+    if sede_filtrada is not None:
+        consulta = consulta.where(Factura.sede_id == sede_filtrada)
+    if mesa_id is not None:
+        consulta = consulta.where(Factura.mesa_id == mesa_id)
+    if medio_pago is not None:
+        consulta = consulta.where(Factura.medio_pago == medio_pago)
+    return list(db.scalars(consulta))
+
+
+@facturas.get("/{factura_id}", response_model=FacturaSalida, summary="Detalle de factura")
+def obtener_factura(
+    factura_id: int,
+    usuario: UsuarioActual = Depends(usuario_actual),
+    db: Session = Depends(get_db),
+):
+    factura = obtener_o_404(db, Factura, factura_id, "la factura")
+    sede_autorizada(usuario, factura.sede_id)
+    return factura
+
+
+@facturas.post(
+    "",
+    response_model=FacturaSalida,
+    status_code=201,
+    summary="HU-015/HU-023 · Emitir factura, registrar pago y liberar mesa",
+)
+def crear_factura(
+    datos: FacturaCrear,
+    request: Request,
+    usuario: UsuarioActual = Depends(usuario_actual),
+    db: Session = Depends(get_db),
+):
+    pedido = obtener_o_404(db, Pedido, datos.pedido_id, "el pedido")
+    sede_autorizada(usuario, pedido.sede_id)
+
+    existente = db.scalar(select(Factura).where(Factura.pedido_id == pedido.id))
+    if existente is not None:
+        raise ErrorApp(
+            "PEDIDO_YA_FACTURADO",
+            f"El pedido #{pedido.id} ya cuenta con la factura {existente.numero_factura}.",
+            409,
+        )
+    if pedido.estado == "CANCELADO":
+        raise ErrorApp(
+            "PEDIDO_CANCELADO",
+            "No se puede facturar un pedido cancelado.",
+            400,
+        )
+
+    subtotal = float(pedido.total)
+    impuesto = round(subtotal * 0.08, 2)
+    propina = float(datos.propina or 0)
+    total = round(subtotal + propina, 2)
+
+    recibido = float(datos.monto_recibido) if datos.monto_recibido is not None else total
+    if datos.medio_pago == "EFECTIVO" and recibido < total:
+        raise ErrorApp(
+            "MONTO_INSUFICIENTE",
+            f"El monto recibido (${recibido:,.0f}) es menor que el total a pagar (${total:,.0f}).",
+            400,
+        )
+    cambio = round(max(0.0, recibido - total), 2) if datos.medio_pago == "EFECTIVO" else 0.0
+
+    ultimo_id = db.scalar(select(Factura.id).order_by(Factura.id.desc()).limit(1)) or 0
+    numero_factura = f"FAC-{ultimo_id + 1:04d}"
+    nombre_cajero = (datos.cajero_nombre or "").strip() or usuario.usuario
+
+    factura = Factura(
+        numero_factura=numero_factura,
+        pedido_id=pedido.id,
+        sede_id=pedido.sede_id,
+        mesa_id=pedido.mesa_id,
+        cajero=nombre_cajero,
+        cliente_nombre=(datos.cliente_nombre or "Consumidor Final").strip() or "Consumidor Final",
+        cliente_documento=(datos.cliente_documento or "222222222222").strip() or "222222222222",
+        medio_pago=datos.medio_pago,
+        subtotal=subtotal,
+        impuesto=impuesto,
+        propina=propina,
+        total=total,
+        monto_recibido=recibido,
+        cambio=cambio,
+        observaciones=datos.observaciones,
+    )
+    db.add(factura)
+
+    pedido.estado = "CERRADO"
+    otros_abiertos = db.scalar(
+        select(Pedido.id)
+        .where(
+            Pedido.mesa_id == pedido.mesa_id,
+            Pedido.id != pedido.id,
+            Pedido.estado.in_(("ABIERTO", "ENTREGADO")),
+        )
+        .limit(1)
+    )
+    if not otros_abiertos:
+        mesa = db.get(Mesa, pedido.mesa_id)
+        if mesa is not None:
+            mesa.estado = "LIBRE"
+
+    db.flush()
+    registrar(
+        db,
+        accion="EMITIR_FACTURA",
+        entidad="facturas",
+        entidad_id=factura.id,
+        detalle=f"factura={numero_factura}, pedido={pedido.id}, medio={datos.medio_pago}, total={total}",
+        **_contexto(usuario, request),
+    )
+    db.commit()
+    db.refresh(factura)
+    return factura
+
+
+# =============================================== Sprint 4 · M6 Reportería (HU-016 & HU-024)
+reportes = APIRouter(prefix="/reportes", tags=["reportes"])
+
+
+def _construir_reporte_ventas(
+    db: Session,
+    usuario: UsuarioActual,
+    sede_id: int | None = None,
+    medio_pago: str | None = None,
+    desde: str | None = None,
+    hasta: str | None = None,
+) -> ReporteVentasSalida:
+    if usuario.perfil == "MESERO":
+        raise ErrorApp("SIN_PERMISOS", "El perfil Mesero no tiene acceso al módulo de reportería.", 403)
+
+    sede_filtrada = sede_autorizada(usuario, sede_id)
+    consulta = select(Factura).order_by(Factura.id.desc())
+    if sede_filtrada is not None:
+        consulta = consulta.where(Factura.sede_id == sede_filtrada)
+    if medio_pago:
+        consulta = consulta.where(Factura.medio_pago == medio_pago.upper())
+
+    lista_facturas = list(db.scalars(consulta))
+    if desde:
+        lista_facturas = [
+            f for f in lista_facturas if f.creado_en and f.creado_en.isoformat()[:10] >= desde[:10]
+        ]
+    if hasta:
+        lista_facturas = [
+            f for f in lista_facturas if f.creado_en and f.creado_en.isoformat()[:10] <= hasta[:10]
+        ]
+
+    mapa_sedes = {s.id: s.nombre for s in db.scalars(select(Sede))}
+    mapa_productos = {p.id: p for p in db.scalars(select(Producto))}
+
+    total_facturas = len(lista_facturas)
+    unidades_vendidas = 0
+    subtotal_ventas = 0.0
+    impuestos = 0.0
+    propinas = 0.0
+    total_facturado = 0.0
+    costo_total = 0.0
+
+    agrupado_sede: dict[int, dict] = {}
+    agrupado_medio: dict[str, dict] = {}
+    agrupado_rol: dict[tuple[str, str, int], dict] = {}
+    agrupado_producto: dict[tuple[int, str], dict] = {}
+
+    for fac in lista_facturas:
+        sub_fac = float(fac.subtotal or 0)
+        imp_fac = float(fac.impuesto or 0)
+        prop_fac = float(fac.propina or 0)
+        tot_fac = float(fac.total or 0)
+        s_id = fac.sede_id
+        s_nombre = mapa_sedes.get(s_id, f"Sede #{s_id}")
+
+        subtotal_ventas = round(subtotal_ventas + sub_fac, 2)
+        impuestos = round(impuestos + imp_fac, 2)
+        propinas = round(propinas + prop_fac, 2)
+        total_facturado = round(total_facturado + tot_fac, 2)
+
+        costo_fac = 0.0
+        unidades_fac = 0
+        detalles = fac.detalles or []
+        for det in detalles:
+            prod = mapa_productos.get(det.producto_id)
+            compra_unit = float(prod.valor_compra) if prod is not None else round(float(det.precio_unitario) * 0.45, 2)
+            venta_unit = float(det.precio_unitario)
+            cant = int(det.cantidad)
+            costo_linea = round(compra_unit * cant, 2)
+            venta_linea = float(det.subtotal)
+            ganancia_linea = round(venta_linea - costo_linea, 2)
+
+            unidades_fac += cant
+            costo_fac = round(costo_fac + costo_linea, 2)
+
+            p_key = (s_id, det.codigo_producto)
+            if p_key not in agrupado_producto:
+                agrupado_producto[p_key] = {
+                    "codigo": det.codigo_producto,
+                    "nombre": det.nombre_producto,
+                    "sede_id": s_id,
+                    "sede_nombre": s_nombre,
+                    "unidades_vendidas": 0,
+                    "valor_compra_unitario": round(compra_unit, 2),
+                    "valor_venta_unitario": round(venta_unit, 2),
+                    "costo_total": 0.0,
+                    "subtotal_ventas": 0.0,
+                    "ganancia_neta": 0.0,
+                }
+            agrupado_producto[p_key]["unidades_vendidas"] += cant
+            agrupado_producto[p_key]["costo_total"] = round(
+                agrupado_producto[p_key]["costo_total"] + costo_linea, 2
+            )
+            agrupado_producto[p_key]["subtotal_ventas"] = round(
+                agrupado_producto[p_key]["subtotal_ventas"] + venta_linea, 2
+            )
+            agrupado_producto[p_key]["ganancia_neta"] = round(
+                agrupado_producto[p_key]["ganancia_neta"] + ganancia_linea, 2
+            )
+
+        unidades_vendidas += unidades_fac
+        costo_total = round(costo_total + costo_fac, 2)
+        ganancia_fac = round(sub_fac - costo_fac, 2)
+
+        # Por sede
+        if s_id not in agrupado_sede:
+            agrupado_sede[s_id] = {
+                "sede_id": s_id,
+                "sede_nombre": s_nombre,
+                "total_facturas": 0,
+                "unidades_vendidas": 0,
+                "subtotal_ventas": 0.0,
+                "total_facturado": 0.0,
+                "costo_total": 0.0,
+                "ganancia_neta": 0.0,
+            }
+        agrupado_sede[s_id]["total_facturas"] += 1
+        agrupado_sede[s_id]["unidades_vendidas"] += unidades_fac
+        agrupado_sede[s_id]["subtotal_ventas"] = round(agrupado_sede[s_id]["subtotal_ventas"] + sub_fac, 2)
+        agrupado_sede[s_id]["total_facturado"] = round(agrupado_sede[s_id]["total_facturado"] + tot_fac, 2)
+        agrupado_sede[s_id]["costo_total"] = round(agrupado_sede[s_id]["costo_total"] + costo_fac, 2)
+        agrupado_sede[s_id]["ganancia_neta"] = round(agrupado_sede[s_id]["ganancia_neta"] + ganancia_fac, 2)
+
+        # Por medio de pago
+        mp = fac.medio_pago or "EFECTIVO"
+        if mp not in agrupado_medio:
+            agrupado_medio[mp] = {
+                "medio_pago": mp,
+                "total_facturas": 0,
+                "subtotal_ventas": 0.0,
+                "propinas": 0.0,
+                "total_facturado": 0.0,
+            }
+        agrupado_medio[mp]["total_facturas"] += 1
+        agrupado_medio[mp]["subtotal_ventas"] = round(agrupado_medio[mp]["subtotal_ventas"] + sub_fac, 2)
+        agrupado_medio[mp]["propinas"] = round(agrupado_medio[mp]["propinas"] + prop_fac, 2)
+        agrupado_medio[mp]["total_facturado"] = round(agrupado_medio[mp]["total_facturado"] + tot_fac, 2)
+
+        # Por rol (Cajero que facturó y Mesero que atendió el pedido)
+        cajero_key = ("CAJERO", fac.cajero or "Cajero", s_id)
+        if cajero_key not in agrupado_rol:
+            agrupado_rol[cajero_key] = {
+                "rol": "CAJERO",
+                "responsable": fac.cajero or "Cajero",
+                "sede_id": s_id,
+                "sede_nombre": s_nombre,
+                "operaciones": 0,
+                "subtotal_ventas": 0.0,
+                "ganancia_generada": 0.0,
+            }
+        agrupado_rol[cajero_key]["operaciones"] += 1
+        agrupado_rol[cajero_key]["subtotal_ventas"] = round(
+            agrupado_rol[cajero_key]["subtotal_ventas"] + sub_fac, 2
+        )
+        agrupado_rol[cajero_key]["ganancia_generada"] = round(
+            agrupado_rol[cajero_key]["ganancia_generada"] + ganancia_fac, 2
+        )
+
+        mesero_nombre = fac.pedido.mesero if fac.pedido and fac.pedido.mesero else "Mesero"
+        mesero_key = ("MESERO", mesero_nombre, s_id)
+        if mesero_key not in agrupado_rol:
+            agrupado_rol[mesero_key] = {
+                "rol": "MESERO",
+                "responsable": mesero_nombre,
+                "sede_id": s_id,
+                "sede_nombre": s_nombre,
+                "operaciones": 0,
+                "subtotal_ventas": 0.0,
+                "ganancia_generada": 0.0,
+            }
+        agrupado_rol[mesero_key]["operaciones"] += 1
+        agrupado_rol[mesero_key]["subtotal_ventas"] = round(
+            agrupado_rol[mesero_key]["subtotal_ventas"] + sub_fac, 2
+        )
+        agrupado_rol[mesero_key]["ganancia_generada"] = round(
+            agrupado_rol[mesero_key]["ganancia_generada"] + ganancia_fac, 2
+        )
+
+    ganancia_neta = round(subtotal_ventas - costo_total, 2)
+    margen_global = round((ganancia_neta / subtotal_ventas) * 100, 2) if subtotal_ventas > 0 else 0.0
+
+    por_sede_items = []
+    for item in sorted(agrupado_sede.values(), key=lambda x: x["sede_id"]):
+        sub_s = item["subtotal_ventas"]
+        gan_s = item["ganancia_neta"]
+        margen_s = round((gan_s / sub_s) * 100, 2) if sub_s > 0 else 0.0
+        por_sede_items.append(ReportePorSedeItem(**item, margen_porcentaje=margen_s))
+
+    por_producto_items = []
+    for item in sorted(agrupado_producto.values(), key=lambda x: (-x["ganancia_neta"], x["nombre"])):
+        sub_p = item["subtotal_ventas"]
+        gan_p = item["ganancia_neta"]
+        margen_p = round((gan_p / sub_p) * 100, 2) if sub_p > 0 else 0.0
+        por_producto_items.append(ReportePorProductoItem(**item, margen_porcentaje=margen_p))
+
+    por_medio_items = [
+        ReportePorMedioPagoItem(**item)
+        for item in sorted(agrupado_medio.values(), key=lambda x: -x["total_facturado"])
+    ]
+    por_rol_items = [
+        ReportePorRolItem(**item)
+        for item in sorted(agrupado_rol.values(), key=lambda x: (x["sede_id"], x["rol"], -x["subtotal_ventas"]))
+    ]
+
+    return ReporteVentasSalida(
+        perfil_consultante=usuario.perfil,
+        sede_filtrada=sede_filtrada,
+        resumen=ReporteResumenSalida(
+            total_facturas=total_facturas,
+            unidades_vendidas=unidades_vendidas,
+            subtotal_ventas=subtotal_ventas,
+            impuestos=impuestos,
+            propinas=propinas,
+            total_facturado=total_facturado,
+            costo_total=costo_total,
+            ganancia_neta=ganancia_neta,
+            margen_porcentaje=margen_global,
+        ),
+        por_sede=por_sede_items,
+        por_medio_pago=por_medio_items,
+        por_rol=por_rol_items,
+        por_producto=por_producto_items,
+        facturas=lista_facturas,
+    )
+
+
+@reportes.get(
+    "/ventas",
+    response_model=ReporteVentasSalida,
+    summary="HU-024 · Reporte de ventas y ganancia por rol y sede",
+)
+def obtener_reporte_ventas(
+    sede_id: int | None = None,
+    medio_pago: str | None = None,
+    desde: str | None = None,
+    hasta: str | None = None,
+    usuario: UsuarioActual = Depends(usuario_actual),
+    db: Session = Depends(get_db),
+):
+    return _construir_reporte_ventas(
+        db, usuario, sede_id=sede_id, medio_pago=medio_pago, desde=desde, hasta=hasta
+    )
+
+
+@reportes.get(
+    "/ventas/csv",
+    summary="HU-016 · Exportar reporte de ventas y ganancia en CSV",
+)
+def exportar_reporte_ventas_csv(
+    sede_id: int | None = None,
+    medio_pago: str | None = None,
+    desde: str | None = None,
+    hasta: str | None = None,
+    usuario: UsuarioActual = Depends(usuario_actual),
+    db: Session = Depends(get_db),
+):
+    rep = _construir_reporte_ventas(
+        db, usuario, sede_id=sede_id, medio_pago=medio_pago, desde=desde, hasta=hasta
+    )
+    buffer = StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(
+        [
+            "Codigo",
+            "Producto",
+            "Sede",
+            "Unidades Vendidas",
+            "Costo Unitario",
+            "Precio Venta Unitario",
+            "Costo Total",
+            "Subtotal Ventas",
+            "Ganancia Neta",
+            "Margen (%)",
+        ]
+    )
+    for prod in rep.por_producto:
+        writer.writerow(
+            [
+                prod.codigo,
+                prod.nombre,
+                prod.sede_nombre,
+                prod.unidades_vendidas,
+                prod.valor_compra_unitario,
+                prod.valor_venta_unitario,
+                prod.costo_total,
+                prod.subtotal_ventas,
+                prod.ganancia_neta,
+                prod.margen_porcentaje,
+            ]
+        )
+    writer.writerow([])
+    writer.writerow(["Medio de Pago", "Total Facturas", "Subtotal Ventas", "Propinas", "Total Facturado"])
+    for mp in rep.por_medio_pago:
+        writer.writerow(
+            [
+                mp.medio_pago,
+                mp.total_facturas,
+                mp.subtotal_ventas,
+                mp.propinas,
+                mp.total_facturado,
+            ]
+        )
+    contenido_csv = "\ufeff" + buffer.getvalue()
+    return Response(
+        content=contenido_csv.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="reporte_ventas_bar_de_moe.csv"'},
+    )
+
+
+for router in (sedes, mesas, tipos, proveedores, productos, inventario, pedidos, facturas, reportes):
     app.include_router(router)
 # HU-008: la auditoría de este servicio también se puede consultar (solo ADMINISTRADOR).
 app.include_router(router_consulta(get_db, solo_admin))

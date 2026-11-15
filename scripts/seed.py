@@ -171,6 +171,56 @@ def main() -> int:
         crear("/api/auth/usuarios", {**datos, "sede_id": sede_id},
               f"{u['usuario']} ({u['perfil']}, {u['sede'] or 'todas las sedes'})")
 
+    print("→ Pedidos y facturas de prueba MVP (HU-032)")
+    pedidos_existentes = cliente.get("/api/parametrizacion/pedidos", headers=h).json()
+    if not pedidos_existentes:
+        todas_mesas = cliente.get("/api/parametrizacion/mesas", headers=h).json()
+        todos_productos = cliente.get("/api/parametrizacion/productos", headers=h).json()
+        for s in SEDES:
+            sede_id = sedes[s["nombre"]]
+            mesas_sede = [m for m in todas_mesas if m["sede_id"] == sede_id]
+            prods_sede = [p for p in todos_productos if p["sede_id"] == sede_id]
+            if len(mesas_sede) >= 2 and len(prods_sede) >= 2:
+                ped_facturado = crear(
+                    "/api/parametrizacion/pedidos",
+                    {
+                        "mesa_id": mesas_sede[0]["id"],
+                        "mesero_nombre": "Barney Gumble",
+                        "observaciones": "Pedido de prueba facturado (MVP)",
+                        "items": [
+                            {"producto_id": prods_sede[0]["id"], "cantidad": 2},
+                            {"producto_id": prods_sede[1]["id"], "cantidad": 1},
+                        ],
+                    },
+                    f"Pedido facturado en {s['nombre']}",
+                )
+                if ped_facturado:
+                    crear(
+                        "/api/parametrizacion/facturas",
+                        {
+                            "pedido_id": ped_facturado["id"],
+                            "medio_pago": "EFECTIVO",
+                            "propina": "2000",
+                            "monto_recibido": "50000",
+                            "cliente_nombre": "Consumidor Final",
+                            "cliente_documento": "222222222222",
+                            "cajero_nombre": "Carl Carlson",
+                        },
+                        f"Factura emitida en {s['nombre']}",
+                    )
+                crear(
+                    "/api/parametrizacion/pedidos",
+                    {
+                        "mesa_id": mesas_sede[1]["id"],
+                        "mesero_nombre": "Barney Gumble",
+                        "observaciones": "Mesa activa lista para cobro en caja",
+                        "items": [{"producto_id": prods_sede[0]["id"], "cantidad": 3}],
+                    },
+                    f"Pedido abierto en {s['nombre']} (Mesa #{mesas_sede[1]['numero']})",
+                )
+    else:
+        print(f"  · Ya existen {len(pedidos_existentes)} pedidos registrados")
+
     cliente.post("/api/auth/auth/logout", headers=h)
     print(f"✓ Sesión cerrada. {conteo['creados']} registros nuevos, "
           f"{conteo['existentes']} ya existían, {conteo['errores']} errores.")

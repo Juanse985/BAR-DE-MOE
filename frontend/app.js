@@ -4,7 +4,8 @@ const API = "/api",
   LANG_KEY = "barmoe_lang",
   LOCAL_STOCK_KEY = "barmoe_local_stock",
   LOCAL_ORDERS_KEY = "barmoe_local_orders",
-  LOCAL_TABLES_KEY = "barmoe_local_tables";
+  LOCAL_TABLES_KEY = "barmoe_local_tables",
+  LOCAL_INVOICES_KEY = "barmoe_local_invoices";
 
 const MENU = {
   ADMINISTRADOR: [
@@ -15,6 +16,9 @@ const MENU = {
     "productos",
     "inventario",
     "pedidos",
+    "facturacion",
+    "consulta-facturas",
+    "reporte-ventas",
     "usuarios",
   ],
   MESERO: ["mesas", "inventario", "pedidos"],
@@ -168,7 +172,7 @@ const I18N = {
       confirmToggle: "¿Confirmas que deseas {action} esta cuenta de usuario?",
     },
     inventory: {
-      eyebrow: "HU-012 · M3 Inventario",
+      eyebrow: "Inventario",
       title: "Inventario individual por sede",
       sub: "Cada sede maneja su propio stock independiente sobre el catálogo global de productos.",
       totalRefs: "Referencias en la sede",
@@ -194,7 +198,7 @@ const I18N = {
       saveAdjust: "Aplicar en esta sede",
     },
     tables: {
-      eyebrow: "HU-013 · M4 Mesas",
+      eyebrow: "Mesas",
       title: "Mapa de mesas de la sede",
       sub: "Visualiza en rejilla 3×N la ocupación en tiempo real de cada mesa y administra sus pedidos.",
       mapView: "Mapa 3×N",
@@ -216,7 +220,7 @@ const I18N = {
       searchTable: "Buscar por número de mesa o sede...",
     },
     orders: {
-      eyebrow: "HU-014 · M4 Pedidos",
+      eyebrow: "Pedidos",
       title: "Pantalla de toma de pedido",
       sub: "Selecciona una mesa de la sede, verifica existencias de esa sede en lista y registra el pedido.",
       catalogTitle: "1. Productos disponibles en la sede",
@@ -257,8 +261,109 @@ const I18N = {
       colState: "Estado",
       colActions: "Acciones",
       deliverBtn: "Entregar",
-      closeOrderBtn: "Cerrar y liberar mesa",
+      closeOrderBtn: "Cobrar y facturar",
       cancelOrderBtn: "Cancelar (devolver stock)",
+    },
+    billing: {
+      eyebrow: "Facturación",
+      title: "Cobro e impresión de factura",
+      lookupTitle: "Consulta de facturas emitidas",
+      pendingOrdersKpi: "Pedidos por cobrar",
+      invoicesIssuedKpi: "Facturas emitidas",
+      totalRevenueKpi: "Total facturado",
+      pendingTitle: "1. Pedidos activos listos para cobro",
+      checkoutTitle: "2. Registro de pago y emisión de factura",
+      noPendingOrders: "No hay pedidos pendientes de cobro en este momento.",
+      selectToBillBtn: "Seleccionar",
+      selectedBtn: "Seleccionado",
+      selectOrderPrompt: "Selecciona un pedido activo de la lista izquierda para registrar su pago y emitir la factura.",
+      customerNameLabel: "Nombre del cliente",
+      customerDocLabel: "Documento / NIT",
+      paymentMethodLabel: "Medio de pago",
+      methodCash: "Efectivo",
+      methodCreditCard: "Tarjeta de crédito",
+      methodDebitCard: "Tarjeta de débito",
+      methodCard: "Tarjeta débito / crédito",
+      methodTransfer: "Transferencia (Nequi / Daviplata)",
+      methodMixed: "Pago mixto",
+      allMethods: "Todos los medios de pago",
+      cardAuthRefLabel: "Comprobante datáfono / Últimos 4 dígitos (opcional)",
+      cardAuthRefPlaceholder: "Ej: Aprob. 849201 · ****4512",
+      tipLabel: "Propina voluntaria ($)",
+      noTipBtn: "Sin propina",
+      cashReceivedLabel: "Monto recibido ($)",
+      subtotalLabel: "Subtotal consumo",
+      taxRefLabel: "Impoconsumo (8% incl.)",
+      tipSummaryLabel: "Propina voluntaria",
+      totalToPayLabel: "Total a pagar",
+      changeDueLabel: "Cambio / Devuelta",
+      insufficientCashText: "Faltan ${diff} para cubrir el total",
+      emitInvoiceBtn: "Confirmar pago y generar factura",
+      invoiceCreatedSuccess: "¡Factura {num} emitida con éxito! El pago fue registrado y la mesa quedó libre.",
+      historyTitle: "Facturas emitidas recientemente",
+      searchInvoicePlaceholder: "Buscar por N° factura, cliente, cajero o mesa...",
+      colInvoiceNum: "Factura",
+      colDate: "Fecha y hora",
+      colCustomer: "Cliente",
+      colCashier: "Cajero (Nombre completo)",
+      colMethod: "Medio de pago",
+      colSubtotal: "Subtotal",
+      colTip: "Propina",
+      colTotal: "Total pagado",
+      viewPrintBtn: "Ver / Imprimir",
+      receiptTitle: "Comprobante de Factura de Venta",
+      receiptNit: "DATHEON S.A.S. · NIT 901.456.789-0",
+      receiptInvoiceNo: "Factura de venta N°",
+      receiptDate: "Fecha de emisión",
+      receiptBranch: "Sede",
+      receiptTable: "Mesa atendida",
+      receiptWaiter: "Mesero",
+      receiptCashier: "Cajero",
+      receiptCustomer: "Cliente",
+      receiptDoc: "CC / NIT",
+      receiptQty: "Cant.",
+      receiptProduct: "Producto",
+      receiptUnit: "V. Unit",
+      receiptLineTotal: "Subtotal",
+      receiptFooter: "¡Gracias por visitar el Bar de Moe! Conserve su factura.",
+      printBtn: "Imprimir factura",
+    },
+    reports: {
+      eyebrow: "Reportería",
+      title: "Reporte de ventas y ganancia por rol y sede",
+      sub: "Analiza ingresos, costos de compra, ganancia neta, margen de rentabilidad y desempeño por sede, medio de pago y rol operativo.",
+      exportCsvBtn: "Exportar CSV",
+      printReportBtn: "Imprimir / PDF",
+      fromDateLabel: "Desde",
+      toDateLabel: "Hasta",
+      clearFiltersBtn: "Limpiar filtros",
+      kpiInvoices: "Facturas emitidas",
+      kpiUnits: "Unidades vendidas",
+      kpiSubtotal: "Ventas netas (Subtotal)",
+      kpiCost: "Costo mercancía (Compra)",
+      kpiProfit: "Ganancia neta ($)",
+      kpiMargin: "Margen rentabilidad",
+      kpiTotalBilled: "Total recaudado (con propina)",
+      byBranchTitle: "1. Ventas, costo y ganancia por sede",
+      byMethodTitle: "2. Recaudo por medio de pago",
+      byRoleTitle: "3. Ventas y ganancia gestionada por rol y sede",
+      byProductTitle: "4. Rentabilidad detallada por producto vendido",
+      colBranch: "Sede",
+      colInvoices: "Facturas",
+      colUnits: "Unidades",
+      colSales: "Subtotal ventas",
+      colCost: "Costo compra",
+      colProfit: "Ganancia neta",
+      colMargin: "Margen %",
+      colTotalBilled: "Total facturado",
+      colMethod: "Medio de pago",
+      colTips: "Propinas",
+      colRole: "Rol / Perfil",
+      colStaff: "Responsable (Nombre completo)",
+      colOps: "Operaciones",
+      colUnitCost: "Costo Unit.",
+      colUnitPrice: "Precio Venta",
+      searchPlaceholder: "Filtrar producto o responsable...",
     },
   },
   en: {
@@ -400,7 +505,7 @@ const I18N = {
       confirmToggle: "Are you sure you want to {action} this user account?",
     },
     inventory: {
-      eyebrow: "HU-012 · M3 Inventory",
+      eyebrow: "Inventory",
       title: "Branch inventory",
       sub: "Each branch manages its own independent stock over the global product catalog.",
       totalRefs: "Branch catalog items",
@@ -426,7 +531,7 @@ const I18N = {
       saveAdjust: "Apply to this branch",
     },
     tables: {
-      eyebrow: "HU-013 · M4 Tables",
+      eyebrow: "Tables",
       title: "Branch table map",
       sub: "Monitor real-time table occupancy in a 3×N grid and open or manage active table orders.",
       mapView: "3×N Map",
@@ -448,7 +553,7 @@ const I18N = {
       searchTable: "Search by table number or branch...",
     },
     orders: {
-      eyebrow: "HU-014 · M4 Orders",
+      eyebrow: "Orders",
       title: "Order taking screen",
       sub: "Select a table in your branch, check branch stock in list view, and submit the customer order.",
       catalogTitle: "1. Available branch products",
@@ -489,8 +594,109 @@ const I18N = {
       colState: "Status",
       colActions: "Actions",
       deliverBtn: "Mark delivered",
-      closeOrderBtn: "Close & free table",
+      closeOrderBtn: "Bill & pay",
       cancelOrderBtn: "Cancel (restore stock)",
+    },
+    billing: {
+      eyebrow: "Billing",
+      title: "Billing & invoice printing",
+      lookupTitle: "Issued invoices lookup",
+      pendingOrdersKpi: "Orders to bill",
+      invoicesIssuedKpi: "Invoices issued",
+      totalRevenueKpi: "Total billed",
+      pendingTitle: "1. Active orders ready for billing",
+      checkoutTitle: "2. Payment registration & invoice",
+      noPendingOrders: "There are no pending orders to bill right now.",
+      selectToBillBtn: "Select",
+      selectedBtn: "Selected",
+      selectOrderPrompt: "Select an active order from the left list to register payment and issue the invoice.",
+      customerNameLabel: "Customer name",
+      customerDocLabel: "ID / Tax NIT",
+      paymentMethodLabel: "Payment method",
+      methodCash: "Cash",
+      methodCreditCard: "Credit Card",
+      methodDebitCard: "Debit Card",
+      methodCard: "Debit / Credit Card",
+      methodTransfer: "Bank Transfer (Nequi / Daviplata)",
+      methodMixed: "Split / Mixed payment",
+      allMethods: "All payment methods",
+      cardAuthRefLabel: "Terminal approval / Last 4 digits (optional)",
+      cardAuthRefPlaceholder: "E.g.: Appr. 849201 · ****4512",
+      tipLabel: "Voluntary tip ($)",
+      noTipBtn: "No tip",
+      cashReceivedLabel: "Amount received ($)",
+      subtotalLabel: "Order subtotal",
+      taxRefLabel: "Consumption tax (8% incl.)",
+      tipSummaryLabel: "Voluntary tip",
+      totalToPayLabel: "Total to pay",
+      changeDueLabel: "Change due",
+      insufficientCashText: "${diff} short of total",
+      emitInvoiceBtn: "Confirm payment & print invoice",
+      invoiceCreatedSuccess: "Invoice {num} issued! Payment was recorded and the table is now free.",
+      historyTitle: "Recently issued invoices",
+      searchInvoicePlaceholder: "Search by invoice #, customer, cashier, or table...",
+      colInvoiceNum: "Invoice",
+      colDate: "Date & time",
+      colCustomer: "Customer",
+      colCashier: "Cashier (Full Name)",
+      colMethod: "Payment method",
+      colSubtotal: "Subtotal",
+      colTip: "Tip",
+      colTotal: "Total paid",
+      viewPrintBtn: "View / Print",
+      receiptTitle: "Sales Invoice Receipt",
+      receiptNit: "DATHEON S.A.S. · Tax ID 901.456.789-0",
+      receiptInvoiceNo: "Sales Invoice #",
+      receiptDate: "Issue date",
+      receiptBranch: "Branch",
+      receiptTable: "Served table",
+      receiptWaiter: "Server",
+      receiptCashier: "Cashier",
+      receiptCustomer: "Customer",
+      receiptDoc: "ID / Tax NIT",
+      receiptQty: "Qty",
+      receiptProduct: "Item",
+      receiptUnit: "Unit price",
+      receiptLineTotal: "Subtotal",
+      receiptFooter: "Thank you for visiting Moe's Tavern! Please keep your receipt.",
+      printBtn: "Print invoice",
+    },
+    reports: {
+      eyebrow: "Reporting",
+      title: "Sales & profit report by role and branch",
+      sub: "Analyze revenue, purchase costs, net profit, profit margin, and performance by branch, payment method, and staff role.",
+      exportCsvBtn: "Export CSV",
+      printReportBtn: "Print / PDF",
+      fromDateLabel: "From",
+      toDateLabel: "To",
+      clearFiltersBtn: "Clear filters",
+      kpiInvoices: "Invoices issued",
+      kpiUnits: "Units sold",
+      kpiSubtotal: "Net sales (Subtotal)",
+      kpiCost: "Cost of goods (Purchase)",
+      kpiProfit: "Net profit ($)",
+      kpiMargin: "Profit margin",
+      kpiTotalBilled: "Total collected (incl. tips)",
+      byBranchTitle: "1. Sales, cost & profit by branch",
+      byMethodTitle: "2. Revenue by payment method",
+      byRoleTitle: "3. Sales & profit managed by role and branch",
+      byProductTitle: "4. Detailed profitability by product sold",
+      colBranch: "Branch",
+      colInvoices: "Invoices",
+      colUnits: "Units",
+      colSales: "Net sales",
+      colCost: "Purchase cost",
+      colProfit: "Net profit",
+      colMargin: "Margin %",
+      colTotalBilled: "Total billed",
+      colMethod: "Payment method",
+      colTips: "Tips",
+      colRole: "Role / Profile",
+      colStaff: "Staff member (Full Name)",
+      colOps: "Operations",
+      colUnitCost: "Unit Cost",
+      colUnitPrice: "Sale Price",
+      searchPlaceholder: "Filter product or staff member...",
     },
   },
 };
@@ -557,6 +763,12 @@ const ERROR_MESSAGES = {
       "La mesa seleccionada está inactiva y no admite pedidos en este momento.",
     PRODUCTO_INACTIVO:
       "Uno de los productos seleccionados está inactivo y no puede venderse.",
+    MONTO_INSUFICIENTE:
+      "El monto recibido en efectivo es menor que el total a pagar de la factura.",
+    PEDIDO_YA_FACTURADO:
+      "Este pedido ya fue facturado previamente.",
+    PEDIDO_CANCELADO:
+      "No es posible facturar un pedido cancelado.",
   },
   en: {
     CREDENCIALES_INVALIDAS:
@@ -617,6 +829,12 @@ const ERROR_MESSAGES = {
       "The selected table is inactive and cannot take orders right now.",
     PRODUCTO_INACTIVO:
       "One of the selected products is inactive and cannot be ordered.",
+    MONTO_INSUFICIENTE:
+      "The cash amount received is less than the invoice total to pay.",
+    PEDIDO_YA_FACTURADO:
+      "This order has already been billed.",
+    PEDIDO_CANCELADO:
+      "Cannot bill a cancelled order.",
   },
 };
 
@@ -1118,10 +1336,13 @@ function renderView() {
   if (state.route === "inventario") return inventoryView();
   if (state.route === "mesas") return tablesMapView();
   if (state.route === "pedidos") return ordersPosView();
+  if (state.route === "facturacion") return billingView();
+  if (state.route === "consulta-facturas") return invoicesLookupView();
+  if (state.route === "reporte-ventas") return salesReportView();
   if (RESOURCES[state.route]) return resource(state.route);
   const d = dict();
   document.getElementById("view").innerHTML =
-    `<div class="topbar"><div><p class="eyebrow">${esc(navLabel(state.route))}</p><h1>${esc(d.common.prepTitle)}</h1><p class="subtle">${esc(d.common.prepSub)}</p></div></div><section class="panel"><h2>${esc(d.common.authAccess)}</h2><p class="subtle">${esc(d.common.authAccessSub)}</p></section>`;
+    `<div class="topbar"><div><p class="eyebrow">${esc(navLabel(state.route))}</p><h1>${esc(d.common.prepTitle)}</h1></div></div><section class="panel"><h2>${esc(d.common.authAccess)}</h2><p class="subtle">${esc(d.common.authAccessSub)}</p></section>`;
 }
 
 // ====================================================== HOME (Full Name displayed)
@@ -1636,6 +1857,19 @@ function drawTablesMap() {
 
 async function changeMesaState(mesaId, nuevoEstado) {
   try {
+    if (nuevoEstado === "LIBRE") {
+      const openOrders = (state.orders || []).filter(
+        (o) =>
+          o.mesa_id === mesaId &&
+          (o.estado === "ABIERTO" || o.estado === "ENTREGADO"),
+      );
+      if (openOrders.length > 0 && allowed("facturacion")) {
+        state.selectedBillingOrderId = openOrders[0].id;
+        renderShell("facturacion");
+        return;
+      }
+    }
+
     let backendUpdated = false;
     try {
       await request(`/parametrizacion/mesas/${mesaId}/estado`, {
@@ -1838,9 +2072,7 @@ function drawOrdersPos() {
   if (catalogEl) {
     catalogEl.innerHTML = catalog.length
       ? `<table><thead><tr>
-          <th>${esc(d.fields.codigo)}</th>
           <th>${esc(d.fields.nombre)}</th>
-          <th>${esc(d.fields.tipo_producto_id)}</th>
           <th>${esc(d.orders.availableLabel)}</th>
           <th>${esc(d.fields.valor_venta)}</th>
           <th></th>
@@ -1850,9 +2082,10 @@ function drawOrdersPos() {
             const remaining = Math.max(0, Number(p.stock || 0) - inCart);
             const isOut = remaining <= 0;
             return `<tr class="${isOut ? "out-of-stock" : ""}">
-              <td><span class="role-badge">${esc(p.codigo)}</span></td>
-              <td><strong>${esc(p.nombre)}</strong></td>
-              <td>${esc(refName("tipos", p.tipo_producto_id))}</td>
+              <td>
+                <strong>${esc(p.nombre)}</strong> <span class="role-badge">${esc(p.codigo)}</span>
+                <div class="subtle" style="font-size:0.74rem;margin-top:2px">${esc(refName("tipos", p.tipo_producto_id))}</div>
+              </td>
               <td><span class="badge ${remaining > (p.stock_minimo ?? 5) ? "active" : remaining > 0 ? "warning" : "inactive"}">${remaining}</span></td>
               <td><strong>$${Number(p.valor_venta).toLocaleString()}</strong></td>
               <td style="text-align:right">
@@ -2127,6 +2360,11 @@ function drawOrdersHistory() {
 
 async function updateOrderState(orderId, nextState) {
   try {
+    if (nextState === "CERRADO" && allowed("facturacion")) {
+      state.selectedBillingOrderId = orderId;
+      renderShell("facturacion");
+      return;
+    }
     const targetOrder = (state.orders || []).find((o) => o.id === orderId);
     try {
       await request(`/parametrizacion/pedidos/${orderId}/estado`, {
@@ -2160,6 +2398,1411 @@ async function updateOrderState(orderId, nextState) {
     state.error = error.message;
     drawOrdersPos();
   }
+}
+
+// ====================================================== SPRINT 3: HU-015 & HU-023 FACTURACIÓN, PAGO E IMPRESIÓN
+async function fetchInvoicesList() {
+  try {
+    return await request("/parametrizacion/facturas");
+  } catch {
+    return readJson(LOCAL_INVOICES_KEY, localStorage) || [];
+  }
+}
+
+function methodLabel(code) {
+  const b = dict().billing;
+  if (code === "TARJETA_CREDITO") return b.methodCreditCard;
+  if (code === "TARJETA_DEBITO") return b.methodDebitCard;
+  if (code === "TARJETA") return b.methodCard;
+  if (code === "TRANSFERENCIA") return b.methodTransfer;
+  if (code === "MIXTO") return b.methodMixed;
+  return b.methodCash;
+}
+
+function methodFilterOptionsHtml(selected = "") {
+  const b = dict().billing;
+  const opts = [
+    ["", b.allMethods],
+    ["EFECTIVO", b.methodCash],
+    ["TARJETA_CREDITO", b.methodCreditCard],
+    ["TARJETA_DEBITO", b.methodDebitCard],
+    ["MIXTO", b.methodMixed],
+  ];
+  return opts
+    .map(
+      ([val, label]) =>
+        `<option value="${val}" ${val === selected ? "selected" : ""}>${esc(label)}</option>`,
+    )
+    .join("");
+}
+
+async function billingView() {
+  const d = dict();
+  const sedeSelect = esAdmin()
+    ? `<select id="bill-sede-filter" aria-label="${esc(d.fields.sede_id)}"><option value="">${esc(d.common.allBranchesFilter)}</option></select>`
+    : "";
+  document.getElementById("view").innerHTML =
+    `<div class="topbar">
+      <div><p class="eyebrow">${esc(d.billing.eyebrow)}</p><h1>${esc(d.billing.title)}</h1></div>
+      <div class="topbar-actions">
+        <button class="ghost" id="go-map-from-bill">← ${esc(d.nav.mesas)}</button>
+        <button class="ghost" id="bill-refresh">${esc(d.common.refresh)}</button>
+      </div>
+    </div>
+    <div id="bill-banner"></div>
+    <div class="stats" id="bill-stats"></div>
+    <div class="pos-layout">
+      <section class="panel sticky-panel">
+        <h2>${esc(d.billing.pendingTitle)}</h2>
+        <div class="toolbar">
+          <input id="bill-order-search" placeholder="${esc(d.tables.searchTable)}">
+          ${sedeSelect}
+        </div>
+        <div id="bill-pending-orders"></div>
+      </section>
+      <aside class="order-ticket" id="bill-checkout-card">
+        <h2>${esc(d.billing.checkoutTitle)}</h2>
+        <div id="bill-checkout-body"></div>
+      </aside>
+    </div>
+    <section class="panel">
+      <div class="topbar" style="margin-bottom:12px">
+        <h2>${esc(d.billing.historyTitle)}</h2>
+        <div class="toolbar" style="margin:0">
+          <input id="bill-inv-search" placeholder="${esc(d.billing.searchInvoicePlaceholder)}">
+          <select id="bill-method-filter" aria-label="${esc(d.billing.paymentMethodLabel)}">${methodFilterOptionsHtml(state.methodFilter || "")}</select>
+        </div>
+      </div>
+      <div id="bill-invoices-table"></div>
+    </section>`;
+
+  document.getElementById("go-map-from-bill").addEventListener("click", () => renderShell("mesas"));
+  document.getElementById("bill-refresh").addEventListener("click", loadBillingData);
+  document.getElementById("bill-order-search").addEventListener("input", (e) => {
+    state.filter = e.target.value.toLowerCase();
+    drawBillingView();
+  });
+  document.getElementById("bill-sede-filter")?.addEventListener("change", (e) => {
+    state.sedeFilter = e.target.value;
+    drawBillingView();
+    drawInvoicesTable("bill-invoices-table");
+  });
+  document.getElementById("bill-inv-search").addEventListener("input", (e) => {
+    state.invoiceFilter = e.target.value.toLowerCase();
+    drawInvoicesTable("bill-invoices-table");
+  });
+  document.getElementById("bill-method-filter")?.addEventListener("change", (e) => {
+    state.methodFilter = e.target.value;
+    drawInvoicesTable("bill-invoices-table");
+  });
+
+  await loadBillingData();
+}
+
+async function invoicesLookupView() {
+  const d = dict();
+  const sedeSelect = esAdmin()
+    ? `<select id="lookup-sede-filter" aria-label="${esc(d.fields.sede_id)}"><option value="">${esc(d.common.allBranchesFilter)}</option></select>`
+    : "";
+  document.getElementById("view").innerHTML =
+    `<div class="topbar">
+      <div><p class="eyebrow">${esc(d.billing.eyebrow)}</p><h1>${esc(d.billing.lookupTitle)}</h1></div>
+      <div class="topbar-actions">
+        <button class="primary" id="go-billing-btn">${esc(d.nav.facturacion)}</button>
+        <button class="ghost" id="lookup-refresh">${esc(d.common.refresh)}</button>
+      </div>
+    </div>
+    <div class="stats" id="bill-stats"></div>
+    <section class="panel">
+      <div class="toolbar">
+        <input id="lookup-inv-search" placeholder="${esc(d.billing.searchInvoicePlaceholder)}">
+        ${sedeSelect}
+        <select id="lookup-method-filter" aria-label="${esc(d.billing.paymentMethodLabel)}">${methodFilterOptionsHtml(state.methodFilter || "")}</select>
+      </div>
+      <div id="lookup-invoices-table"></div>
+    </section>`;
+
+  document.getElementById("go-billing-btn").addEventListener("click", () => renderShell("facturacion"));
+  document.getElementById("lookup-refresh").addEventListener("click", loadBillingData);
+  document.getElementById("lookup-inv-search").addEventListener("input", (e) => {
+    state.invoiceFilter = e.target.value.toLowerCase();
+    drawInvoicesTable("lookup-invoices-table");
+  });
+  document.getElementById("lookup-sede-filter")?.addEventListener("change", (e) => {
+    state.sedeFilter = e.target.value;
+    drawInvoicesTable("lookup-invoices-table");
+  });
+  document.getElementById("lookup-method-filter")?.addEventListener("change", (e) => {
+    state.methodFilter = e.target.value;
+    drawInvoicesTable("lookup-invoices-table");
+  });
+
+  await loadBillingData();
+}
+
+async function loadBillingData() {
+  try {
+    await loadCatalogs();
+    if (esAdmin() && !state.users.length) {
+      try {
+        state.users = await request("/auth/usuarios");
+      } catch {}
+    }
+    const [rawMesas, orders, invoices] = await Promise.all([
+      request("/parametrizacion/mesas"),
+      fetchOrdersList(),
+      fetchInvoicesList(),
+    ]);
+    state.mesasList = rawMesas.map(getEffectiveMesa);
+    state.orders = orders;
+    state.invoices = invoices;
+    state.error = "";
+
+    const billSedeEl =
+      document.getElementById("bill-sede-filter") ||
+      document.getElementById("lookup-sede-filter");
+    if (billSedeEl) {
+      billSedeEl.innerHTML = refOptions("sedes", state.sedeFilter, dict().common.allBranchesFilter);
+      billSedeEl.value = state.sedeFilter;
+    }
+
+    const pendingOrders = orders.filter(
+      (o) => o.estado === "ABIERTO" || o.estado === "ENTREGADO",
+    );
+    if (
+      !state.selectedBillingOrderId ||
+      !pendingOrders.some((o) => o.id === Number(state.selectedBillingOrderId))
+    ) {
+      state.selectedBillingOrderId = pendingOrders[0]?.id || null;
+    }
+
+    drawBillingStats();
+    if (state.route === "facturacion") {
+      drawBillingView();
+      drawInvoicesTable("bill-invoices-table");
+    } else {
+      drawInvoicesTable("lookup-invoices-table");
+    }
+  } catch (error) {
+    state.error = error.message;
+    if (state.route === "facturacion") drawBillingView();
+  }
+}
+
+function drawBillingStats() {
+  const d = dict();
+  const statsEl = document.getElementById("bill-stats");
+  if (!statsEl) return;
+  const pending = (state.orders || []).filter(
+    (o) =>
+      (o.estado === "ABIERTO" || o.estado === "ENTREGADO") &&
+      (!esAdmin() || !state.sedeFilter || String(o.sede_id) === state.sedeFilter),
+  );
+  const invoices = (state.invoices || []).filter(
+    (f) => !esAdmin() || !state.sedeFilter || String(f.sede_id) === state.sedeFilter,
+  );
+  const totalRevenue = invoices.reduce((acc, f) => acc + Number(f.total || 0), 0);
+  statsEl.innerHTML = `
+    <div class="stat ${pending.length > 0 ? "stat-warn" : ""}"><span>${esc(d.billing.pendingOrdersKpi)}</span><strong>${pending.length}</strong></div>
+    <div class="stat stat-ok"><span>${esc(d.billing.invoicesIssuedKpi)}</span><strong>${invoices.length}</strong></div>
+    <div class="stat"><span>${esc(d.billing.totalRevenueKpi)}</span><strong>$${totalRevenue.toLocaleString()}</strong></div>
+  `;
+}
+
+function drawBillingView() {
+  const d = dict();
+  drawBillingStats();
+  const bannerEl = document.getElementById("bill-banner");
+  if (bannerEl) {
+    bannerEl.innerHTML = state.error
+      ? `<p class="error">${esc(state.error)}</p>`
+      : state.orderBanner
+        ? `<p class="success-note">${esc(state.orderBanner)}</p>`
+        : "";
+  }
+
+  const pendingEl = document.getElementById("bill-pending-orders");
+  const pendingOrders = (state.orders || []).filter((o) => {
+    const isPending = o.estado === "ABIERTO" || o.estado === "ENTREGADO";
+    if (!isPending) return false;
+    const mesaObj = (state.mesasList || []).find((m) => m.id === o.mesa_id);
+    const mesaNum = mesaObj ? mesaObj.numero : o.mesa_id;
+    const text = `#${o.id} mesa ${mesaNum} ${refName("sedes", o.sede_id)} ${resolveUserFullName(o.mesero)}`.toLowerCase();
+    return (
+      text.includes(state.filter || "") &&
+      (!esAdmin() || !state.sedeFilter || String(o.sede_id) === state.sedeFilter)
+    );
+  });
+
+  if (pendingEl) {
+    pendingEl.innerHTML = pendingOrders.length
+      ? `<div class="table-wrap compact-table-wrap"><table><thead><tr>
+          <th>${esc(d.orders.colTable)}</th>
+          <th>${esc(d.orders.colWaiter)}</th>
+          <th>${esc(d.orders.colItems)}</th>
+          <th>${esc(d.orders.colTotal)}</th>
+          <th></th>
+        </tr></thead><tbody>${pendingOrders
+          .map((o) => {
+            const mesaObj = (state.mesasList || []).find((m) => m.id === o.mesa_id);
+            const mesaLabel = mesaObj ? `Mesa #${mesaObj.numero}` : `Mesa #${o.mesa_id}`;
+            const summary = (o.detalles || [])
+              .map((det) => `${det.cantidad}x ${det.nombre_producto}`)
+              .join(", ");
+            const isSel = Number(state.selectedBillingOrderId) === o.id;
+            return `<tr class="${isSel ? "selected-row" : ""}">
+              <td>
+                <strong>${esc(mesaLabel)}</strong> <span class="role-badge">#${o.id}</span>
+                <div class="subtle" style="font-size:0.74rem;margin-top:2px">${esc(refName("sedes", o.sede_id))}</div>
+              </td>
+              <td><strong>${esc(resolveUserFullName(o.mesero))}</strong></td>
+              <td>${esc(summary)}</td>
+              <td><strong>$${Number(o.total).toLocaleString()}</strong></td>
+              <td style="text-align:right">
+                <button type="button" class="${isSel ? "primary" : "ghost"} select-bill-order btn-uniform" data-id="${o.id}">
+                  ${esc(isSel ? d.billing.selectedBtn : d.billing.selectToBillBtn)}
+                </button>
+              </td>
+            </tr>`;
+          })
+          .join("")}</tbody></table></div>`
+      : `<div class="empty">${esc(d.billing.noPendingOrders)}</div>`;
+
+    pendingEl.querySelectorAll(".select-bill-order").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        state.selectedBillingOrderId = Number(btn.dataset.id);
+        state.billingTip = undefined;
+        state.billingCashReceived = undefined;
+        drawBillingView();
+      }),
+    );
+  }
+
+  const checkoutEl = document.getElementById("bill-checkout-body");
+  if (!checkoutEl) return;
+
+  const selectedOrder = (state.orders || []).find(
+    (o) =>
+      o.id === Number(state.selectedBillingOrderId) &&
+      (o.estado === "ABIERTO" || o.estado === "ENTREGADO"),
+  );
+  if (!selectedOrder) {
+    checkoutEl.innerHTML = `<p class="subtle">${esc(d.billing.selectOrderPrompt)}</p>`;
+    return;
+  }
+
+  const mesaObj = (state.mesasList || []).find((m) => m.id === selectedOrder.mesa_id);
+  const mesaLabel = mesaObj ? `Mesa #${mesaObj.numero}` : `Mesa #${selectedOrder.mesa_id}`;
+  const subtotal = Number(selectedOrder.total || 0);
+  const taxRef = Math.round(subtotal * 0.08);
+  const tip =
+    state.billingTip !== undefined ? Number(state.billingTip) : Math.round(subtotal * 0.1);
+  const totalToPay = subtotal + tip;
+  const currentMethod = state.billingMethod || "EFECTIVO";
+  const isCashMethod = currentMethod === "EFECTIVO" || currentMethod === "MIXTO";
+  const cashReceived = isCashMethod
+    ? state.billingCashReceived !== undefined
+      ? Number(state.billingCashReceived)
+      : totalToPay
+    : totalToPay;
+  const changeDue = isCashMethod ? Math.max(0, cashReceived - totalToPay) : 0;
+  const isCashShort = isCashMethod && cashReceived < totalToPay;
+
+  checkoutEl.innerHTML = `
+    <div style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+      <span class="role-badge">#${selectedOrder.id} · ${esc(mesaLabel)} · ${esc(refName("sedes", selectedOrder.sede_id))}</span>
+      <span class="subtle" style="font-size:0.78rem">${esc(resolveUserFullName(selectedOrder.mesero))}</span>
+    </div>
+    <div class="cart-list" style="max-height:175px">
+      ${(selectedOrder.detalles || [])
+        .map(
+          (det) => `<div class="cart-item">
+          <div>
+            <strong>${det.cantidad}× ${esc(det.nombre_producto)}</strong>
+            <div class="subtle" style="font-size:0.74rem">$${Number(det.precio_unitario).toLocaleString()} c/u</div>
+          </div>
+          <strong>$${Number(det.subtotal).toLocaleString()}</strong>
+        </div>`,
+        )
+        .join("")}
+    </div>
+    <form id="bill-checkout-form" class="form" style="margin-top:10px;gap:10px">
+      <div class="form-grid" style="gap:10px">
+        <label>${esc(d.billing.customerNameLabel)}
+          <input name="cliente_nombre" value="${esc(state.billingCustomerName || "Consumidor Final")}" maxlength="120" required>
+        </label>
+        <label>${esc(d.billing.customerDocLabel)}
+          <input name="cliente_documento" value="${esc(state.billingCustomerDoc || "222222222222")}" maxlength="40" required>
+        </label>
+      </div>
+      <div class="form-grid" style="gap:10px">
+        <label>${esc(d.billing.paymentMethodLabel)}
+          <select id="bill-method-select" name="medio_pago">
+            <option value="EFECTIVO" ${currentMethod === "EFECTIVO" ? "selected" : ""}>${esc(d.billing.methodCash)}</option>
+            <option value="TARJETA_CREDITO" ${currentMethod === "TARJETA_CREDITO" ? "selected" : ""}>${esc(d.billing.methodCreditCard)}</option>
+            <option value="TARJETA_DEBITO" ${currentMethod === "TARJETA_DEBITO" ? "selected" : ""}>${esc(d.billing.methodDebitCard)}</option>
+            <option value="MIXTO" ${currentMethod === "MIXTO" ? "selected" : ""}>${esc(d.billing.methodMixed)}</option>
+          </select>
+        </label>
+        <label>${esc(d.billing.tipLabel)}
+          <input id="bill-tip-input" name="propina" type="number" min="0" step="1" value="${tip}">
+        </label>
+      </div>
+      <div class="user-actions" style="justify-content:flex-start">
+        <button type="button" class="ghost tip-preset" data-pct="0">${esc(d.billing.noTipBtn)}</button>
+        <button type="button" class="ghost tip-preset" data-pct="0.05">5% ($${Math.round(subtotal * 0.05).toLocaleString()})</button>
+        <button type="button" class="ghost tip-preset" data-pct="0.10">10% ($${Math.round(subtotal * 0.1).toLocaleString()})</button>
+      </div>
+      ${
+        currentMethod === "TARJETA_CREDITO" || currentMethod === "TARJETA_DEBITO"
+          ? `<div class="form-grid" style="grid-template-columns:1fr">
+              <label>${esc(d.billing.cardAuthRefLabel)}
+                <input id="bill-card-ref" name="observaciones" value="${esc(state.billingCardRef || "")}" placeholder="${esc(d.billing.cardAuthRefPlaceholder)}" maxlength="120">
+              </label>
+            </div>`
+          : ""
+      }
+      <div class="form-grid" style="grid-template-columns:1fr">
+        <label>${esc(d.billing.cashReceivedLabel)}
+          <input id="bill-cash-input" name="monto_recibido" type="number" min="0" step="1" value="${cashReceived}" ${!isCashMethod ? "disabled" : "required"}>
+        </label>
+      </div>
+      <div class="billing-summary-box">
+        <div class="billing-row"><span>${esc(d.billing.subtotalLabel)}</span><strong>$${subtotal.toLocaleString()}</strong></div>
+        <div class="billing-row subtle"><span>${esc(d.billing.taxRefLabel)}</span><span>$${taxRef.toLocaleString()}</span></div>
+        <div class="billing-row"><span>${esc(d.billing.tipSummaryLabel)}</span><strong>$${tip.toLocaleString()}</strong></div>
+        <div class="order-total-row">
+          <span>${esc(d.billing.totalToPayLabel)}</span>
+          <span>$${totalToPay.toLocaleString()}</span>
+        </div>
+        <div class="billing-row" style="margin-top:6px;color:${isCashShort ? "var(--red)" : "var(--green)"};font-weight:800">
+          <span>${esc(d.billing.changeDueLabel)}</span>
+          <strong>${isCashShort ? esc(d.billing.insufficientCashText.replace("{diff}", (totalToPay - cashReceived).toLocaleString())) : `$${changeDue.toLocaleString()}`}</strong>
+        </div>
+      </div>
+      <button type="submit" class="primary" style="width:100%;margin-top:6px" ${isCashShort ? "disabled" : ""}>
+        ${esc(d.billing.emitInvoiceBtn)}
+      </button>
+    </form>
+  `;
+
+  checkoutEl.querySelector("input[name='cliente_nombre']")?.addEventListener("input", (e) => {
+    state.billingCustomerName = e.target.value;
+  });
+  checkoutEl.querySelector("input[name='cliente_documento']")?.addEventListener("input", (e) => {
+    state.billingCustomerDoc = e.target.value;
+  });
+  document.getElementById("bill-method-select")?.addEventListener("change", (e) => {
+    state.billingMethod = e.target.value;
+    if (state.billingMethod !== "EFECTIVO" && state.billingMethod !== "MIXTO") {
+      state.billingCashReceived = subtotal + tip;
+    }
+    drawBillingView();
+  });
+  document.getElementById("bill-card-ref")?.addEventListener("input", (e) => {
+    state.billingCardRef = e.target.value;
+  });
+  document.getElementById("bill-tip-input")?.addEventListener("change", (e) => {
+    const nextTip = Math.max(0, Number(e.target.value || 0));
+    state.billingTip = nextTip;
+    state.billingCashReceived = subtotal + nextTip;
+    drawBillingView();
+  });
+  checkoutEl.querySelectorAll(".tip-preset").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const pct = Number(btn.dataset.pct);
+      const nextTip = Math.round(subtotal * pct);
+      state.billingTip = nextTip;
+      state.billingCashReceived = subtotal + nextTip;
+      drawBillingView();
+    }),
+  );
+  document.getElementById("bill-cash-input")?.addEventListener("change", (e) => {
+    state.billingCashReceived = Math.max(0, Number(e.target.value || 0));
+    drawBillingView();
+  });
+  document.getElementById("bill-checkout-form")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const tipInput = document.getElementById("bill-tip-input");
+    const cashInput = document.getElementById("bill-cash-input");
+    if (tipInput) {
+      state.billingTip = Math.max(0, Number(tipInput.value || 0));
+    }
+    if (cashInput && !cashInput.disabled) {
+      state.billingCashReceived = Math.max(0, Number(cashInput.value || 0));
+    }
+    submitInvoice(selectedOrder);
+  });
+}
+
+async function submitInvoice(order) {
+  const d = dict();
+  const subtotal = Number(order.total || 0);
+  const tip =
+    state.billingTip !== undefined ? Number(state.billingTip) : Math.round(subtotal * 0.1);
+  const totalToPay = subtotal + tip;
+  const method = state.billingMethod || "EFECTIVO";
+  const isCashMethod = method === "EFECTIVO" || method === "MIXTO";
+  const cashReceived = isCashMethod
+    ? state.billingCashReceived !== undefined
+      ? Number(state.billingCashReceived)
+      : totalToPay
+    : totalToPay;
+
+  const payload = {
+    pedido_id: order.id,
+    medio_pago: method,
+    propina: tip,
+    monto_recibido: cashReceived,
+    cliente_nombre: state.billingCustomerName || "Consumidor Final",
+    cliente_documento: state.billingCustomerDoc || "222222222222",
+    cajero_nombre: state.user?.nombre || state.user?.usuario || "Cajero",
+    observaciones: state.billingCardRef || null,
+  };
+
+  try {
+    let createdInvoice = null;
+    try {
+      createdInvoice = await request("/parametrizacion/facturas", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      clearLocalMesaState(order.mesa_id);
+    } catch (apiErr) {
+      if (/No existe|404|Not Found/i.test(apiErr.message)) {
+        const localInvoices = readJson(LOCAL_INVOICES_KEY, localStorage) || [];
+        const nextNum = `FAC-${String(localInvoices.length + 1).padStart(4, "0")}`;
+        createdInvoice = {
+          id: localInvoices.length + 1,
+          numero_factura: nextNum,
+          pedido_id: order.id,
+          sede_id: order.sede_id,
+          mesa_id: order.mesa_id,
+          cajero: payload.cajero_nombre,
+          cliente_nombre: payload.cliente_nombre,
+          cliente_documento: payload.cliente_documento,
+          medio_pago: method,
+          subtotal,
+          impuesto: Math.round(subtotal * 0.08),
+          propina: tip,
+          total: totalToPay,
+          monto_recibido: cashReceived,
+          cambio: isCashMethod ? Math.max(0, cashReceived - totalToPay) : 0,
+          observaciones: payload.observaciones,
+          creado_en: new Date().toISOString(),
+          detalles: order.detalles || [],
+        };
+        localInvoices.unshift(createdInvoice);
+        writeLocalMap(LOCAL_INVOICES_KEY, localInvoices);
+        saveLocalMesaState(order.mesa_id, "LIBRE");
+      } else {
+        throw apiErr;
+      }
+    }
+
+    state.selectedBillingOrderId = null;
+    state.billingTip = undefined;
+    state.billingCashReceived = undefined;
+    state.billingCardRef = "";
+    state.error = "";
+    state.orderBanner = d.billing.invoiceCreatedSuccess.replace(
+      "{num}",
+      createdInvoice.numero_factura,
+    );
+    await loadBillingData();
+    openInvoiceReceiptModal(createdInvoice, order);
+  } catch (error) {
+    state.error = error.message;
+    drawBillingView();
+  }
+}
+
+function drawInvoicesTable(containerId) {
+  const d = dict();
+  const tableEl = document.getElementById(containerId);
+  if (!tableEl) return;
+
+  const rows = (state.invoices || []).filter((f) => {
+    const mesaObj = (state.mesasList || []).find((m) => m.id === f.mesa_id);
+    const mesaNum = mesaObj ? mesaObj.numero : f.mesa_id;
+    const text = `${f.numero_factura} #${f.pedido_id} mesa ${mesaNum} ${f.cliente_nombre} ${f.cliente_documento} ${resolveUserFullName(f.cajero)} ${refName("sedes", f.sede_id)}`.toLowerCase();
+    return (
+      text.includes(state.invoiceFilter || "") &&
+      (!esAdmin() || !state.sedeFilter || String(f.sede_id) === state.sedeFilter) &&
+      (!state.methodFilter || f.medio_pago === state.methodFilter)
+    );
+  });
+
+  if (!rows.length) {
+    tableEl.innerHTML = `<div class="empty">${esc(d.common.noRecords)}</div>`;
+    return;
+  }
+
+  tableEl.innerHTML = `<div class="table-wrap"><table><thead><tr>
+    <th>${esc(d.billing.colInvoiceNum)}</th>
+    <th>${esc(d.billing.colDate)}</th>
+    <th>${esc(d.fields.sede_id)}</th>
+    <th>${esc(d.orders.colTable)}</th>
+    <th>${esc(d.billing.colCustomer)}</th>
+    <th>${esc(d.billing.colCashier)}</th>
+    <th>${esc(d.billing.colMethod)}</th>
+    <th>${esc(d.billing.colSubtotal)}</th>
+    <th>${esc(d.billing.colTip)}</th>
+    <th>${esc(d.billing.colTotal)}</th>
+    <th>${esc(d.orders.colActions)}</th>
+  </tr></thead><tbody>${rows
+    .map((f) => {
+      const mesaObj = (state.mesasList || []).find((m) => m.id === f.mesa_id);
+      const mesaLabel = mesaObj ? `Mesa #${mesaObj.numero}` : `Mesa #${f.mesa_id}`;
+      const dateStr = f.creado_en
+        ? new Date(f.creado_en).toLocaleString(state.lang === "en" ? "en-US" : "es-CO", {
+            dateStyle: "short",
+            timeStyle: "short",
+          })
+        : "";
+      return `<tr>
+        <td><strong>${esc(f.numero_factura)}</strong></td>
+        <td>${esc(dateStr)}</td>
+        <td>${esc(refName("sedes", f.sede_id))}</td>
+        <td>${esc(mesaLabel)}</td>
+        <td>${esc(f.cliente_nombre)} <span class="subtle" style="font-size:0.74rem">(${esc(f.cliente_documento)})</span></td>
+        <td><strong>${esc(resolveUserFullName(f.cajero))}</strong></td>
+        <td><span class="role-badge">${esc(methodLabel(f.medio_pago))}</span></td>
+        <td>$${Number(f.subtotal).toLocaleString()}</td>
+        <td>$${Number(f.propina || 0).toLocaleString()}</td>
+        <td><strong>$${Number(f.total).toLocaleString()}</strong></td>
+        <td>
+          <button type="button" class="ghost view-invoice-btn btn-uniform" data-id="${f.id}">
+            ${esc(d.billing.viewPrintBtn)}
+          </button>
+        </td>
+      </tr>`;
+    })
+    .join("")}</tbody></table></div>`;
+
+  tableEl.querySelectorAll(".view-invoice-btn").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const inv = (state.invoices || []).find((i) => i.id === Number(btn.dataset.id));
+      if (inv) openInvoiceReceiptModal(inv);
+    }),
+  );
+}
+
+function openInvoiceReceiptModal(factura, fallbackOrder = null) {
+  const d = dict();
+  const linkedOrder =
+    fallbackOrder || (state.orders || []).find((o) => o.id === factura.pedido_id);
+  const detalles =
+    factura.detalles && factura.detalles.length
+      ? factura.detalles
+      : linkedOrder?.detalles || [];
+  const mesaObj = (state.mesasList || []).find((m) => m.id === factura.mesa_id);
+  const mesaLabel = mesaObj ? `Mesa #${mesaObj.numero}` : `Mesa #${factura.mesa_id}`;
+  const waiterName = linkedOrder ? resolveUserFullName(linkedOrder.mesero) : "-";
+  const cashierName = resolveUserFullName(factura.cajero);
+  const dateStr = factura.creado_en
+    ? new Date(factura.creado_en).toLocaleString(state.lang === "en" ? "en-US" : "es-CO")
+    : new Date().toLocaleString();
+
+  document.getElementById("modal")?.remove();
+  document.body.insertAdjacentHTML(
+    "beforeend",
+    `<div class="modal-backdrop" id="modal">
+      <section class="modal invoice-receipt-modal">
+        <div class="topbar no-print" style="margin-bottom:12px">
+          <div><p class="eyebrow">${esc(d.billing.eyebrow)}</p><h2>${esc(d.billing.receiptTitle)}</h2></div>
+          <button class="ghost" id="close-modal">${esc(d.common.close)}</button>
+        </div>
+        <div class="receipt-paper" id="printable-receipt">
+          <div class="receipt-header">
+            <div class="brand" style="justify-content:center;color:var(--blue-navy)">
+              <span class="brand-mark">M</span>
+              <span>BAR DE MOE</span>
+            </div>
+            <p class="subtle" style="margin:4px 0 2px">${esc(d.billing.receiptNit)}</p>
+            <strong>${esc(d.billing.receiptBranch)}: ${esc(refName("sedes", factura.sede_id))}</strong>
+            <div class="receipt-number-box">${esc(d.billing.receiptInvoiceNo)} ${esc(factura.numero_factura)}</div>
+          </div>
+          <div class="receipt-meta">
+            <div><span>${esc(d.billing.receiptDate)}:</span> <strong>${esc(dateStr)}</strong></div>
+            <div><span>${esc(d.billing.receiptTable)}:</span> <strong>${esc(mesaLabel)} (Pedido #${factura.pedido_id})</strong></div>
+            <div><span>${esc(d.billing.receiptWaiter)}:</span> <strong>${esc(waiterName)}</strong></div>
+            <div><span>${esc(d.billing.receiptCashier)}:</span> <strong>${esc(cashierName)}</strong></div>
+            <div><span>${esc(d.billing.receiptCustomer)}:</span> <strong>${esc(factura.cliente_nombre)}</strong></div>
+            <div><span>${esc(d.billing.receiptDoc)}:</span> <strong>${esc(factura.cliente_documento)}</strong></div>
+            <div><span>${esc(d.billing.paymentMethodLabel)}:</span> <strong>${esc(methodLabel(factura.medio_pago))}</strong></div>
+            ${factura.observaciones ? `<div style="grid-column:1 / -1"><span>${esc(d.billing.obsLabel)}:</span> <strong>${esc(factura.observaciones)}</strong></div>` : ""}
+          </div>
+          <table class="receipt-items-table">
+            <thead>
+              <tr>
+                <th>${esc(d.billing.receiptQty)}</th>
+                <th>${esc(d.billing.receiptProduct)}</th>
+                <th>${esc(d.billing.receiptUnit)}</th>
+                <th style="text-align:right">${esc(d.billing.receiptLineTotal)}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${detalles
+                .map(
+                  (det) => `<tr>
+                  <td>${det.cantidad}</td>
+                  <td>${esc(det.nombre_producto)}</td>
+                  <td>$${Number(det.precio_unitario).toLocaleString()}</td>
+                  <td style="text-align:right"><strong>$${Number(det.subtotal).toLocaleString()}</strong></td>
+                </tr>`,
+                )
+                .join("")}
+            </tbody>
+          </table>
+          <div class="receipt-totals">
+            <div class="billing-row"><span>${esc(d.billing.subtotalLabel)}</span><strong>$${Number(factura.subtotal).toLocaleString()}</strong></div>
+            <div class="billing-row subtle"><span>${esc(d.billing.taxRefLabel)}</span><span>$${Number(factura.impuesto || 0).toLocaleString()}</span></div>
+            <div class="billing-row"><span>${esc(d.billing.tipSummaryLabel)}</span><strong>$${Number(factura.propina || 0).toLocaleString()}</strong></div>
+            <div class="order-total-row">
+              <span>${esc(d.billing.totalToPayLabel)}</span>
+              <span>$${Number(factura.total).toLocaleString()}</span>
+            </div>
+            <div class="billing-row" style="margin-top:6px">
+              <span>${esc(d.billing.cashReceivedLabel)}</span>
+              <strong>$${Number(factura.monto_recibido).toLocaleString()}</strong>
+            </div>
+            <div class="billing-row">
+              <span>${esc(d.billing.changeDueLabel)}</span>
+              <strong>$${Number(factura.cambio || 0).toLocaleString()}</strong>
+            </div>
+          </div>
+          <p class="receipt-footer">${esc(d.billing.receiptFooter)}</p>
+        </div>
+        <div class="modal-actions no-print">
+          <button type="button" class="ghost" id="close-receipt-btn">${esc(d.common.close)}</button>
+          <button type="button" class="primary" id="print-receipt-btn">${esc(d.billing.printBtn)}</button>
+        </div>
+      </section>
+    </div>`,
+  );
+
+  const close = () => document.getElementById("modal")?.remove();
+  document.getElementById("close-modal")?.addEventListener("click", close);
+  document.getElementById("close-receipt-btn")?.addEventListener("click", close);
+  document.getElementById("print-receipt-btn")?.addEventListener("click", () => {
+    window.print();
+  });
+}
+
+// ====================================================== SPRINT 4: REPORTERÍA M6 (HU-016 & HU-024)
+async function salesReportView() {
+  const d = dict();
+  await ensureRefs();
+  await loadUserDirectory();
+  const isAdmin = state.user?.rol === "ADMINISTRADOR";
+
+  if (!state.reportFilters) {
+    state.reportFilters = {
+      sedeId: isAdmin ? "" : String(state.user?.sede_id || ""),
+      medioPago: "",
+      desde: "",
+      hasta: "",
+      search: "",
+    };
+  }
+
+  const branchOptions = (state.refs.sedes || [])
+    .filter((s) => s.activo !== false)
+    .map(
+      (s) =>
+        `<option value="${s.id}" ${String(state.reportFilters.sedeId) === String(s.id) ? "selected" : ""}>${esc(s.nombre)}</option>`,
+    )
+    .join("");
+
+  document.getElementById("view").innerHTML = `
+    <div id="printable-report">
+      <div class="topbar">
+        <div>
+          <p class="eyebrow">${esc(d.reports.eyebrow)}</p>
+          <h1>${esc(d.reports.title)}</h1>
+          <p class="subtle" style="margin:4px 0 0">${esc(d.reports.subtitle)}</p>
+        </div>
+        <div class="topbar-actions no-print">
+          <button class="ghost" id="rep-refresh-btn">${esc(d.common.refresh)}</button>
+          <button class="ghost" id="rep-print-btn">${esc(d.reports.exportPrintBtn)}</button>
+          <button class="primary" id="rep-export-csv">${esc(d.reports.exportCsvBtn)}</button>
+        </div>
+      </div>
+
+      <section class="panel no-print" style="margin-bottom:18px;flex:0 0 auto">
+        <div class="toolbar" style="margin:0">
+          <input id="rep-search" value="${esc(state.reportFilters.search || "")}" placeholder="${esc(d.common.searchPlaceholder)}" aria-label="${esc(d.common.searchPlaceholder)}">
+          ${
+            isAdmin
+              ? `<select id="rep-sede-filter">
+                  <option value="">${esc(d.common.allBranches)}</option>
+                  ${branchOptions}
+                </select>`
+              : `<span class="badge badge-info">${esc(d.common.branch)}: ${esc(refName("sedes", state.user?.sede_id))}</span>`
+          }
+          <select id="rep-method-filter" aria-label="${esc(d.reports.filterMethod)}">
+            ${methodFilterOptionsHtml(state.reportFilters.medioPago)}
+          </select>
+          <label class="report-date-field">
+            <span>${esc(d.reports.filterFrom)}</span>
+            <input type="date" id="rep-from-date" value="${esc(state.reportFilters.desde || "")}">
+          </label>
+          <label class="report-date-field">
+            <span>${esc(d.reports.filterTo)}</span>
+            <input type="date" id="rep-to-date" value="${esc(state.reportFilters.hasta || "")}">
+          </label>
+          <button type="button" class="ghost small" id="rep-clear-filters">${esc(d.reports.clearFiltersBtn)}</button>
+        </div>
+      </section>
+
+      <div id="sales-report-content"></div>
+    </div>
+  `;
+
+  enhanceCustomSelects(document.getElementById("view"));
+
+  const reloadReport = async () => {
+    await loadSalesReportData();
+    drawSalesReport();
+  };
+
+  document.getElementById("rep-search")?.addEventListener("input", (e) => {
+    state.reportFilters.search = e.target.value.toLowerCase();
+    drawSalesReport();
+  });
+  document.getElementById("rep-sede-filter")?.addEventListener("change", (e) => {
+    state.reportFilters.sedeId = e.target.value;
+    reloadReport();
+  });
+  document.getElementById("rep-method-filter")?.addEventListener("change", (e) => {
+    state.reportFilters.medioPago = e.target.value;
+    reloadReport();
+  });
+  document.getElementById("rep-from-date")?.addEventListener("change", (e) => {
+    state.reportFilters.desde = e.target.value;
+    reloadReport();
+  });
+  document.getElementById("rep-to-date")?.addEventListener("change", (e) => {
+    state.reportFilters.hasta = e.target.value;
+    reloadReport();
+  });
+  document.getElementById("rep-clear-filters")?.addEventListener("click", () => {
+    state.reportFilters = {
+      sedeId: isAdmin ? "" : String(state.user?.sede_id || ""),
+      medioPago: "",
+      desde: "",
+      hasta: "",
+      search: "",
+    };
+    salesReportView();
+  });
+  document.getElementById("rep-refresh-btn")?.addEventListener("click", reloadReport);
+  document.getElementById("rep-print-btn")?.addEventListener("click", () => window.print());
+  document.getElementById("rep-export-csv")?.addEventListener("click", () => exportSalesReportCsv());
+
+  await reloadReport();
+}
+
+async function loadSalesReportData() {
+  const rf = state.reportFilters || {};
+  const params = new URLSearchParams();
+  if (rf.sedeId) params.set("sede_id", rf.sedeId);
+  if (rf.medioPago) params.set("medio_pago", rf.medioPago);
+  if (rf.desde) params.set("desde", rf.desde);
+  if (rf.hasta) params.set("hasta", rf.hasta);
+  const qs = params.toString() ? `?${params.toString()}` : "";
+
+  try {
+    state.salesReport = await api(`/api/parametrizacion/reportes/ventas${qs}`);
+  } catch (_) {
+    state.salesReport = await buildClientFallbackReport(rf);
+  }
+}
+
+async function buildClientFallbackReport(rf) {
+  let invoices = [];
+  let products = [];
+  let orders = [];
+  try {
+    invoices = await api("/api/parametrizacion/facturas");
+  } catch (_) {
+    invoices = getLocalInvoices();
+  }
+  try {
+    products = await api("/api/parametrizacion/productos");
+  } catch (_) {
+    products = [];
+  }
+  try {
+    orders = await api("/api/parametrizacion/pedidos");
+  } catch (_) {
+    orders = state.orders || [];
+  }
+
+  const productById = Object.fromEntries((products || []).map((p) => [p.id, p]));
+  const orderById = Object.fromEntries((orders || []).map((o) => [o.id, o]));
+
+  const filtered = (invoices || []).filter((inv) => {
+    if (rf.sedeId && String(inv.sede_id) !== String(rf.sedeId)) return false;
+    if (rf.medioPago && inv.medio_pago !== rf.medioPago) return false;
+    if (rf.desde) {
+      const invDate = String(inv.creado_en || "").slice(0, 10);
+      if (invDate && invDate < rf.desde) return false;
+    }
+    if (rf.hasta) {
+      const invDate = String(inv.creado_en || "").slice(0, 10);
+      if (invDate && invDate > rf.hasta) return false;
+    }
+    return true;
+  });
+
+  let totalFacturas = 0;
+  let unidadesVendidas = 0;
+  let ventasSubtotal = 0;
+  let impuestoTotal = 0;
+  let propinaTotal = 0;
+  let totalRecaudado = 0;
+  let costoTotal = 0;
+
+  const sedeMap = {};
+  const medioMap = {};
+  const rolMap = {};
+  const prodMap = {};
+
+  for (const inv of filtered) {
+    totalFacturas += 1;
+    const sub = Number(inv.subtotal || 0);
+    const imp = Number(inv.impuesto || 0);
+    const prop = Number(inv.propina || 0);
+    const tot = Number(inv.total || 0);
+    ventasSubtotal += sub;
+    impuestoTotal += imp;
+    propinaTotal += prop;
+    totalRecaudado += tot;
+
+    const order = orderById[inv.pedido_id] || {};
+    const detalles =
+      Array.isArray(inv.detalles) && inv.detalles.length
+        ? inv.detalles
+        : Array.isArray(order.detalles)
+          ? order.detalles
+          : [];
+
+    let invCosto = 0;
+    let invUnidades = 0;
+    for (const det of detalles) {
+      const pid = det.producto_id;
+      const prod = productById[pid] || {};
+      const qty = Number(det.cantidad || 0);
+      const unitSale = Number(det.precio_unitario || prod.valor_venta || 0);
+      const unitCost = Number(prod.valor_compra || 0);
+      const lineSale = Number(det.subtotal || unitSale * qty);
+      const lineCost = unitCost * qty;
+      invCosto += lineCost;
+      invUnidades += qty;
+
+      const pKey = `${inv.sede_id}-${pid}`;
+      if (!prodMap[pKey]) {
+        prodMap[pKey] = {
+          producto_id: pid,
+          codigo_producto: prod.codigo || `P-${pid}`,
+          nombre_producto: det.nombre_producto || prod.nombre || `#${pid}`,
+          sede_id: inv.sede_id,
+          sede_nombre: refName("sedes", inv.sede_id),
+          unidades_vendidas: 0,
+          precio_compra_unitario: unitCost,
+          precio_venta_unitario: unitSale,
+          ventas_subtotal: 0,
+          costo_total: 0,
+        };
+      }
+      prodMap[pKey].unidades_vendidas += qty;
+      prodMap[pKey].ventas_subtotal += lineSale;
+      prodMap[pKey].costo_total += lineCost;
+    }
+
+    costoTotal += invCosto;
+    unidadesVendidas += invUnidades;
+
+    if (!sedeMap[inv.sede_id]) {
+      sedeMap[inv.sede_id] = {
+        sede_id: inv.sede_id,
+        sede_nombre: refName("sedes", inv.sede_id),
+        total_facturas: 0,
+        unidades_vendidas: 0,
+        ventas_subtotal: 0,
+        impuesto_total: 0,
+        propina_total: 0,
+        total_recaudado: 0,
+        costo_total: 0,
+      };
+    }
+    sedeMap[inv.sede_id].total_facturas += 1;
+    sedeMap[inv.sede_id].unidades_vendidas += invUnidades;
+    sedeMap[inv.sede_id].ventas_subtotal += sub;
+    sedeMap[inv.sede_id].impuesto_total += imp;
+    sedeMap[inv.sede_id].propina_total += prop;
+    sedeMap[inv.sede_id].total_recaudado += tot;
+    sedeMap[inv.sede_id].costo_total += invCosto;
+
+    const mp = inv.medio_pago || "EFECTIVO";
+    if (!medioMap[mp]) {
+      medioMap[mp] = {
+        medio_pago: mp,
+        total_facturas: 0,
+        ventas_subtotal: 0,
+        propina_total: 0,
+        total_recaudado: 0,
+      };
+    }
+    medioMap[mp].total_facturas += 1;
+    medioMap[mp].ventas_subtotal += sub;
+    medioMap[mp].propina_total += prop;
+    medioMap[mp].total_recaudado += tot;
+
+    const cajeroKey = `CAJERO-${inv.cajero_username || "cajero"}-${inv.sede_id}`;
+    if (!rolMap[cajeroKey]) {
+      rolMap[cajeroKey] = {
+        rol: "CAJERO",
+        username: inv.cajero_username || "cajero",
+        sede_id: inv.sede_id,
+        sede_nombre: refName("sedes", inv.sede_id),
+        total_facturas: 0,
+        unidades_vendidas: 0,
+        ventas_subtotal: 0,
+        propina_total: 0,
+        total_recaudado: 0,
+        costo_total: 0,
+      };
+    }
+    rolMap[cajeroKey].total_facturas += 1;
+    rolMap[cajeroKey].unidades_vendidas += invUnidades;
+    rolMap[cajeroKey].ventas_subtotal += sub;
+    rolMap[cajeroKey].propina_total += prop;
+    rolMap[cajeroKey].total_recaudado += tot;
+    rolMap[cajeroKey].costo_total += invCosto;
+
+    const meseroUser = inv.mesero_username || order.creado_por || "";
+    if (meseroUser) {
+      const meseroKey = `MESERO-${meseroUser}-${inv.sede_id}`;
+      if (!rolMap[meseroKey]) {
+        rolMap[meseroKey] = {
+          rol: "MESERO",
+          username: meseroUser,
+          sede_id: inv.sede_id,
+          sede_nombre: refName("sedes", inv.sede_id),
+          total_facturas: 0,
+          unidades_vendidas: 0,
+          ventas_subtotal: 0,
+          propina_total: 0,
+          total_recaudado: 0,
+          costo_total: 0,
+        };
+      }
+      rolMap[meseroKey].total_facturas += 1;
+      rolMap[meseroKey].unidades_vendidas += invUnidades;
+      rolMap[meseroKey].ventas_subtotal += sub;
+      rolMap[meseroKey].propina_total += prop;
+      rolMap[meseroKey].total_recaudado += tot;
+      rolMap[meseroKey].costo_total += invCosto;
+    }
+  }
+
+  const withProfit = (row) => {
+    const ganancia = Number(row.ventas_subtotal || 0) - Number(row.costo_total || 0);
+    const margen = row.ventas_subtotal > 0 ? Number(((ganancia / row.ventas_subtotal) * 100).toFixed(2)) : 0;
+    return { ...row, ganancia_neta: ganancia, margen_porcentaje: margen };
+  };
+
+  const gananciaNeta = ventasSubtotal - costoTotal;
+  const margenGlobal = ventasSubtotal > 0 ? Number(((gananciaNeta / ventasSubtotal) * 100).toFixed(2)) : 0;
+
+  return {
+    resumen: {
+      total_facturas: totalFacturas,
+      unidades_vendidas: unidadesVendidas,
+      ventas_subtotal: ventasSubtotal,
+      impuesto_total: impuestoTotal,
+      propina_total: propinaTotal,
+      total_recaudado: totalRecaudado,
+      costo_total: costoTotal,
+      ganancia_neta: gananciaNeta,
+      margen_porcentaje: margenGlobal,
+    },
+    por_sede: Object.values(sedeMap).map(withProfit),
+    por_medio_pago: Object.values(medioMap),
+    por_rol: Object.values(rolMap).map(withProfit),
+    por_producto: Object.values(prodMap).map(withProfit),
+  };
+}
+
+function drawSalesReport() {
+  const d = dict();
+  const container = document.getElementById("sales-report-content");
+  if (!container) return;
+
+  const rep = state.salesReport || {
+    resumen: {
+      total_facturas: 0,
+      unidades_vendidas: 0,
+      ventas_subtotal: 0,
+      impuesto_total: 0,
+      propina_total: 0,
+      total_recaudado: 0,
+      costo_total: 0,
+      ganancia_neta: 0,
+      margen_porcentaje: 0,
+    },
+    por_sede: [],
+    por_medio_pago: [],
+    por_rol: [],
+    por_producto: [],
+  };
+
+  const r = rep.resumen || {};
+  const rVentasSubtotal = Number(r.subtotal_ventas ?? r.ventas_subtotal ?? 0);
+  const rTotalRecaudado = Number(r.total_facturado ?? r.total_recaudado ?? 0);
+  const q = (state.reportFilters?.search || "").trim().toLowerCase();
+
+  const filterRow = (text) => !q || String(text).toLowerCase().includes(q);
+
+  const sedes = (rep.por_sede || []).filter((s) => filterRow(`${s.sede_nombre}`));
+  const medios = (rep.por_medio_pago || []).filter((m) =>
+    filterRow(`${m.medio_pago} ${methodLabel(m.medio_pago)}`),
+  );
+  const roles = (rep.por_rol || []).filter((rl) => {
+    const userRef = rl.responsable || rl.username || "";
+    return filterRow(`${rl.rol} ${userRef} ${resolveUserFullName(userRef)} ${rl.sede_nombre}`);
+  });
+  const productos = (rep.por_producto || []).filter((p) =>
+    filterRow(`${p.codigo || p.codigo_producto} ${p.nombre || p.nombre_producto} ${p.sede_nombre}`),
+  );
+
+  container.innerHTML = `
+    <div class="stats report-kpi-grid">
+      <div class="stat">
+        <span>${esc(d.reports.kpiInvoices)}</span>
+        <strong>${Number(r.total_facturas || 0).toLocaleString()}</strong>
+      </div>
+      <div class="stat">
+        <span>${esc(d.reports.kpiUnits)}</span>
+        <strong>${Number(r.unidades_vendidas || 0).toLocaleString()}</strong>
+      </div>
+      <div class="stat">
+        <span>${esc(d.reports.kpiGrossSales)}</span>
+        <strong>$${rVentasSubtotal.toLocaleString()}</strong>
+      </div>
+      <div class="stat stat-warn">
+        <span>${esc(d.reports.kpiCost)}</span>
+        <strong>$${Number(r.costo_total || 0).toLocaleString()}</strong>
+      </div>
+      <div class="stat ${Number(r.ganancia_neta || 0) >= 0 ? "stat-ok" : "stat-danger"}">
+        <span>${esc(d.reports.kpiProfit)}</span>
+        <strong>$${Number(r.ganancia_neta || 0).toLocaleString()}</strong>
+      </div>
+      <div class="stat ${Number(r.margen_porcentaje || 0) >= 25 ? "stat-ok" : "stat-warn"}">
+        <span>${esc(d.reports.kpiMargin)}</span>
+        <strong>${Number(r.margen_porcentaje || 0).toFixed(2)}%</strong>
+      </div>
+      <div class="stat">
+        <span>${esc(d.reports.kpiTotalCollected)}</span>
+        <strong>$${rTotalRecaudado.toLocaleString()}</strong>
+      </div>
+    </div>
+
+    <div class="report-tables-grid">
+      <section class="panel">
+        <div class="panel-header-inline">
+          <h2>${esc(d.reports.byBranchTitle)}</h2>
+        </div>
+        ${
+          sedes.length
+            ? `<div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>${esc(d.reports.colBranch)}</th>
+                      <th>${esc(d.reports.colInvoices)}</th>
+                      <th>${esc(d.reports.colUnits)}</th>
+                      <th>${esc(d.reports.colSales)}</th>
+                      <th>${esc(d.reports.colCost)}</th>
+                      <th>${esc(d.reports.colProfit)}</th>
+                      <th>${esc(d.reports.colMargin)}</th>
+                      <th>${esc(d.reports.colTotal)}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${sedes
+                      .map((s) => {
+                        const sVentas = Number(s.subtotal_ventas ?? s.ventas_subtotal ?? 0);
+                        const sTotal = Number(s.total_facturado ?? s.total_recaudado ?? 0);
+                        return `<tr>
+                          <td><strong>${esc(s.sede_nombre)}</strong></td>
+                          <td>${s.total_facturas}</td>
+                          <td>${s.unidades_vendidas}</td>
+                          <td>$${sVentas.toLocaleString()}</td>
+                          <td>$${Number(s.costo_total || 0).toLocaleString()}</td>
+                          <td><strong class="${s.ganancia_neta >= 0 ? "stock-ok" : "stock-low"}">$${Number(s.ganancia_neta || 0).toLocaleString()}</strong></td>
+                          <td><span class="badge ${s.margen_porcentaje >= 25 ? "badge-ok" : "badge-warn"}">${Number(s.margen_porcentaje || 0).toFixed(2)}%</span></td>
+                          <td><strong>$${sTotal.toLocaleString()}</strong></td>
+                        </tr>`;
+                      })
+                      .join("")}
+                  </tbody>
+                </table>
+              </div>`
+            : `<p class="empty">${esc(d.reports.emptyReport)}</p>`
+        }
+      </section>
+
+      <section class="panel">
+        <div class="panel-header-inline">
+          <h2>${esc(d.reports.byMethodTitle)}</h2>
+        </div>
+        ${
+          medios.length
+            ? `<div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>${esc(d.reports.colMethod)}</th>
+                      <th>${esc(d.reports.colInvoices)}</th>
+                      <th>${esc(d.reports.colSales)}</th>
+                      <th>${esc(d.reports.colTips)}</th>
+                      <th>${esc(d.reports.colTotal)}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${medios
+                      .map((m) => {
+                        const mVentas = Number(m.subtotal_ventas ?? m.ventas_subtotal ?? 0);
+                        const mPropina = Number(m.propinas ?? m.propina_total ?? 0);
+                        const mTotal = Number(m.total_facturado ?? m.total_recaudado ?? 0);
+                        return `<tr>
+                          <td><span class="badge badge-info">${esc(methodLabel(m.medio_pago))}</span></td>
+                          <td>${m.total_facturas}</td>
+                          <td>$${mVentas.toLocaleString()}</td>
+                          <td>$${mPropina.toLocaleString()}</td>
+                          <td><strong>$${mTotal.toLocaleString()}</strong></td>
+                        </tr>`;
+                      })
+                      .join("")}
+                  </tbody>
+                </table>
+              </div>`
+            : `<p class="empty">${esc(d.reports.emptyReport)}</p>`
+        }
+      </section>
+    </div>
+
+    <section class="panel" style="margin-top:18px">
+      <div class="panel-header-inline">
+        <h2>${esc(d.reports.byRoleTitle)}</h2>
+      </div>
+      ${
+        roles.length
+          ? `<div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>${esc(d.reports.colRole)}</th>
+                    <th>${esc(d.reports.colStaff)}</th>
+                    <th>${esc(d.reports.colBranch)}</th>
+                    <th>${esc(d.reports.colInvoices)}</th>
+                    <th>${esc(d.reports.colSales)}</th>
+                    <th>${esc(d.reports.colProfit)}</th>
+                    <th>${esc(d.reports.colMargin)}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${roles
+                    .map((rl) => {
+                      const staffUser = rl.responsable || rl.username || "";
+                      const ops = rl.operaciones ?? rl.total_facturas ?? 0;
+                      const rlVentas = Number(rl.subtotal_ventas ?? rl.ventas_subtotal ?? 0);
+                      const rlGanancia = Number(rl.ganancia_generada ?? rl.ganancia_neta ?? 0);
+                      const rlMargen = rlVentas > 0 ? (rlGanancia / rlVentas) * 100 : 0;
+                      return `<tr>
+                        <td><span class="badge ${rl.rol === "CAJERO" ? "badge-info" : "badge-ok"}">${esc(rl.rol === "CAJERO" ? d.reports.roleCashier : d.reports.roleWaiter)}</span></td>
+                        <td><strong>${esc(resolveUserFullName(staffUser))}</strong> <span class="subtle">(${esc(staffUser)})</span></td>
+                        <td>${esc(rl.sede_nombre)}</td>
+                        <td>${ops}</td>
+                        <td>$${rlVentas.toLocaleString()}</td>
+                        <td><strong class="${rlGanancia >= 0 ? "stock-ok" : "stock-low"}">$${rlGanancia.toLocaleString()}</strong></td>
+                        <td><span class="badge ${rlMargen >= 25 ? "badge-ok" : "badge-warn"}">${rlMargen.toFixed(2)}%</span></td>
+                      </tr>`;
+                    })
+                    .join("")}
+                </tbody>
+              </table>
+            </div>`
+          : `<p class="empty">${esc(d.reports.emptyReport)}</p>`
+      }
+    </section>
+
+    <section class="panel" style="margin-top:18px">
+      <div class="panel-header-inline">
+        <h2>${esc(d.reports.byProductTitle)}</h2>
+      </div>
+      ${
+        productos.length
+          ? `<div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>${esc(d.reports.colCode)}</th>
+                    <th>${esc(d.reports.colProduct)}</th>
+                    <th>${esc(d.reports.colBranch)}</th>
+                    <th>${esc(d.reports.colUnits)}</th>
+                    <th>${esc(d.reports.colUnitCost)}</th>
+                    <th>${esc(d.reports.colUnitPrice)}</th>
+                    <th>${esc(d.reports.colSales)}</th>
+                    <th>${esc(d.reports.colCost)}</th>
+                    <th>${esc(d.reports.colProfit)}</th>
+                    <th>${esc(d.reports.colMargin)}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${productos
+                    .map((p) => {
+                      const pCode = p.codigo || p.codigo_producto || "";
+                      const pName = p.nombre || p.nombre_producto || "";
+                      const pUnitCost = Number(p.valor_compra_unitario ?? p.precio_compra_unitario ?? 0);
+                      const pUnitSale = Number(p.valor_venta_unitario ?? p.precio_venta_unitario ?? 0);
+                      const pSales = Number(p.subtotal_ventas ?? p.ventas_subtotal ?? 0);
+                      const pCost = Number(p.costo_total || 0);
+                      const pProfit = Number(p.ganancia_neta || 0);
+                      const pMargin = Number(p.margen_porcentaje || 0);
+                      return `<tr>
+                        <td><code>${esc(pCode)}</code></td>
+                        <td><strong>${esc(pName)}</strong></td>
+                        <td>${esc(p.sede_nombre)}</td>
+                        <td>${p.unidades_vendidas}</td>
+                        <td>$${pUnitCost.toLocaleString()}</td>
+                        <td>$${pUnitSale.toLocaleString()}</td>
+                        <td>$${pSales.toLocaleString()}</td>
+                        <td>$${pCost.toLocaleString()}</td>
+                        <td><strong class="${pProfit >= 0 ? "stock-ok" : "stock-low"}">$${pProfit.toLocaleString()}</strong></td>
+                        <td><span class="badge ${pMargin >= 25 ? "badge-ok" : "badge-warn"}">${pMargin.toFixed(2)}%</span></td>
+                      </tr>`;
+                    })
+                    .join("")}
+                </tbody>
+              </table>
+            </div>`
+          : `<p class="empty">${esc(d.reports.emptyReport)}</p>`
+      }
+    </section>
+  `;
+}
+
+function exportSalesReportCsv() {
+  const d = dict();
+  const rep = state.salesReport;
+  if (!rep) return;
+
+  const r = rep.resumen || {};
+  const lines = [];
+  const csvCell = (val) => `"${String(val ?? "").replace(/"/g, '""')}"`;
+  const addRow = (cols) => lines.push(cols.map(csvCell).join(","));
+
+  addRow(["REPORTE DE VENTAS Y GANANCIA - BAR DE MOE"]);
+  addRow([
+    "Total Facturas",
+    "Unidades Vendidas",
+    "Ventas Netas (Subtotal)",
+    "Costo Mercancia (Compra)",
+    "Ganancia Neta",
+    "Margen (%)",
+    "Propinas",
+    "Total Recaudado",
+  ]);
+  addRow([
+    r.total_facturas || 0,
+    r.unidades_vendidas || 0,
+    r.subtotal_ventas ?? r.ventas_subtotal ?? 0,
+    r.costo_total || 0,
+    r.ganancia_neta || 0,
+    r.margen_porcentaje || 0,
+    r.propinas ?? r.propina_total ?? 0,
+    r.total_facturado ?? r.total_recaudado ?? 0,
+  ]);
+  lines.push("");
+
+  addRow(["1. VENTAS Y GANANCIA POR SEDE"]);
+  addRow(["Sede", "Facturas", "Unidades", "Ventas Subtotal", "Costo Compra", "Ganancia Neta", "Margen %", "Total Recaudado"]);
+  for (const s of rep.por_sede || []) {
+    addRow([
+      s.sede_nombre,
+      s.total_facturas,
+      s.unidades_vendidas,
+      s.subtotal_ventas ?? s.ventas_subtotal ?? 0,
+      s.costo_total,
+      s.ganancia_neta,
+      s.margen_porcentaje,
+      s.total_facturado ?? s.total_recaudado ?? 0,
+    ]);
+  }
+  lines.push("");
+
+  addRow(["2. RECAUDO POR MEDIO DE PAGO"]);
+  addRow(["Medio de Pago", "Facturas", "Ventas Subtotal", "Propinas", "Total Recaudado"]);
+  for (const m of rep.por_medio_pago || []) {
+    addRow([
+      methodLabel(m.medio_pago),
+      m.total_facturas,
+      m.subtotal_ventas ?? m.ventas_subtotal ?? 0,
+      m.propinas ?? m.propina_total ?? 0,
+      m.total_facturado ?? m.total_recaudado ?? 0,
+    ]);
+  }
+  lines.push("");
+
+  addRow(["3. VENTAS Y GANANCIA POR ROL Y PERSONAL"]);
+  addRow(["Rol", "Personal", "Usuario", "Sede", "Operaciones", "Ventas Subtotal", "Ganancia Generada"]);
+  for (const rl of rep.por_rol || []) {
+    const staffUser = rl.responsable || rl.username || "";
+    addRow([
+      rl.rol,
+      resolveUserFullName(staffUser),
+      staffUser,
+      rl.sede_nombre,
+      rl.operaciones ?? rl.total_facturas ?? 0,
+      rl.subtotal_ventas ?? rl.ventas_subtotal ?? 0,
+      rl.ganancia_generada ?? rl.ganancia_neta ?? 0,
+    ]);
+  }
+  lines.push("");
+
+  addRow(["4. RENTABILIDAD POR PRODUCTO"]);
+  addRow(["Codigo", "Producto", "Sede", "Unidades Vendidas", "Costo Unitario", "Precio Venta Unitario", "Ventas Subtotal", "Costo Total", "Ganancia Neta", "Margen %"]);
+  for (const p of rep.por_producto || []) {
+    addRow([
+      p.codigo || p.codigo_producto,
+      p.nombre || p.nombre_producto,
+      p.sede_nombre,
+      p.unidades_vendidas,
+      p.valor_compra_unitario ?? p.precio_compra_unitario ?? 0,
+      p.valor_venta_unitario ?? p.precio_venta_unitario ?? 0,
+      p.subtotal_ventas ?? p.ventas_subtotal ?? 0,
+      p.costo_total,
+      p.ganancia_neta,
+      p.margen_porcentaje,
+    ]);
+  }
+
+  const blob = new Blob(["\ufeff" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `reporte_ventas_ganancia_moe_${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  toast(d.reports.csvExportedToast);
 }
 
 // ====================================================== USUARIOS (Full CRUD + Full Names)

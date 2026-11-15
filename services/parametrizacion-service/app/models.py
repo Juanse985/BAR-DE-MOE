@@ -125,3 +125,37 @@ class PedidoDetalle(Base):
     subtotal: Mapped[float] = mapped_column(Numeric(12, 2))
 
     pedido: Mapped[Pedido] = relationship(back_populates="detalles")
+
+
+class Factura(Base):
+    """Facturación y registro del medio de pago (Sprint 3 · HU-015 y HU-023)."""
+
+    __tablename__ = "facturas"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    numero_factura: Mapped[str] = mapped_column(String(30), unique=True, index=True)
+    pedido_id: Mapped[int] = mapped_column(
+        ForeignKey("pedidos.id"), unique=True, index=True
+    )
+    sede_id: Mapped[int] = mapped_column(ForeignKey("sedes.id"), index=True)
+    mesa_id: Mapped[int] = mapped_column(ForeignKey("mesas.id"), index=True)
+    cajero: Mapped[str] = mapped_column(String(120))
+    cliente_nombre: Mapped[str] = mapped_column(String(120), default="Consumidor Final")
+    cliente_documento: Mapped[str] = mapped_column(String(40), default="222222222222")
+    medio_pago: Mapped[str] = mapped_column(String(30), default="EFECTIVO", index=True)
+    subtotal: Mapped[float] = mapped_column(Numeric(12, 2))
+    impuesto: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    propina: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    total: Mapped[float] = mapped_column(Numeric(12, 2))
+    monto_recibido: Mapped[float] = mapped_column(Numeric(12, 2))
+    cambio: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    observaciones: Mapped[str | None] = mapped_column(String(250), nullable=True)
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=ahora_utc
+    )
+
+    pedido: Mapped[Pedido] = relationship()
+
+    @property
+    def detalles(self) -> list[PedidoDetalle]:
+        return list(self.pedido.detalles) if self.pedido else []

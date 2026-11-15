@@ -8,6 +8,14 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 EstadoMesa = Literal["LIBRE", "OCUPADA"]
 TipoMovimientoInventario = Literal["ENTRADA", "SALIDA", "AJUSTE"]
 EstadoPedido = Literal["ABIERTO", "ENTREGADO", "CERRADO", "CANCELADO"]
+MedioPago = Literal[
+    "EFECTIVO",
+    "TARJETA_CREDITO",
+    "TARJETA_DEBITO",
+    "TARJETA",
+    "TRANSFERENCIA",
+    "MIXTO",
+]
 
 
 class Base(BaseModel):
@@ -205,3 +213,104 @@ class PedidoSalida(Base):
     total: Decimal
     creado_en: datetime
     detalles: list[PedidoDetalleSalida] = []
+
+
+# ------------------------------------------- Sprint 3: Facturación y Pagos
+class FacturaCrear(BaseModel):
+    pedido_id: int
+    medio_pago: MedioPago = "EFECTIVO"
+    propina: Decimal = Field(default=Decimal("0"), ge=0)
+    monto_recibido: Decimal | None = Field(default=None, ge=0)
+    cliente_nombre: str = Field(default="Consumidor Final", max_length=120)
+    cliente_documento: str = Field(default="222222222222", max_length=40)
+    cajero_nombre: str | None = Field(default=None, max_length=120)
+    observaciones: str | None = Field(default=None, max_length=250)
+
+
+class FacturaSalida(Base):
+    id: int
+    numero_factura: str
+    pedido_id: int
+    sede_id: int
+    mesa_id: int
+    cajero: str
+    cliente_nombre: str
+    cliente_documento: str
+    medio_pago: MedioPago
+    subtotal: Decimal
+    impuesto: Decimal
+    propina: Decimal
+    total: Decimal
+    monto_recibido: Decimal
+    cambio: Decimal
+    observaciones: str | None
+    creado_en: datetime
+    detalles: list[PedidoDetalleSalida] = []
+
+
+# ------------------------------------------- Sprint 4: Reportería (M6 · HU-016 & HU-024)
+class ReporteResumenSalida(BaseModel):
+    total_facturas: int
+    unidades_vendidas: int
+    subtotal_ventas: Decimal
+    impuestos: Decimal
+    propinas: Decimal
+    total_facturado: Decimal
+    costo_total: Decimal
+    ganancia_neta: Decimal
+    margen_porcentaje: float
+
+
+class ReportePorSedeItem(BaseModel):
+    sede_id: int
+    sede_nombre: str
+    total_facturas: int
+    unidades_vendidas: int
+    subtotal_ventas: Decimal
+    total_facturado: Decimal
+    costo_total: Decimal
+    ganancia_neta: Decimal
+    margen_porcentaje: float
+
+
+class ReportePorMedioPagoItem(BaseModel):
+    medio_pago: str
+    total_facturas: int
+    subtotal_ventas: Decimal
+    propinas: Decimal
+    total_facturado: Decimal
+
+
+class ReportePorRolItem(BaseModel):
+    rol: str
+    responsable: str
+    sede_id: int
+    sede_nombre: str
+    operaciones: int
+    subtotal_ventas: Decimal
+    ganancia_generada: Decimal
+
+
+class ReportePorProductoItem(BaseModel):
+    codigo: str
+    nombre: str
+    sede_id: int
+    sede_nombre: str
+    unidades_vendidas: int
+    valor_compra_unitario: Decimal
+    valor_venta_unitario: Decimal
+    costo_total: Decimal
+    subtotal_ventas: Decimal
+    ganancia_neta: Decimal
+    margen_porcentaje: float
+
+
+class ReporteVentasSalida(BaseModel):
+    perfil_consultante: str
+    sede_filtrada: int | None
+    resumen: ReporteResumenSalida
+    por_sede: list[ReportePorSedeItem] = []
+    por_medio_pago: list[ReportePorMedioPagoItem] = []
+    por_rol: list[ReportePorRolItem] = []
+    por_producto: list[ReportePorProductoItem] = []
+    facturas: list[FacturaSalida] = []
