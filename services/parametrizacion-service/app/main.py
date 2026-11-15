@@ -20,6 +20,8 @@ Sprints 3 y 4 (Juan David Tovío · HU-023 y HU-024):
   repite, registra el medio de pago, calcula las vueltas y libera la mesa.
 - Reporte de ventas y ganancia por fecha, con la sede según el perfil y
   exportación a Excel con exactamente las mismas filas.
+- /algoritmos: ordenamientos, búsqueda binaria, Torres de Hanoi, backtracking,
+  MCD y cambio voraz sobre los datos reales del bar.
 """
 import csv
 from contextlib import asynccontextmanager
@@ -1272,7 +1274,214 @@ def exportar_reporte_ventas(request: Request, usuario: UsuarioActual = Depends(c
                              "X-Total-Count": str(len(filas))})
 
 
-for router in (sedes, mesas, tipos, proveedores, productos, inventario, pedidos, facturas, reportes_router):
+# ------------------------------------------- ALGORITMOS DE LA ASIGNATURA (lab)
+algoritmos_router = APIRouter(prefix="/algoritmos", tags=["algorithms (Diseño de Algoritmos)"])
+
+CATALOGO_ALGORITMOS = [
+    {"algoritmo": "Mochila 0/1 (programación dinámica)", "tecnica": "programación dinámica",
+     "ruta": "GET /inventario/sugerencia-compra", "uso": "Qué reponer con un presupuesto (HU-021)"},
+    {"algoritmo": "Mochila por razón beneficio/costo", "tecnica": "voraz",
+     "ruta": "GET /inventario/sugerencia-compra", "uso": "Respaldo cuando la tabla no cabe en 2 s"},
+    {"algoritmo": "MCD de Euclides", "tecnica": "iterativo y recursivo",
+     "ruta": "GET /algoritmos/mcd", "uso": "Reduce la tabla de la mochila"},
+    {"algoritmo": "Existencia acumulada", "tecnica": "iterativo y recursivo",
+     "ruta": "GET /inventario/conciliacion", "uso": "Comprueba el saldo contra los movimientos (CU-32)"},
+    {"algoritmo": "Cambio en billetes y monedas", "tecnica": "voraz",
+     "ruta": "GET /algoritmos/cambio · POST /facturas", "uso": "Vueltas al cobrar en efectivo (HU-023)"},
+    {"algoritmo": "Burbuja, inserción, selección, quicksort y mezcla", "tecnica": "ordenamiento",
+     "ruta": "GET /algoritmos/ordenar-inventario", "uso": "Ordena el inventario y compara los métodos"},
+    {"algoritmo": "Merge sort estable", "tecnica": "divide y vencerás",
+     "ruta": "GET /reportes/ventas?orden=", "uso": "Orden del reporte de ventas (HU-024)"},
+    {"algoritmo": "Búsqueda binaria", "tecnica": "iterativo y recursivo",
+     "ruta": "GET /algoritmos/buscar-producto", "uso": "Busca un producto por código (catálogo ordenado)"},
+    {"algoritmo": "Torres de Hanoi", "tecnica": "recursivo e iterativo",
+     "ruta": "GET /algoritmos/hanoi", "uso": "Pasar canastas apiladas entre las estibas A, B y C"},
+    {"algoritmo": "Suma exacta (combo por monto)", "tecnica": "backtracking vs. voraz",
+     "ruta": "GET /algoritmos/combo", "uso": "Armar un pedido que gaste exactamente un monto"},
+]
+
+
+@algoritmos_router.get("", summary="Catalog of the course algorithms and where they are used")
+def catalogo_algoritmos(_: UsuarioActual = Depends(usuario_actual)):
+    return CATALOGO_ALGORITMOS
+
+
+CAMPOS_ORDEN = {
+    "existencia": lambda f: f["existencia"],
+    "nombre": lambda f: f["nombre"].lower(),
+    "codigo": lambda f: f["codigo"],
+    "valor_venta": lambda f: f["valor_venta"],
+    "ganancia_unitaria": lambda f: f["ganancia_unitaria"],
+}
+MAX_FILAS_CUADRATICOS = 3_000   # n² comparaciones: por encima no caben en los 2 s del RNF-02
+
+
+@algoritmos_router.get("/ordenar-inventario", summary="Sort the branch stock with a chosen method")
+def ordenar_inventario(
+    usuario: UsuarioActual = Depends(usuario_actual), db: Session = Depends(get_db),
+    sede_id: int | None = None,
+    metodo: Annotated[str, Query(pattern="^(burbuja|insercion|seleccion|quicksort|mezcla)$")] = "quicksort",
+    campo: Annotated[str, Query(pattern="^(existencia|nombre|codigo|valor_venta|ganancia_unitaria)$")]
+    = "existencia",
+    descendente: bool = False, comparar: bool = True,
+):
+    """Ordena el inventario real con el método pedido y cuenta comparaciones e intercambios.
+
+    Con `comparar=true` corre los cinco métodos sobre los mismos datos: así se ve en
+    la sustentación que los O(n²) comparan muchísimo más que quicksort y mezcla.
+    """
+    import time
+
+    sede_id = sede_autorizada(usuario, sede_id)
+    consulta = select(InventarioSede).join(Producto).where(InventarioSede.activo.is_(True),
+                                                           Producto.activo.is_(True))
+    if sede_id is not None:
+        consulta = consulta.where(InventarioSede.sede_id == sede_id)
+    filas = [{"producto_id": i.producto_id, "codigo": i.producto.codigo, "nombre": i.producto.nombre,
+              "sede_id": i.sede_id, "existencia": i.existencia,
+              "valor_venta": int(Decimal(i.producto.valor_venta)),
+              "ganancia_unitaria": int(Decimal(i.producto.valor_venta) - Decimal(i.producto.valor_compra))}
+             for i in db.scalars(consulta.order_by(InventarioSede.id))]
+    clave = CAMPOS_ORDEN[campo]
+
+    def correr(nombre: str) -> tuple[list, dict]:
+        inicio = time.perf_counter()
+        ordenadas, contador = algoritmos.ordenar_con(nombre, filas, clave=clave, descendente=descendente)
+        return ordenadas, {"metodo": nombre, "complejidad": algoritmos.METODOS_ORDENAMIENTO[nombre][1],
+                           "comparaciones": contador.comparaciones, "intercambios": contador.intercambios,
+                           "tiempo_ms": round((time.perf_counter() - inicio) * 1000, 3)}
+
+    ordenadas, estadistica = correr(metodo)
+    comparativa = []
+    if comparar:
+        esperado = [clave(f) for f in ordenadas]
+        for nombre in algoritmos.METODOS_ORDENAMIENTO:
+            if nombre in ("burbuja", "insercion", "seleccion") and len(filas) > MAX_FILAS_CUADRATICOS:
+                comparativa.append({"metodo": nombre, "omitido": f"more than {MAX_FILAS_CUADRATICOS} rows"})
+                continue
+            otras, datos = correr(nombre)
+            datos["mismo_orden"] = [clave(f) for f in otras] == esperado
+            comparativa.append(datos)
+    return {"sede_id": sede_id, "campo": campo, "descendente": descendente, "n": len(filas),
+            **estadistica, "filas": ordenadas, "comparativa": comparativa}
+
+
+@algoritmos_router.get("/buscar-producto", summary="Binary search of a product by code")
+def buscar_producto_binaria(
+    codigo: Annotated[str, Query(min_length=1, max_length=30)],
+    modo: Annotated[str, Query(pattern="^(iterativa|recursiva)$")] = "iterativa",
+    _: UsuarioActual = Depends(usuario_actual), db: Session = Depends(get_db),
+):
+    """El catálogo se ordena por código (merge sort) y se busca partiendo el rango a la mitad.
+
+    Devuelve cada paso (rango, posición del medio y hacia dónde siguió). Con n
+    productos nunca hay más de ⌊log₂ n⌋ + 1 pasos.
+    """
+    catalogo = algoritmos.ordenar_mezcla(
+        [{"id": p.id, "codigo": p.codigo, "nombre": p.nombre, "valor_venta": int(Decimal(p.valor_venta))}
+         for p in db.scalars(select(Producto).where(Producto.activo.is_(True)))],
+        clave=lambda p: p["codigo"])
+    buscar = (algoritmos.busqueda_binaria_iterativa if modo == "iterativa"
+              else algoritmos.busqueda_binaria_recursiva)
+    objetivo = codigo.strip().upper()
+    indice, pasos = buscar(catalogo, objetivo, clave=lambda p: p["codigo"])
+    return {"codigo": objetivo, "modo": modo, "n": len(catalogo), "encontrado": indice >= 0,
+            "producto": catalogo[indice] if indice >= 0 else None,
+            "pasos": [{"bajo": p.bajo, "alto": p.alto, "medio": p.medio, "codigo_medio": p.valor_medio,
+                       "decision": p.decision} for p in pasos],
+            "maximo_teorico": max(len(catalogo), 1).bit_length()}
+
+
+@algoritmos_router.get("/hanoi", summary="Towers of Hanoi: move stacked crates between pallets")
+def torres_de_hanoi(
+    discos: Annotated[int, Query(ge=1, le=algoritmos.MAX_DISCOS_HANOI, description="Crates (disks)")] = 3,
+    modo: Annotated[str, Query(pattern="^(recursivo|iterativo)$")] = "recursivo",
+    _: UsuarioActual = Depends(usuario_actual),
+):
+    """Canastas apiladas de mayor (abajo) a menor en la estiba A; pasarlas a la C usando la B,
+    una por vez y sin poner nunca una grande sobre una pequeña. Se calcula con el modo
+    pedido, se verifica simulando cada movimiento y se compara con el otro modo."""
+    funcion = algoritmos.hanoi_recursivo if modo == "recursivo" else algoritmos.hanoi_iterativo
+    otra = algoritmos.hanoi_iterativo if modo == "recursivo" else algoritmos.hanoi_recursivo
+    movimientos = funcion(discos)
+    final = algoritmos.simular_hanoi(discos, movimientos)
+    return {"discos": discos, "modo": modo, "total_movimientos": len(movimientos),
+            "formula": f"2^{discos} - 1 = {2 ** discos - 1}",
+            "verificado": final["C"] == list(range(discos, 0, -1)),
+            "coincide_con_el_otro_modo": otra(discos) == movimientos,
+            "estado_final": final,
+            "movimientos": [{"numero": i, "canasta": d, "desde": a, "hacia": b}
+                            for i, (d, a, b) in enumerate(movimientos, start=1)]}
+
+
+@algoritmos_router.get("/combo", summary="Backtracking: products that add up exactly to an amount")
+def combo_por_monto(
+    monto: Annotated[int, Query(gt=0, le=2_000_000)],
+    usuario: UsuarioActual = Depends(usuario_actual), db: Session = Depends(get_db),
+    sede_id: int | None = None,
+    max_unidades: Annotated[int, Query(ge=1, le=12, description="Units in the whole combo")] = 6,
+    max_por_producto: Annotated[int, Query(ge=1, le=6)] = 3,
+):
+    """Un cliente quiere gastar exactamente `monto` (un bono, la cuenta de la mesa redonda…).
+
+    - Backtracking: explora el árbol de decisiones con poda y encuentra una combinación
+      exacta si existe (prefiere la de menos unidades).
+    - Voraz: toma siempre lo más caro que quepa. Es rápido pero puede quedarse corto.
+    Solo entran productos activos con existencia en la sede.
+    """
+    sede_id = sede_autorizada(usuario, sede_id)
+    if sede_id is None:
+        raise ErrorApp("SEDE_REQUERIDA", "Send sede_id: the combo depends on the stock of one branch.", 422)
+    sede_activa(db, sede_id)
+    filas = db.scalars(select(InventarioSede).join(Producto).where(
+        InventarioSede.sede_id == sede_id, InventarioSede.activo.is_(True), Producto.activo.is_(True),
+        InventarioSede.existencia > 0))
+    opciones = [algoritmos.Opcion(clave=f.producto_id, nombre=f.producto.nombre,
+                                  precio=int(Decimal(f.producto.valor_venta)),
+                                  maximo=min(f.existencia, max_por_producto)) for f in filas]
+    nombres = {o.clave: (o.nombre, o.precio) for o in opciones}
+
+    def detalle(combinacion: dict[int, int]) -> list[dict]:
+        return [{"producto_id": c, "nombre": nombres[c][0], "unidades": k, "precio": nombres[c][1],
+                 "subtotal": k * nombres[c][1]} for c, k in combinacion.items()]
+
+    bt = algoritmos.combo_backtracking(opciones, monto, max_unidades_total=max_unidades)
+    voraz = algoritmos.combo_voraz(opciones, monto, max_unidades_total=max_unidades)
+    return {
+        "sede_id": sede_id, "monto": monto, "productos_considerados": len(opciones),
+        "backtracking": {"encontrado": bt.encontrado, "total": bt.total, "combo": detalle(bt.combinacion),
+                         "soluciones_halladas": len(bt.soluciones), "nodos_explorados": bt.nodos_explorados,
+                         "podas": bt.podas, "limite_alcanzado": bt.limite_alcanzado},
+        "voraz": {"encontrado": voraz.encontrado, "total": voraz.total, "faltante": monto - voraz.total,
+                  "combo": detalle(voraz.combinacion)},
+        "conclusion": ("Both reach the exact amount." if bt.encontrado and voraz.encontrado else
+                       "Only backtracking reaches the exact amount: greedy is not always optimal."
+                       if bt.encontrado else "No combination of the available products adds up exactly "
+                       "to that amount."),
+    }
+
+
+@algoritmos_router.get("/mcd", summary="GCD by Euclid: iterative, recursive and its steps")
+def mcd(a: Annotated[int, Query(ge=0, le=10**12)], b: Annotated[int, Query(ge=0, le=10**12)],
+        _: UsuarioActual = Depends(usuario_actual)):
+    pasos = algoritmos.mcd_con_pasos(a, b)
+    return {"a": a, "b": b, "iterativo": algoritmos.mcd_iterativo(a, b),
+            "recursivo": algoritmos.mcd_recursivo(a, b),
+            "pasos": [{"a": x, "b": y, "residuo": r} for x, y, r in pasos]}
+
+
+@algoritmos_router.get("/cambio", summary="Change in Colombian bills and coins (greedy)")
+def cambio(monto: Annotated[int, Query(ge=0, le=100_000_000)], _: UsuarioActual = Depends(usuario_actual)):
+    try:
+        piezas = algoritmos.cambio_voraz(monto)
+    except ValueError as exc:
+        raise ErrorApp("CAMBIO_IMPOSIBLE", str(exc), 422) from exc
+    return {"monto": monto, "piezas": [{"denominacion": d, "cantidad": c} for d, c in piezas.items()],
+            "total_piezas": sum(piezas.values())}
+
+
+for router in (sedes, mesas, tipos, proveedores, productos, inventario, pedidos, facturas, reportes_router,
+               algoritmos_router):
     app.include_router(router)
 # HU-008: la auditoría de este servicio también se puede consultar (solo ADMINISTRADOR).
 app.include_router(router_consulta(get_db, solo_admin))

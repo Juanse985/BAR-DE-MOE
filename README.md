@@ -71,6 +71,7 @@ bar-de-moe/
 | [`docs/09-sprint-2-david.md`](docs/09-sprint-2-david.md) | Sprint 2 · inventario por sede, pedidos y algoritmos (David) |
 | [`docs/10-integracion-sprint-2.md`](docs/10-integracion-sprint-2.md) | Integración del Sprint 2: qué aportó cada uno y cómo se unió |
 | [`docs/11-sprint-3-4-david.md`](docs/11-sprint-3-4-david.md) | Sprints 3 y 4 · facturación (HU-023), reporte de ventas y ganancia con Excel (HU-024) y `auth-service` en inglés (David) |
+| [`docs/12-algoritmos-david.md`](docs/12-algoritmos-david.md) | Los algoritmos de la asignatura (mochila, voraz, iterativo/recursivo, ordenamientos, búsqueda binaria, Hanoi, backtracking) y su endpoint |
 | [`docs/postman/`](docs/postman/) | Colección Postman de la API del Sprint 1 |
 | [`docs/evidencias/`](docs/evidencias/) | Reporte de pruebas, prueba de humo y medición del RNF-02 para la Review |
 
