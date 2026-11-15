@@ -87,6 +87,38 @@ verificar, no solo escritos:
 | RNF-10 · sesión única | `servicio.login` | `test_rnf10_no_se_permite_una_segunda_sesion` |
 | RNF-12 · trazabilidad | `auditoria.registrar` | Dos pruebas, una por servicio |
 
+## ADR-08 · Inventario, pedidos, facturas y reportes en el `parametrizacion-service`
+
+*(ADR-06 y ADR-07 están en el documento de arquitectura v1.1 en PDF.)*
+**Estado:** aceptada en el Sprint 2 · ampliada en los Sprints 3 y 4 · **Autor:** Juan David Tovío.
+
+**Contexto.** El ADR-01 y el documento v1.1 planean servicios propios para M3 a M6
+(`inventario_db`, `pedidos_db`, `facturacion_db`, `reportes_db`). Pero tres
+criterios del tablero exigen que varias tablas cambien **juntas o ninguna**:
+
+| Criterio | Qué cambia en una sola transacción |
+|---|---|
+| CU-18 · HU-022 | Verificar y descontar la existencia **y** registrar la línea del pedido |
+| HU-023 c3 y c5 | Tomar el consecutivo, crear la factura, cerrar el pedido **y** liberar la mesa |
+| HU-024 c6 | La ganancia usa el valor de compra **del momento de la venta** |
+
+Entre dos bases de datos eso exigiría una saga o un 2PC, que no caben en el
+alcance de la asignatura y que, sin un bróker, no garantizan la regla.
+
+**Decisión.** M3, M4, M5 y M6 viven en el `parametrizacion-service`, en la misma
+base de datos, separados por routers (`/inventario`, `/pedidos`, `/facturas`,
+`/reportes`) y por módulos (`algoritmos.py`, `reportes.py`).
+
+**Consecuencias.**
+- (+) Las reglas de dinero e inventario se cumplen con una transacción y un
+  `SELECT … FOR UPDATE`; la base de datos las respalda con `CHECK`, `UNIQUE` y un
+  índice único parcial.
+- (+) El gateway no cambió: todo sigue en `/api/parametrizacion/*`.
+- (−) El servicio crece. Si el bar necesita escalar la reportería por separado,
+  `reportes.py` ya es lógica pura y se puede mover a un servicio de solo lectura
+  que consulte una réplica.
+- Las bases `inventario_db`, `pedidos_db`, etc. de `init.sql` quedan sin usar.
+
 ## Lo que este esqueleto todavía NO tiene
 
 Dicho de frente, para que nadie se lleve una sorpresa en la Review:
@@ -98,6 +130,6 @@ Dicho de frente, para que nadie se lleve una sorpresa en la Review:
 - **No hay rate limiting** en el gateway.
 - **No hay HTTPS.** En desarrollo va HTTP plano; para producción hay que poner
   un reverse proxy con TLS delante.
-- **Los servicios del Sprint 2 en adelante (M3 a M6) no existen todavía.** Las
-  bases de datos ya quedaron creadas en `init.sql` para no tener que borrar el
-  volumen más adelante.
+- **M3 a M6 no tienen servicio propio** (ver ADR-08): viven en el
+  `parametrizacion-service`. Las bases de datos de `init.sql` para esos
+  módulos quedaron creadas pero sin usar.

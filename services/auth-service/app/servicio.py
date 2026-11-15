@@ -85,7 +85,8 @@ def login(
         db.commit()
         raise ErrorApp(
             "DEMASIADOS_INTENTOS",
-            f"Demasiados intentos fallidos desde este equipo. Espere {config.VENTANA_IP_MINUTOS} minutos.",
+            f"Too many failed attempts from this device. Wait {config.VENTANA_IP_MINUTOS} minutes "
+            "and try again.",
             429,
         )
 
@@ -96,7 +97,7 @@ def login(
         registrar(db, accion="LOGIN", usuario=usuario_str, entidad="usuarios", resultado="FALLIDO",
                   detalle="usuario inexistente", **ctx)
         db.commit()
-        raise ErrorApp("CREDENCIALES_INVALIDAS", "Usuario o contraseña incorrectos.", 401)
+        raise ErrorApp("CREDENCIALES_INVALIDAS", "Invalid username or password.", 401)
 
     if _vencio_bloqueo_temporal(usuario):
         usuario.bloqueado = False
@@ -112,9 +113,9 @@ def login(
                   sede_id=usuario.sede_id, entidad="usuarios", entidad_id=usuario.id,
                   resultado="BLOQUEADO", **ctx)
         db.commit()
-        mensaje = "La cuenta está bloqueada por intentos fallidos. Contacte al administrador."
+        mensaje = "The account is locked after too many failed attempts. Contact the administrator."
         if usuario.bloqueado_hasta is not None:
-            mensaje += f" Se desbloqueará sola en {config.BLOQUEO_MINUTOS} minutos como máximo."
+            mensaje += f" It will unlock by itself within {config.BLOQUEO_MINUTOS} minutes at most."
         raise ErrorApp("USUARIO_BLOQUEADO", mensaje, 423)
 
     if usuario.estado != "ACTIVO":
@@ -122,7 +123,7 @@ def login(
                   sede_id=usuario.sede_id, entidad="usuarios", entidad_id=usuario.id,
                   resultado="INACTIVO", **ctx)
         db.commit()
-        raise ErrorApp("USUARIO_INACTIVO", "El usuario se encuentra inactivo.", 403)
+        raise ErrorApp("USUARIO_INACTIVO", "The user is inactive: ask the administrator to activate it.", 403)
 
     if not verificar_password(password, usuario.password_hash):
         # RNF-09 · bloqueo por reintentos
@@ -142,11 +143,11 @@ def login(
             # bloqueo (mockup: "Cuenta bloqueada: 3 intentos fallidos").
             raise ErrorApp(
                 "USUARIO_BLOQUEADO",
-                f"Cuenta bloqueada: {usuario.intentos_fallidos} intentos fallidos. "
-                "Contacte al administrador.",
+                f"Account locked: {usuario.intentos_fallidos} failed attempts. "
+                "Contact the administrator.",
                 423,
             )
-        raise ErrorApp("CREDENCIALES_INVALIDAS", "Usuario o contraseña incorrectos.", 401)
+        raise ErrorApp("CREDENCIALES_INVALIDAS", "Invalid username or password.", 401)
 
     # RNF-10 · sesión única
     activas = []
@@ -166,7 +167,7 @@ def login(
         db.commit()
         raise ErrorApp(
             "SESION_ACTIVA",
-            "Este usuario ya tiene una sesión abierta. Ciérrela antes de volver a entrar.",
+            "This user already has an open session. Close it before signing in again.",
             409,
         )
 
@@ -201,24 +202,24 @@ def validar_sesion(db: Session, jti: str, usuario_id: int) -> tuple[Sesion, floa
         # muestra el motivo correcto aunque haga varias peticiones a la vez.
         raise ErrorApp(
             "SESION_EXPIRADA",
-            f"Sesión cerrada por inactividad de más de {config.INACTIVIDAD_SEGUNDOS} segundos.",
+            f"Session closed after more than {config.INACTIVIDAD_SEGUNDOS} seconds of inactivity.",
             401,
         )
     if sesion is None or not sesion.activa:
-        raise ErrorApp("SESION_CERRADA", "La sesión no está activa.", 401)
+        raise ErrorApp("SESION_CERRADA", "The session is not active: sign in again.", 401)
     if sesion.usuario_id != usuario_id:
-        raise ErrorApp("TOKEN_INVALIDO", "El token no corresponde a la sesión.", 401)
+        raise ErrorApp("TOKEN_INVALIDO", "The token does not belong to this session.", 401)
     usuario = db.get(Usuario, usuario_id)
     if usuario is None or usuario.estado != "ACTIVO":
         cerrar_sesion(db, sesion, "USUARIO_INACTIVO")
         db.commit()
-        raise ErrorApp("USUARIO_INACTIVO", "El usuario no está habilitado.", 403)
+        raise ErrorApp("USUARIO_INACTIVO", "The user is not enabled: it is inactive or does not exist.", 403)
     if esta_inactiva(sesion):
         cerrar_sesion(db, sesion, "INACTIVIDAD")
         db.commit()
         raise ErrorApp(
             "SESION_EXPIRADA",
-            f"Sesión cerrada por inactividad de más de {config.INACTIVIDAD_SEGUNDOS} segundos.",
+            f"Session closed after more than {config.INACTIVIDAD_SEGUNDOS} seconds of inactivity.",
             401,
         )
     inactivo = (ahora_utc() - _aware(sesion.ultima_actividad)).total_seconds()
@@ -257,10 +258,10 @@ def cambiar_password(db: Session, usuario: Usuario, actual: str, nueva: str, **c
         raise ErrorApp(codigo, mensaje, status)
 
     if not verificar_password(actual, usuario.password_hash):
-        rechazar("CREDENCIALES_INVALIDAS", "La contraseña actual no es correcta.", 401,
+        rechazar("CREDENCIALES_INVALIDAS", "The current password is not correct.", 401,
                  "contraseña actual incorrecta")
     if verificar_password(nueva, usuario.password_hash):
-        rechazar("PASSWORD_REPETIDA", "La nueva contraseña debe ser distinta de la actual.", 422,
+        rechazar("PASSWORD_REPETIDA", "The new password must be different from the current one.", 422,
                  "la nueva es igual a la actual")
     ok, mensaje = password_es_valida(nueva)
     if not ok:
@@ -301,9 +302,9 @@ def desbloquear(db: Session, admin: Usuario, objetivo: Usuario, **ctx) -> None:
 # ---------------------------------------------------------------- usuarios
 def crear_usuario(db: Session, datos, admin: Usuario | None = None, **ctx) -> Usuario:
     if db.scalar(select(Usuario).where(Usuario.usuario == datos.usuario)):
-        raise ErrorApp("USUARIO_DUPLICADO", f"Ya existe el usuario '{datos.usuario}'.", 409)
+        raise ErrorApp("USUARIO_DUPLICADO", f"User '{datos.usuario}' already exists.", 409)
     if db.scalar(select(Usuario).where(Usuario.cedula == datos.cedula)):
-        raise ErrorApp("CEDULA_DUPLICADA", f"Ya existe un usuario con la cédula {datos.cedula}.", 409)
+        raise ErrorApp("CEDULA_DUPLICADA", f"A user with ID number {datos.cedula} already exists.", 409)
     _validar_reglas(datos.password)
 
     usuario = Usuario(
@@ -336,12 +337,13 @@ def actualizar_usuario(db: Session, admin: Usuario, objetivo: Usuario, cambios: 
     if objetivo.id == admin.id and (cambios.get("estado") == "INACTIVO" or quita_admin):
         # Aporte de Angel: nadie se quita el acceso a sí mismo por error.
         raise ErrorApp("OPERACION_SOBRE_SI_MISMO",
-                       "No puede inactivar su propia cuenta ni quitarse el perfil de administrador.", 409)
+                       "You cannot deactivate your own account or remove your own administrator "
+                       "profile.", 409)
     perfil_final = cambios.get("perfil", objetivo.perfil)
     sede_final = cambios["sede_id"] if "sede_id" in cambios else objetivo.sede_id
     if perfil_final != "ADMINISTRADOR" and sede_final is None:
         # H-09: cajero y mesero siempre quedan amarrados a una sede.
-        raise ErrorApp("SEDE_OBLIGATORIA", "El cajero y el mesero deben tener una sede asignada.", 422)
+        raise ErrorApp("SEDE_OBLIGATORIA", "Cashiers and waiters must have a branch assigned (sede_id).", 422)
     for campo, valor in cambios.items():
         setattr(objetivo, campo, valor)
     if cambios.get("estado") == "INACTIVO":

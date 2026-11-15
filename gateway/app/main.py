@@ -16,7 +16,7 @@ from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from barmoe_common.app import crear_app
@@ -35,6 +35,14 @@ METODOS_CON_CUERPO = {"POST", "PUT", "PATCH", "DELETE"}
 
 # Cabeceras de la respuesta del servicio que sí se devuelven al navegador.
 CABECERAS_DE_RESPUESTA = {"x-total-count", "x-sla-excedido", "content-disposition"}
+
+# Documentos que sí pasan tal cual (no son JSON): el Excel del reporte (HU-024 c7) y
+# la factura imprimible (HU-023 c6). Solo con respuesta exitosa y Content-Disposition;
+# cualquier otro cuerpo que no sea JSON sigue respondiendo 502 (DEF-09).
+DOCUMENTOS_PERMITIDOS = (
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/html",
+)
 
 
 @asynccontextmanager
@@ -97,6 +105,11 @@ def _reenviar(respuesta: httpx.Response, request_id: str) -> JSONResponse:
     cabeceras["X-Request-Id"] = request_id
     if not respuesta.content:
         return JSONResponse(status_code=respuesta.status_code, content=None, headers=cabeceras)
+    tipo = respuesta.headers.get("content-type", "").split(";")[0].strip().lower()
+    if (respuesta.status_code < 400 and tipo in DOCUMENTOS_PERMITIDOS
+            and "content-disposition" in respuesta.headers):
+        return Response(content=respuesta.content, status_code=respuesta.status_code,
+                        media_type=respuesta.headers["content-type"], headers=cabeceras)
     try:
         contenido = respuesta.json()
     except ValueError:

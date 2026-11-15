@@ -46,7 +46,7 @@ async def ciclo_de_vida(_: FastAPI):
 app = crear_app(
     config,
     titulo="Bar de Moe · auth-service",
-    descripcion="M1 · Seguridad y gestión de usuarios. DATHEON S.A.S.",
+    descripcion="M1 · Security and user management. DATHEON S.A.S.",
     lifespan=ciclo_de_vida,
     auditar_rechazos=SessionLocal,  # DEF-05 · C-1: los 401/403 quedan en la auditoría
 )
@@ -59,15 +59,15 @@ def usuario_db(
     """Convierte el token en la fila real del usuario."""
     usuario = db.get(Usuario, token.id)
     if usuario is None or usuario.estado != "ACTIVO":
-        raise ErrorApp("USUARIO_INACTIVO", "El usuario no está habilitado.", 403)
+        raise ErrorApp("USUARIO_INACTIVO", "The user is not enabled: it is inactive or does not exist.", 403)
     return usuario
 
 
 # =====================================================================  AUTH
-auth = APIRouter(prefix="/auth", tags=["autenticación"])
+auth = APIRouter(prefix="/auth", tags=["authentication"])
 
 
-@auth.post("/login", response_model=LoginSalida, summary="Iniciar sesión")
+@auth.post("/login", response_model=LoginSalida, summary="Sign in")
 def login(datos: LoginEntrada, request: Request, db: Session = Depends(get_db)):
     token, expira, usuario = servicio.login(db, datos.usuario, datos.password, **contexto_http(request))
     return LoginSalida(
@@ -78,14 +78,14 @@ def login(datos: LoginEntrada, request: Request, db: Session = Depends(get_db)):
     )
 
 
-@auth.post("/logout", summary="Cerrar sesión")
+@auth.post("/logout", summary="Sign out")
 def logout(request: Request, token: UsuarioActual = Depends(usuario_token), db: Session = Depends(get_db)):
     servicio.logout(db, token.jti, **contexto_http(request))
-    return {"mensaje": "Sesión cerrada."}
+    return {"mensaje": "Session closed."}
 
 
 @auth.post("/validar-sesion", response_model=SesionValidada,
-           summary="Validar sesión (uso interno del gateway)")
+           summary="Validate session (internal, used by the gateway)")
 def validar_sesion(token: UsuarioActual = Depends(usuario_token), db: Session = Depends(get_db)):
     _, segundos_inactivo = servicio.validar_sesion(db, token.jti, token.id)
     return SesionValidada(
@@ -97,12 +97,12 @@ def validar_sesion(token: UsuarioActual = Depends(usuario_token), db: Session = 
     )
 
 
-@auth.get("/me", response_model=UsuarioSalida, summary="Datos del usuario en sesión")
+@auth.get("/me", response_model=UsuarioSalida, summary="Signed-in user")
 def me(usuario: Usuario = Depends(usuario_db)):
     return usuario
 
 
-@auth.post("/cambiar-password", summary="Cambiar la propia contraseña")
+@auth.post("/cambiar-password", summary="Change my own password")
 def cambiar_password(
     datos: CambioPassword,
     request: Request,
@@ -111,22 +111,22 @@ def cambiar_password(
 ):
     servicio.cambiar_password(db, usuario, datos.password_actual, datos.password_nueva,
                               **contexto_http(request))
-    return {"mensaje": "Contraseña actualizada."}
+    return {"mensaje": "Password updated."}
 
 
 # =================================================================  USUARIOS
 def _objetivo(db: Session, usuario_id: int) -> Usuario:
     usuario = db.get(Usuario, usuario_id)
     if usuario is None:
-        raise ErrorApp("NO_ENCONTRADO", "El usuario no existe.", 404)
+        raise ErrorApp("NO_ENCONTRADO", "The user does not exist.", 404)
     return usuario
 
 
-usuarios = APIRouter(prefix="/usuarios", tags=["usuarios"])
+usuarios = APIRouter(prefix="/usuarios", tags=["users"])
 solo_admin = requiere_perfil("ADMINISTRADOR")
 
 
-@usuarios.post("", response_model=UsuarioSalida, status_code=201, summary="Crear usuario")
+@usuarios.post("", response_model=UsuarioSalida, status_code=201, summary="Create user")
 def crear(
     datos: UsuarioCrear,
     request: Request,
@@ -137,7 +137,7 @@ def crear(
     return servicio.crear_usuario(db, datos, admin, **contexto_http(request))
 
 
-@usuarios.get("", response_model=list[UsuarioSalida], summary="Listar usuarios (paginado)")
+@usuarios.get("", response_model=list[UsuarioSalida], summary="List users (paginated)")
 def listar(
     response: Response,
     _: UsuarioActual = Depends(solo_admin),
@@ -168,12 +168,12 @@ def listar(
     return list(db.scalars(consulta))
 
 
-@usuarios.get("/{usuario_id}", response_model=UsuarioSalida, summary="Consultar usuario")
+@usuarios.get("/{usuario_id}", response_model=UsuarioSalida, summary="Get user")
 def obtener(usuario_id: int, _: UsuarioActual = Depends(solo_admin), db: Session = Depends(get_db)):
     return _objetivo(db, usuario_id)
 
 
-@usuarios.patch("/{usuario_id}", response_model=UsuarioSalida, summary="Actualizar usuario")
+@usuarios.patch("/{usuario_id}", response_model=UsuarioSalida, summary="Update user")
 def actualizar(
     usuario_id: int,
     datos: UsuarioActualizar,
@@ -187,7 +187,7 @@ def actualizar(
                                        **contexto_http(request))
 
 
-@usuarios.post("/{usuario_id}/inactivar", response_model=UsuarioSalida, summary="Inactivar usuario")
+@usuarios.post("/{usuario_id}/inactivar", response_model=UsuarioSalida, summary="Deactivate user")
 def inactivar(
     usuario_id: int,
     request: Request,
@@ -198,12 +198,12 @@ def inactivar(
     """Reemplaza el DELETE de Angel: el usuario no se borra, se inactiva (HU-007 criterio 5)."""
     objetivo = _objetivo(db, usuario_id)
     if objetivo.estado == "INACTIVO":
-        raise ErrorApp("USUARIO_YA_INACTIVO", "El usuario ya está inactivo.", 409)
+        raise ErrorApp("USUARIO_YA_INACTIVO", "The user is already inactive.", 409)
     return servicio.actualizar_usuario(db, admin, objetivo, {"estado": "INACTIVO"},
                                        accion="INACTIVAR_USUARIO", **contexto_http(request))
 
 
-@usuarios.post("/{usuario_id}/activar", response_model=UsuarioSalida, summary="Activar usuario")
+@usuarios.post("/{usuario_id}/activar", response_model=UsuarioSalida, summary="Activate user")
 def activar(
     usuario_id: int,
     request: Request,
@@ -213,12 +213,12 @@ def activar(
 ):
     objetivo = _objetivo(db, usuario_id)
     if objetivo.estado == "ACTIVO":
-        raise ErrorApp("USUARIO_YA_ACTIVO", "El usuario ya está activo.", 409)
+        raise ErrorApp("USUARIO_YA_ACTIVO", "The user is already active.", 409)
     return servicio.actualizar_usuario(db, admin, objetivo, {"estado": "ACTIVO"},
                                        accion="ACTIVAR_USUARIO", **contexto_http(request))
 
 
-@usuarios.post("/{usuario_id}/restablecer-password", summary="Restablecer contraseña (admin)")
+@usuarios.post("/{usuario_id}/restablecer-password", summary="Reset password (admin)")
 def restablecer(
     usuario_id: int,
     datos: RestablecerPassword,
@@ -229,10 +229,10 @@ def restablecer(
 ):
     objetivo = _objetivo(db, usuario_id)
     servicio.restablecer_password(db, admin, objetivo, datos.password_nueva, **contexto_http(request))
-    return {"mensaje": "Contraseña restablecida. El usuario deberá cambiarla al ingresar."}
+    return {"mensaje": "Password reset. The user must change it at the next sign-in."}
 
 
-@usuarios.post("/{usuario_id}/desbloquear", summary="Desbloquear usuario (admin)")
+@usuarios.post("/{usuario_id}/desbloquear", summary="Unlock user (admin)")
 def desbloquear(
     usuario_id: int,
     request: Request,
@@ -242,7 +242,7 @@ def desbloquear(
 ):
     objetivo = _objetivo(db, usuario_id)
     servicio.desbloquear(db, admin, objetivo, **contexto_http(request))
-    return {"mensaje": "Usuario desbloqueado."}
+    return {"mensaje": "User unlocked."}
 
 
 app.include_router(auth)

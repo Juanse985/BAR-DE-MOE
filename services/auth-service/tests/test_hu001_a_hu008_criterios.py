@@ -60,7 +60,7 @@ def test_hu001_c5_mensaje_unico_sin_decir_que_campo_fallo(cliente, encabezado_ad
     usuario_inexistente = _login(cliente, "noexiste", PASSWORD)
     for respuesta in (mala_clave, usuario_inexistente):
         assert respuesta.status_code == 401
-        assert respuesta.json()["error"]["mensaje"] == "Usuario o contraseña incorrectos."
+        assert respuesta.json()["error"]["mensaje"] == "Invalid username or password."
 
 
 def test_hu001_c6_usuario_inactivo_no_ingresa(cliente, encabezado_admin):
@@ -94,7 +94,7 @@ def test_hu002_c2_c4_al_tercer_intento_responde_usuario_bloqueado(cliente, encab
     tercero = _login(cliente, "lenny", INCORRECTA)
     assert tercero.status_code == 423
     assert _codigo(tercero) == "USUARIO_BLOQUEADO"
-    assert "administrador" in tercero.json()["error"]["mensaje"].lower()
+    assert "administrator" in tercero.json()["error"]["mensaje"].lower()
     assert _fila("lenny").bloqueado is True
 
 

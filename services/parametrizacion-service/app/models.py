@@ -1,7 +1,7 @@
-"""Modelo de datos del parametrizacion-service — M2, M3 y M4 del tablero.
+"""Modelo de datos del parametrizacion-service — M2, M3, M4 y M5 del tablero.
 
 Entidades: sedes, mesas, tipos de producto, proveedores, productos,
-inventario por sede, movimientos de inventario y pedidos.
+inventario por sede, movimientos de inventario, pedidos y facturas.
 
 Sprint 2 (corrección del docente): el producto se crea UNA vez y queda para
 todas las sedes; lo que depende de cada sede es el inventario
@@ -197,3 +197,73 @@ class PedidoLinea(Base):
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora_utc)
 
     pedido: Mapped[Pedido] = relationship(back_populates="lineas")
+
+
+# ------------------------------------------------------- M5 Facturación (Sprint 3)
+MEDIOS_PAGO = ("EFECTIVO", "TARJETA_DEBITO", "TARJETA_CREDITO")  # HU-023 criterio 4
+
+
+class ConsecutivoFactura(Base):
+    """Contador único del número de factura (HU-023 criterio 3).
+
+    Una sola fila (id = 1). Se lee con bloqueo (`SELECT ... FOR UPDATE`) en la
+    misma transacción que crea la factura: dos cajeros a la vez nunca reciben
+    el mismo número, y si la factura falla el número no se consume.
+    """
+
+    __tablename__ = "consecutivo_factura"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ultimo: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class Factura(Base):
+    """Factura de venta de un pedido (HU-023). Un pedido se factura una sola vez."""
+
+    __tablename__ = "facturas"
+    __table_args__ = (
+        CheckConstraint(
+            "medio_pago IN ('EFECTIVO', 'TARJETA_DEBITO', 'TARJETA_CREDITO')", name="ck_medio_pago"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    numero: Mapped[int] = mapped_column(Integer, unique=True, index=True)       # c3
+    pedido_id: Mapped[int] = mapped_column(ForeignKey("pedidos.id"), unique=True)
+    sede_id: Mapped[int] = mapped_column(ForeignKey("sedes.id"), index=True)
+    mesa_id: Mapped[int] = mapped_column(ForeignKey("mesas.id"))
+    mesa_numero: Mapped[int] = mapped_column(Integer)
+    mesero: Mapped[str] = mapped_column(String(60))
+    cajero_id: Mapped[int] = mapped_column(Integer)
+    cajero: Mapped[str] = mapped_column(String(60))
+    medio_pago: Mapped[str] = mapped_column(String(20))                         # c4
+    total: Mapped[float] = mapped_column(Numeric(12, 2))
+    valor_recibido: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    cambio: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    emitida_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora_utc, index=True)
+
+    sede: Mapped[Sede] = relationship()
+    lineas: Mapped[list["FacturaLinea"]] = relationship(
+        back_populates="factura", cascade="all, delete-orphan", order_by="FacturaLinea.id"
+    )
+
+
+class FacturaLinea(Base):
+    """Copia inmutable de cada producto facturado (HU-023 criterio 2).
+
+    Guarda también el valor de compra del momento: el reporte de ganancia
+    (HU-024) no cambia si mañana se edita el precio del producto.
+    """
+
+    __tablename__ = "factura_lineas"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    factura_id: Mapped[int] = mapped_column(ForeignKey("facturas.id"), index=True)
+    producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id"), index=True)
+    codigo: Mapped[str] = mapped_column(String(30))
+    nombre: Mapped[str] = mapped_column(String(120))
+    cantidad: Mapped[int] = mapped_column(Integer)
+    valor_compra: Mapped[float] = mapped_column(Numeric(12, 2))
+    precio_unitario: Mapped[float] = mapped_column(Numeric(12, 2))
+    subtotal: Mapped[float] = mapped_column(Numeric(12, 2))
+
+    factura: Mapped[Factura] = relationship(back_populates="lineas")

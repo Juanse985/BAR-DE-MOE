@@ -186,7 +186,7 @@ def test_hu002_bloqueo_temporal_de_angel_se_levanta_solo(cliente, encabezado_adm
 
     respuesta = cliente.post("/auth/login", json={"usuario": "carlc", "password": PASSWORD})
     assert respuesta.status_code == 423
-    assert "15 minutos" in respuesta.json()["error"]["mensaje"]
+    assert "15 minutes" in respuesta.json()["error"]["mensaje"]
 
     with SessionLocal() as db:
         usuario = db.query(Usuario).filter_by(usuario="carlc").one()

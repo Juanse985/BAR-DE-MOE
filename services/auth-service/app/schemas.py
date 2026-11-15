@@ -22,7 +22,7 @@ class UsuarioCrear(BaseModel):
         # Cajero y mesero solo trabajan en su sede: sin sede no podrían ver nada
         # en la parametrización (H-09 de docs/05-contratos.md).
         if self.perfil != "ADMINISTRADOR" and self.sede_id is None:
-            raise ValueError("El cajero y el mesero deben tener una sede asignada.")
+            raise ValueError("Cashiers and waiters must have a branch assigned (sede_id).")
         return self
 
 

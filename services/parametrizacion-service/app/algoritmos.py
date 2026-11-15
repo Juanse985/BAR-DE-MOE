@@ -9,10 +9,13 @@ explicarla en la sustentación. Dónde se usa cada una:
 2. MCD de Euclides (iterativo y recursivo) ..... reduce la tabla de la mochila (HU-021)
 3. Mochila por razón beneficio/costo (voraz) ... respaldo si la tabla no cabe en 2 s (RNF-02)
 4. Existencia acumulada (iterativa y recursiva)  GET /inventario/conciliacion (HU-021, CU-32)
-5. Cambio con billetes y monedas (voraz) ....... GET /pedidos/{id}/cambio (prepara HU-023)
+5. Cambio con billetes y monedas (voraz) ....... GET /pedidos/{id}/cambio y POST /facturas (HU-023)
+6. Ordenamiento por mezcla (divide y vencerás) . GET /reportes/ventas (HU-024, Sprint 3-4)
 """
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import reduce
+from typing import Any
 
 
 # ---------------------------------------------------------------------------
@@ -197,4 +200,42 @@ def cambio_voraz(cambio: int, denominaciones: tuple[int, ...] = DENOMINACIONES_C
             f"{resto} pesos cannot be given with the available denominations "
             f"(the smallest is {min(denominaciones)})."
         )
+    return resultado
+
+
+# ---------------------------------------------------------------------------
+# 6. Ordenamiento por mezcla (merge sort) · divide y vencerás
+# ---------------------------------------------------------------------------
+def ordenar_mezcla(elementos: list, clave: Callable[[Any], Any] = lambda x: x,
+                   descendente: bool = False) -> list:
+    """Merge sort estable: O(n log n) en el peor caso, sin modificar la lista original.
+
+    Divide: parte la lista en dos mitades.  Vence: ordena cada mitad (recursión).
+    Combina: mezcla las dos mitades ya ordenadas tomando siempre el menor.
+    Es estable (a igual clave conserva el orden de llegada), por eso el reporte
+    puede ordenar primero por fecha y luego por ganancia sin desordenar fechas.
+    """
+    if len(elementos) <= 1:
+        return list(elementos)
+    mitad = len(elementos) // 2
+    izquierda = ordenar_mezcla(elementos[:mitad], clave, descendente)
+    derecha = ordenar_mezcla(elementos[mitad:], clave, descendente)
+    return _mezclar(izquierda, derecha, clave, descendente)
+
+
+def _mezclar(izquierda: list, derecha: list, clave: Callable[[Any], Any], descendente: bool) -> list:
+    resultado = []
+    i = j = 0
+    while i < len(izquierda) and j < len(derecha):
+        a, b = clave(izquierda[i]), clave(derecha[j])
+        # "<=" (o ">=") deja primero el de la izquierda en un empate: eso lo hace estable.
+        tomar_izquierda = a >= b if descendente else a <= b
+        if tomar_izquierda:
+            resultado.append(izquierda[i])
+            i += 1
+        else:
+            resultado.append(derecha[j])
+            j += 1
+    resultado.extend(izquierda[i:])
+    resultado.extend(derecha[j:])
     return resultado

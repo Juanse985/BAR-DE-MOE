@@ -47,7 +47,7 @@ bar-de-moe/
 ├── gateway/                       Punto de entrada único (:8000)
 ├── services/
 │   ├── auth-service/              M1 · seguridad y usuarios
-│   └── parametrizacion-service/   M2 · sedes, mesas, productos, proveedores
+│   └── parametrizacion-service/   M2 a M6 · parametrización, inventario, pedidos, facturas y reportes (ADR-08)
 ├── libs/common/                   Config, BD, JWT, cifrado, auditoría, middlewares
 ├── infra/postgres/init.sql        Una base de datos por microservicio
 ├── scripts/                       seed de datos e inicialización del repo
@@ -70,6 +70,7 @@ bar-de-moe/
 | [`docs/08-integracion-sprint-1.md`](docs/08-integracion-sprint-1.md) | Qué aportó cada integrante y cómo se unieron las ramas |
 | [`docs/09-sprint-2-david.md`](docs/09-sprint-2-david.md) | Sprint 2 · inventario por sede, pedidos y algoritmos (David) |
 | [`docs/10-integracion-sprint-2.md`](docs/10-integracion-sprint-2.md) | Integración del Sprint 2: qué aportó cada uno y cómo se unió |
+| [`docs/11-sprint-3-4-david.md`](docs/11-sprint-3-4-david.md) | Sprints 3 y 4 · facturación (HU-023), reporte de ventas y ganancia con Excel (HU-024) y `auth-service` en inglés (David) |
 | [`docs/postman/`](docs/postman/) | Colección Postman de la API del Sprint 1 |
 | [`docs/evidencias/`](docs/evidencias/) | Reporte de pruebas, prueba de humo y medición del RNF-02 para la Review |
 

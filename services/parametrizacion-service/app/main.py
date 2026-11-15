@@ -1,6 +1,7 @@
-"""parametrizacion-service — M2 Parametrización, M3 Inventario por sede y M4 Pedidos.
+"""parametrizacion-service — M2 Parametrización, M3 Inventario, M4 Pedidos, M5 Facturación y M6 Reportes.
 
-Sedes, mesas, tipos de producto, proveedores, productos, inventario y pedidos.
+Sedes, mesas, tipos de producto, proveedores, productos, inventario, pedidos,
+facturas y el reporte de ventas y ganancia.
 Solo el perfil ADMINISTRADOR parametriza y ajusta inventario; el MESERO toma
 pedidos; cualquier perfil autenticado puede consultar, pero CAJERO y MESERO
 solo ven los datos de su sede (tabla 3.1 de la propuesta).
@@ -13,11 +14,19 @@ Sprint 2 (Juan David Tovío · HU-021 y HU-022):
 - Pedidos: abrir sobre mesa libre, agregar productos con verificación y descuento
   de existencias en una sola transacción, y cálculo del cambio.
 - Hallazgos H-01, H-02, H-03, H-04 y H-10 corregidos con mensajes que dicen el motivo.
+
+Sprints 3 y 4 (Juan David Tovío · HU-023 y HU-024):
+- Facturación: cierra el pedido, numera la factura con un consecutivo que no se
+  repite, registra el medio de pago, calcula las vueltas y libera la mesa.
+- Reporte de ventas y ganancia por fecha, con la sede según el perfil y
+  exportación a Excel con exactamente las mismas filas.
 """
 import csv
 from contextlib import asynccontextmanager
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from io import StringIO
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, FastAPI, File, Query, Request, Response, UploadFile
 from pydantic import ValidationError
@@ -30,9 +39,12 @@ from barmoe_common.db import Base, crear_session_factory, dependencia_db
 from barmoe_common.deps import UsuarioActual, construir_autenticacion
 from barmoe_common.errors import ErrorApp
 
-from . import algoritmos
+from . import algoritmos, reportes
 from .config import config
 from .models import (
+    ConsecutivoFactura,
+    Factura,
+    FacturaLinea,
     InventarioSede,
     Mesa,
     MovimientoInventario,
@@ -47,6 +59,8 @@ from .schemas import (
     AjusteInventario,
     CambioSalida,
     ConciliacionSalida,
+    FacturaCrear,
+    FacturaSalida,
     IngresoInventario,
     InventarioSalida,
     LineaCrear,
@@ -66,6 +80,7 @@ from .schemas import (
     ProveedorActualizar,
     ProveedorCrear,
     ProveedorSalida,
+    ReporteVentasSalida,
     SedeActualizar,
     SedeCrear,
     SedeSalida,
@@ -80,13 +95,27 @@ get_db = dependencia_db(SessionLocal)
 usuario_actual, requiere_perfil = construir_autenticacion(config.JWT_SECRET, config.JWT_ALGORITMO)
 solo_admin = requiere_perfil("ADMINISTRADOR")
 mesero_o_admin = requiere_perfil("ADMINISTRADOR", "MESERO")       # CU-20, CU-21
-cajero_o_admin = requiere_perfil("ADMINISTRADOR", "CAJERO")       # cobro (prepara HU-023)
+cajero_o_admin = requiere_perfil("ADMINISTRADOR", "CAJERO")       # HU-023 cobro · HU-024 c4 reporte
 
 
 @asynccontextmanager
 async def ciclo_de_vida(_: FastAPI):
     Base.metadata.create_all(bind=SessionLocal.engine)
+    _asegurar_consecutivo()
     yield
+
+
+def _asegurar_consecutivo() -> None:
+    """HU-023 c3: la fila del contador existe desde el arranque.
+
+    Así, las dos primeras facturas simultáneas no compiten por crearla.
+    Si ya había facturas (base de datos de antes), arranca desde la mayor.
+    """
+    with SessionLocal() as db:
+        if db.get(ConsecutivoFactura, 1) is None:
+            ultimo = db.scalar(select(func.max(Factura.numero))) or 0
+            db.add(ConsecutivoFactura(id=1, ultimo=ultimo))
+            db.commit()
 
 
 app = crear_app(
@@ -929,7 +958,321 @@ def calcular_cambio(pedido_id: int, pagado: int = Query(gt=0, le=100_000_000),
                         total_piezas=sum(piezas.values()))
 
 
-for router in (sedes, mesas, tipos, proveedores, productos, inventario, pedidos):
+# -------------------------------------------------------- FACTURACIÓN (M5)
+facturas = APIRouter(prefix="/facturas", tags=["invoices (M5)"])
+
+
+def siguiente_numero_factura(db: Session) -> int:
+    """HU-023 c3: consecutivo que no se repite.
+
+    La fila del contador se bloquea hasta el commit, así que dos cajeros que
+    facturan a la vez esperan su turno. Si la factura falla (rollback), el
+    número vuelve atrás y no queda un hueco. La columna `facturas.numero`
+    además es UNIQUE: la base de datos rechaza un repetido aunque fallara el bloqueo.
+    """
+    contador = db.scalar(select(ConsecutivoFactura).where(ConsecutivoFactura.id == 1).with_for_update())
+    if contador is None:
+        contador = ConsecutivoFactura(id=1, ultimo=db.scalar(select(func.max(Factura.numero))) or 0)
+        db.add(contador)
+    contador.ultimo += 1
+    db.flush()
+    return contador.ultimo
+
+
+def numero_formateado(numero: int) -> str:
+    return f"{config.FACTURA_PREFIJO}-{numero:07d}"
+
+
+def a_factura_salida(factura: Factura, piezas: dict[int, int] | None = None) -> FacturaSalida:
+    return FacturaSalida(
+        id=factura.id, numero=factura.numero, numero_formateado=numero_formateado(factura.numero),
+        pedido_id=factura.pedido_id, sede_id=factura.sede_id, sede=factura.sede.nombre,
+        mesa_id=factura.mesa_id, mesa_numero=factura.mesa_numero, mesero=factura.mesero,
+        cajero=factura.cajero, medio_pago=factura.medio_pago, total=factura.total,
+        valor_recibido=factura.valor_recibido, cambio=factura.cambio,
+        piezas_cambio=[{"denominacion": d, "cantidad": c} for d, c in (piezas or {}).items()],
+        emitida_en=factura.emitida_en,
+        lineas=[{"producto_id": li.producto_id, "codigo": li.codigo, "nombre": li.nombre,
+                 "cantidad": li.cantidad, "precio_unitario": li.precio_unitario,
+                 "subtotal": li.subtotal} for li in factura.lineas],
+    )
+
+
+def _factura_de_mi_sede(db: Session, factura_id: int, usuario: UsuarioActual) -> Factura:
+    factura = obtener_o_404(db, Factura, factura_id, "invoice")
+    if usuario.perfil != PERFIL_ADMIN and factura.sede_id != usuario.sede_id:
+        raise ErrorApp("SEDE_NO_AUTORIZADA",
+                       f"Invoice {numero_formateado(factura.numero)} belongs to another branch; you can "
+                       "only see invoices from yours.", 403)
+    return factura
+
+
+@facturas.post("", response_model=FacturaSalida, status_code=201,
+               summary="Invoice an open order and register the payment method (HU-023)")
+def facturar_pedido(datos: FacturaCrear, request: Request, usuario: UsuarioActual = Depends(cajero_o_admin),
+                    db: Session = Depends(get_db)):
+    """Cierra el pedido, emite la factura y libera la mesa en UNA sola transacción.
+
+    - c1 Solo pedidos ABIERTO.  - c2 Toma las líneas del pedido con su precio de venta.
+    - c3 Número consecutivo único.  - c4 EFECTIVO, TARJETA_DEBITO o TARJETA_CREDITO.
+    - c5 El pedido queda CERRADO y la mesa LIBRE.
+    """
+    pedido = db.scalar(select(Pedido).where(Pedido.id == datos.pedido_id).with_for_update())
+    if pedido is None:
+        raise ErrorApp("NO_ENCONTRADO", f"There is no order with id {datos.pedido_id}.", 404)
+    sede_autorizada(usuario, pedido.sede_id)  # el cajero solo cobra en su sede
+    if pedido.estado != "ABIERTO":
+        ya = db.scalar(select(Factura).where(Factura.pedido_id == pedido.id))
+        detalle = f" with invoice {numero_formateado(ya.numero)}" if ya else ""
+        raise ErrorApp("PEDIDO_NO_ABIERTO",
+                       f"Order #{pedido.id} is {pedido.estado}{detalle}: only open orders can be "
+                       "invoiced.", 409)
+    if not pedido.lineas:
+        raise ErrorApp("PEDIDO_SIN_PRODUCTOS",
+                       f"Order #{pedido.id} has no products: there is nothing to invoice.", 409)
+
+    total = sum((Decimal(li.subtotal) for li in pedido.lineas), Decimal(0))
+    recibido = cambio = None
+    piezas: dict[int, int] = {}
+    if datos.medio_pago == "EFECTIVO" and datos.valor_recibido is not None:
+        recibido = Decimal(datos.valor_recibido)
+        if recibido < total:
+            raise ErrorApp("PAGO_INSUFICIENTE",
+                           f"A payment of ${int(recibido):,} does not cover the total of ${int(total):,}: "
+                           f"${int(total - recibido):,} missing.", 422)
+        cambio = recibido - total
+        try:
+            piezas = algoritmos.cambio_voraz(int(cambio))  # algoritmo 5
+        except ValueError as exc:
+            raise ErrorApp("CAMBIO_IMPOSIBLE", str(exc), 422) from exc
+
+    mesa = pedido.mesa
+    factura = Factura(
+        numero=siguiente_numero_factura(db), pedido_id=pedido.id, sede_id=pedido.sede_id,
+        mesa_id=mesa.id, mesa_numero=mesa.numero, mesero=pedido.mesero,
+        cajero_id=usuario.id, cajero=usuario.usuario, medio_pago=datos.medio_pago, total=total,
+        valor_recibido=recibido, cambio=cambio,
+    )
+    for li in pedido.lineas:  # c2: copia de lo que se pidió, con el valor de venta del momento
+        producto = db.get(Producto, li.producto_id)
+        factura.lineas.append(FacturaLinea(
+            producto_id=li.producto_id, codigo=li.codigo, nombre=li.nombre, cantidad=li.cantidad,
+            valor_compra=Decimal(producto.valor_compra), precio_unitario=li.precio_unitario,
+            subtotal=li.subtotal))
+    db.add(factura)
+
+    pedido.estado = "CERRADO"                                      # c5
+    pedido.cerrado_en = datetime.now(UTC)
+    pedido.total = total
+    if _otro_pedido_abierto(db, mesa.id, pedido.id) is None:
+        mesa.estado = "LIBRE"                                      # c5
+    db.flush()
+    registrar(db, accion="FACTURAR", entidad="facturas", entidad_id=factura.id,
+              detalle=f"{numero_formateado(factura.numero)} · order #{pedido.id} · table {mesa.numero} · "
+                      f"{datos.medio_pago} · ${int(total):,}", **_contexto(usuario, request))
+    db.commit()
+    db.refresh(factura)
+    return a_factura_salida(factura, piezas)
+
+
+def _otro_pedido_abierto(db: Session, mesa_id: int, pedido_id: int) -> Pedido | None:
+    return db.scalar(select(Pedido).where(Pedido.mesa_id == mesa_id, Pedido.estado == "ABIERTO",
+                                          Pedido.id != pedido_id))
+
+
+@facturas.get("", response_model=list[FacturaSalida], summary="List issued invoices (HU-023 c6)")
+def listar_facturas(usuario: UsuarioActual = Depends(cajero_o_admin), db: Session = Depends(get_db),
+                    sede_id: int | None = None, desde: date | None = None, hasta: date | None = None,
+                    medio_pago: str | None = None, limite: int = Query(default=200, ge=1, le=1000)):
+    sede_id = sede_autorizada(usuario, sede_id)
+    consulta = select(Factura)
+    if sede_id is not None:
+        consulta = consulta.where(Factura.sede_id == sede_id)
+    if desde is not None or hasta is not None:
+        inicio, fin = reportes.rango_utc(desde or date(2000, 1, 1), hasta or reportes.hoy_local())
+        consulta = consulta.where(Factura.emitida_en >= inicio, Factura.emitida_en < fin)
+    if medio_pago:
+        if medio_pago.upper() not in ("EFECTIVO", "TARJETA_DEBITO", "TARJETA_CREDITO"):
+            raise ErrorApp("MEDIO_PAGO_INVALIDO", f"Payment method '{medio_pago}' does not exist: use "
+                           "EFECTIVO, TARJETA_DEBITO or TARJETA_CREDITO.", 422)
+        consulta = consulta.where(Factura.medio_pago == medio_pago.upper())
+    return [a_factura_salida(f) for f in db.scalars(consulta.order_by(Factura.numero.desc()).limit(limite))]
+
+
+@facturas.get("/numero/{numero}", response_model=FacturaSalida, summary="Find an invoice by its number")
+def obtener_factura_por_numero(numero: int, usuario: UsuarioActual = Depends(cajero_o_admin),
+                               db: Session = Depends(get_db)):
+    factura = db.scalar(select(Factura).where(Factura.numero == numero))
+    if factura is None:
+        raise ErrorApp("NO_ENCONTRADO", f"There is no invoice number {numero_formateado(numero)}.", 404)
+    return a_factura_salida(_factura_de_mi_sede(db, factura.id, usuario))
+
+
+@facturas.get("/{factura_id}", response_model=FacturaSalida, summary="Invoice detail (HU-023 c6)")
+def obtener_factura(factura_id: int, usuario: UsuarioActual = Depends(cajero_o_admin),
+                    db: Session = Depends(get_db)):
+    return a_factura_salida(_factura_de_mi_sede(db, factura_id, usuario))
+
+
+NOMBRES_MEDIO_PAGO = {"EFECTIVO": "Efectivo", "TARJETA_DEBITO": "Tarjeta débito",
+                      "TARJETA_CREDITO": "Tarjeta crédito"}
+
+
+def _pesos(valor) -> str:
+    return "$" + f"{int(Decimal(valor)):,}".replace(",", ".")
+
+
+@facturas.get("/{factura_id}/impresion", summary="Printable invoice (HTML, HU-023 c6)",
+              response_class=Response)
+def imprimir_factura(factura_id: int, request: Request, usuario: UsuarioActual = Depends(cajero_o_admin),
+                     db: Session = Depends(get_db)):
+    """Tirilla de 80 mm lista para `window.print()`. Cada reimpresión queda en la auditoría."""
+    from html import escape
+
+    factura = _factura_de_mi_sede(db, factura_id, usuario)
+    emitida = factura.emitida_en
+    if emitida.tzinfo is None:
+        emitida = emitida.replace(tzinfo=UTC)
+    emitida = emitida.astimezone(reportes.ZONA_BAR)
+    filas = "".join(
+        f"<tr><td>{li.cantidad} × {escape(li.nombre)}</td><td class=v>{_pesos(li.subtotal)}</td></tr>"
+        for li in factura.lineas)
+    pago = f"<p>Medio de pago: <b>{NOMBRES_MEDIO_PAGO[factura.medio_pago]}</b></p>"
+    if factura.valor_recibido is not None:
+        pago += (f"<p>Recibido: {_pesos(factura.valor_recibido)} · Cambio: "
+                 f"{_pesos(factura.cambio or 0)}</p>")
+    html = f"""<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+<title>Factura {numero_formateado(factura.numero)}</title>
+<style>body{{font-family:monospace;width:72mm;margin:0 auto;font-size:12px}}h1{{font-size:16px;
+text-align:center;margin:4px 0}}table{{width:100%;border-collapse:collapse}}td.v{{text-align:right}}
+.t td{{border-top:1px dashed #000;font-weight:bold;padding-top:4px}}p{{margin:2px 0}}
+@media print{{@page{{size:80mm auto;margin:4mm}}}}</style></head>
+<body onload="window.print()"><h1>Bar de Moe</h1>
+<p style="text-align:center">{escape(factura.sede.nombre)}</p>
+<p><b>FACTURA DE VENTA N.º {numero_formateado(factura.numero)}</b></p>
+<p>Fecha: {emitida:%Y-%m-%d %H:%M} · Mesa {factura.mesa_numero}</p>
+<p>Mesero: {escape(factura.mesero)} · Cajero: {escape(factura.cajero)}</p>
+<table>{filas}<tr class=t><td>TOTAL</td><td class=v>{_pesos(factura.total)}</td></tr></table>
+{pago}<p style="text-align:center;margin-top:8px">¡Gracias por su visita!</p></body></html>"""
+    registrar(db, accion="IMPRIMIR_FACTURA", entidad="facturas", entidad_id=factura.id,
+              detalle=numero_formateado(factura.numero), **_contexto(usuario, request))
+    db.commit()
+    return Response(content=html, media_type="text/html; charset=utf-8", headers={
+        "Content-Disposition": f'inline; filename="factura-{numero_formateado(factura.numero)}.html"'})
+
+
+# ------------------------------------------------------------ REPORTES (M6)
+reportes_router = APIRouter(prefix="/reportes", tags=["reports (M6)"])
+
+
+def _parsear_sedes(texto: str | None) -> list[int] | None:
+    if texto is None or not texto.strip():
+        return None
+    try:
+        ids = sorted({int(p) for p in texto.split(",") if p.strip()})
+    except ValueError as exc:
+        raise ErrorApp("SEDES_INVALIDAS", f"'{texto}' is not a valid branch list: use ids separated "
+                       "by commas, for example 1,3.", 422) from exc
+    return ids or None
+
+
+def _alcance_reporte(db: Session, usuario: UsuarioActual, sedes: str | None) -> tuple[list[int] | None, bool]:
+    """HU-024 c1 a c4: la sede la decide el perfil, no el navegador.
+
+    - ADMINISTRADOR: todas (None) o las que pida (c2).
+    - CAJERO: solo la suya; si pide otra, 403 aunque llame la URL a mano (c3).
+    - MESERO: ya fue rechazado por `cajero_o_admin` (c4).
+    """
+    pedidas = _parsear_sedes(sedes)
+    if usuario.perfil != PERFIL_ADMIN:
+        if pedidas is not None and pedidas != [usuario.sede_id]:
+            sede_autorizada(usuario, next(s for s in pedidas if s != usuario.sede_id))
+        return [sede_autorizada(usuario, None)], True
+    for sede_id in pedidas or []:
+        obtener_o_404(db, Sede, sede_id, "branch")
+    return pedidas, False
+
+
+def _validar_rango(desde: date | None, hasta: date | None) -> tuple[date, date]:
+    hasta = hasta or reportes.hoy_local()
+    desde = desde or hasta
+    if desde > hasta:
+        raise ErrorApp("RANGO_INVALIDO", f"The start date ({desde}) is after the end date ({hasta}).", 422)
+    if (hasta - desde).days >= reportes.MAXIMO_DIAS:
+        raise ErrorApp("RANGO_INVALIDO", f"The range covers {(hasta - desde).days + 1} days; the maximum "
+                       f"is {reportes.MAXIMO_DIAS} to keep the 2-second response time (RNF-02).", 422)
+    return desde, hasta
+
+
+def _filas_reporte(db: Session, desde: date, hasta: date, sedes: list[int] | None,
+                   orden: str) -> list[reportes.Fila]:
+    """Una sola función arma las filas de la pantalla y del Excel (c7)."""
+    inicio, fin = reportes.rango_utc(desde, hasta)
+    consulta = (select(FacturaLinea, Factura.emitida_en, Factura.sede_id, Sede.nombre)
+                .join(Factura, FacturaLinea.factura_id == Factura.id)
+                .join(Sede, Factura.sede_id == Sede.id)
+                .where(Factura.emitida_en >= inicio, Factura.emitida_en < fin))
+    if sedes is not None:
+        consulta = consulta.where(Factura.sede_id.in_(sedes))
+    lineas = (reportes.LineaVendida(
+        emitida_en=emitida, sede_id=sede_id, sede=nombre_sede, producto_id=li.producto_id,
+        codigo=li.codigo, nombre=li.nombre, cantidad=li.cantidad,
+        valor_compra=Decimal(li.valor_compra), valor_venta=Decimal(li.precio_unitario))
+        for li, emitida, sede_id, nombre_sede in db.execute(consulta))
+    return reportes.ordenar(reportes.agrupar(lineas), orden)
+
+
+ParametroOrden = Annotated[str, Query(pattern="^(fecha|ganancia|cantidad)$",
+                                      description="fecha · ganancia · cantidad (merge sort, algoritmo 6)")]
+ParametroSedes = Annotated[str | None, Query(max_length=200,
+                                             description="Branch ids separated by commas (admin only)")]
+
+
+@reportes_router.get("/ventas", response_model=ReporteVentasSalida,
+                     summary="Sales and profit report (HU-024)")
+def reporte_ventas(usuario: UsuarioActual = Depends(cajero_o_admin), db: Session = Depends(get_db),
+                   desde: date | None = None, hasta: date | None = None,
+                   sedes: ParametroSedes = None, orden: ParametroOrden = "fecha"):
+    desde, hasta = _validar_rango(desde, hasta)
+    alcance, fija = _alcance_reporte(db, usuario, sedes)
+    filas = _filas_reporte(db, desde, hasta, alcance, orden)
+    return ReporteVentasSalida(
+        desde=desde, hasta=hasta, sedes=alcance, sede_fija=fija, orden=orden,
+        filas=[vars(f) for f in filas], totales_por_sede=reportes.totales_por_sede(filas),
+        total_cantidad=sum(f.cantidad for f in filas),
+        total_ventas=sum((f.valor_venta * f.cantidad for f in filas), Decimal(0)),
+        total_ganancia=sum((f.ganancia for f in filas), Decimal(0)),
+    )
+
+
+@reportes_router.get("/ventas/excel", summary="Export the sales report to Excel (HU-024 c7)",
+                     response_class=Response)
+def exportar_reporte_ventas(request: Request, usuario: UsuarioActual = Depends(cajero_o_admin),
+                            db: Session = Depends(get_db), desde: date | None = None,
+                            hasta: date | None = None, sedes: ParametroSedes = None,
+                            orden: ParametroOrden = "fecha"):
+    desde, hasta = _validar_rango(desde, hasta)
+    alcance, _ = _alcance_reporte(db, usuario, sedes)
+    filas = _filas_reporte(db, desde, hasta, alcance, orden)
+    if alcance is None:
+        texto_alcance = "todas"
+    else:
+        nombres = dict(db.execute(select(Sede.id, Sede.nombre).where(Sede.id.in_(alcance))).all())
+        texto_alcance = ", ".join(nombres.get(s, str(s)) for s in alcance)
+    contenido = reportes.a_excel(filas, desde=desde, hasta=hasta, alcance=texto_alcance,
+                                 usuario=usuario.usuario)
+    registrar(db, accion="EXPORTAR_REPORTE", entidad="reportes", entidad_id=None,
+              detalle=f"ventas {desde}..{hasta} · sedes {texto_alcance} · {len(filas)} fila(s)",
+              **_contexto(usuario, request))
+    db.commit()
+    nombre = f"reporte-ventas_{desde}_{hasta}.xlsx"
+    return Response(content=contenido,
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="{nombre}"',
+                             "X-Total-Count": str(len(filas))})
+
+
+for router in (sedes, mesas, tipos, proveedores, productos, inventario, pedidos, facturas, reportes_router):
     app.include_router(router)
 # HU-008: la auditoría de este servicio también se puede consultar (solo ADMINISTRADOR).
 app.include_router(router_consulta(get_db, solo_admin))
