@@ -176,11 +176,12 @@ class PruebaHumo:
             sede_id = sede.json()["id"]
             codigo = f"QA-{self.sufijo[-6:]}"
             producto = self.paso("Crear producto (queda en todas las sedes)", "HU-020", 201, "POST",
-                      "/api/parametrizacion/productos",
-                      headers=self.h, json_={
-                          "codigo": codigo, "nombre": "Cerveza Duff QA",
-                          "tipo_producto_id": tipo.json()["id"], "proveedor_id": proveedor.json()["id"],
-                          "valor_compra": "2500", "valor_venta": "6000"})
+                                 "/api/parametrizacion/productos",
+                                 headers=self.h, json_={
+                                     "codigo": codigo, "nombre": "Cerveza Duff QA",
+                                     "tipo_producto_id": tipo.json()["id"],
+                                     "proveedor_id": proveedor.json()["id"],
+                                     "valor_compra": "2500", "valor_venta": "6000"})
             mesa = self.paso("Crear mesa en la sede", "HU-018", 201, "POST", "/api/parametrizacion/mesas",
                              headers=self.h, json_={"sede_id": sede_id, "numero": 1, "capacidad": 4})
 
@@ -195,9 +196,10 @@ class PruebaHumo:
             self.paso("Consultar la sede creada", "HU-017", 200, "GET",
                       f"/api/parametrizacion/sedes/{sede_id}", headers=self.h)
             if all(x is not None and x.status_code == 201 for x in (producto, mesa)):
-                self._flujo_sprint_2(sede_id, producto.json()["id"], mesa.json()["id"])
+                pedido = self._flujo_sprint_2(sede_id, producto.json()["id"], mesa.json()["id"])
+                self._facturar_y_reportar(sede_id, pedido, mesa.json()["id"])
             else:
-                self.omitir("Inventario y pedidos (Sprint 2)", "HU-021 · HU-022",
+                self.omitir("Inventario, pedido, factura y reporte", "HU-021 a HU-024",
                             "no se pudieron crear el producto o la mesa")
         else:
             self.omitir("Crear producto / mesa y consultar", "HU-018 · HU-020",
@@ -225,7 +227,7 @@ class PruebaHumo:
                   "/api/parametrizacion/sedes", headers=self.h, validar=trae_codigo("SESION_CERRADA"))
         return self.r
 
-    def _flujo_sprint_2(self, sede: int, producto: int, mesa: int) -> None:
+    def _flujo_sprint_2(self, sede: int, producto: int, mesa: int):
         """M3 inventario por sede + M4 pedidos y mesas + algoritmos 1 a 7."""
         api, paso, h = "/api/parametrizacion", self.paso, self.h
 
@@ -292,10 +294,51 @@ class PruebaHumo:
         paso("Alg. 7 · cola de la barra (lexicográfica)", "HU-022", 200, "GET", f"{api}/pedidos/cola-barra",
              headers=h, params={"sede_id": sede})
         self.mesa_qa = mesa
+        return pedido
 
     @staticmethod
     def _codigo(resp, codigo: str) -> None:
         assert resp.json()["error"]["codigo"] == codigo, f"se esperaba {codigo}"
+    def _facturar_y_reportar(self, sede_id: int, pedido, mesa_id: int) -> None:
+        """Sprints 3 y 4: se factura el pedido del flujo anterior (5 cervezas) y se reporta."""
+        api = "/api/parametrizacion"
+        if pedido is None or pedido.status_code != 201:
+            self.omitir("Facturar y reportar", "HU-023 · HU-024", "no se pudo abrir el pedido")
+            return
+
+        def vueltas_correctas(resp):
+            cuerpo = resp.json()
+            assert float(cuerpo["total"]) == 30000 and float(cuerpo["cambio"]) == 20000, cuerpo
+
+        cobro = {"pedido_id": pedido.json()["id"], "medio_pago": "EFECTIVO", "valor_recibido": 50000}
+        factura = self.paso("Facturar en efectivo con $50.000", "HU-023 c1-c5", 201, "POST",
+                            f"{api}/facturas", headers=self.h, json_=cobro, validar=vueltas_correctas)
+
+        def mesa_libre(resp):
+            estado = next(m["estado"] for m in resp.json() if m["id"] == mesa_id)
+            assert estado == "LIBRE", f"la mesa quedó {estado}"
+
+        self.paso("La mesa vuelve a libre", "HU-023 c5", 200, "GET", f"{api}/mesas", headers=self.h,
+                  params={"sede_id": sede_id}, validar=mesa_libre)
+        if factura is not None and factura.status_code == 201:
+            def es_html(resp):
+                assert "FACTURA DE VENTA" in resp.text, "la impresión no trae la factura"
+
+            self.paso("Imprimir la factura", "HU-023 c6", 200, "GET",
+                      f"{api}/facturas/{factura.json()['id']}/impresion", headers=self.h, validar=es_html)
+
+        def trae_venta(resp):
+            filas = resp.json()["filas"]
+            assert any(f["cantidad"] == 5 and float(f["ganancia"]) == 17500 for f in filas), filas
+
+        self.paso("Reporte de ventas y ganancia de hoy", "HU-024 c1-c6", 200, "GET", f"{api}/reportes/ventas",
+                  headers=self.h, params={"sedes": str(sede_id)}, validar=trae_venta)
+
+        def es_excel(resp):
+            assert resp.content[:2] == b"PK", "el archivo no es un .xlsx"
+
+        self.paso("Exportar el reporte a Excel", "HU-024 c7", 200, "GET", f"{api}/reportes/ventas/excel",
+                  headers=self.h, params={"sedes": str(sede_id)}, validar=es_excel)
 
     def _mesero_sin_permisos(self, otra_sede: int | None) -> None:
         usuario, password = self.mesero
@@ -313,6 +356,8 @@ class PruebaHumo:
                   headers=h, json_={"nombre": f"Sede pirata {self.sufijo}"})
         self.paso("Mesero no puede administrar usuarios", "HU-028 · C-1", 403, "GET", "/api/auth/usuarios",
                   headers=h)
+        self.paso("Mesero no ve el reporte de ventas", "HU-024 c4", 403, "GET",
+                  "/api/parametrizacion/reportes/ventas", headers=h)
         if otra_sede is not None:
             self.paso("Mesero no ve las mesas de otra sede", "HU-028 · C-1", 403, "GET",
                       "/api/parametrizacion/mesas", headers=h, params={"sede_id": otra_sede})

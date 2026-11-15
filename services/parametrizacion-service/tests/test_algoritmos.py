@@ -171,3 +171,32 @@ def test_cadena_con_clave_ordena_comandas_por_distancia():
     comandas = [(1, 3, 7), (2, 1, 2), (3, 4, 9), (4, 1, 1)]
     cola, _ = menor_lexicografico(comandas, clave=lambda c: (c[1], c[2]))
     assert [c[0] for c in cola] == [4, 2, 1, 3]
+# ------------------------------------------------ 6. merge sort (HU-024, Sprint 4)
+def test_merge_sort_ordena_igual_que_sorted_en_100_casos_al_azar():
+    import random
+
+    from app.algoritmos import ordenar_mezcla
+
+    azar = random.Random(2026)
+    for _ in range(100):
+        datos = [azar.randint(-50, 50) for _ in range(azar.randint(0, 60))]
+        assert ordenar_mezcla(datos) == sorted(datos)
+        assert ordenar_mezcla(datos, descendente=True) == sorted(datos, reverse=True)
+
+
+def test_merge_sort_es_estable_y_no_modifica_la_original():
+    from app.algoritmos import ordenar_mezcla
+
+    filas = [("12/03", 300), ("13/03", 100), ("12/03", 100), ("14/03", 300)]
+    copia = list(filas)
+    por_ganancia = ordenar_mezcla(filas, clave=lambda f: f[1], descendente=True)
+    assert por_ganancia == [("12/03", 300), ("14/03", 300), ("13/03", 100), ("12/03", 100)]
+    assert filas == copia
+
+
+def test_merge_sort_casos_borde():
+    from app.algoritmos import ordenar_mezcla
+
+    assert ordenar_mezcla([]) == []
+    assert ordenar_mezcla([7]) == [7]
+    assert ordenar_mezcla([2, 1]) == [1, 2]

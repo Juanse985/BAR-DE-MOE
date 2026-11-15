@@ -1,5 +1,5 @@
 """Contratos del parametrizacion-service."""
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -367,3 +367,90 @@ class ColaBarraSalida(BaseModel):
     llegada: list[ComandaEnCola]
     cola: list[ComandaEnCola]
     pasos: list[PasoColaSalida]
+# ------------------------------------------------------- Facturación (M5)
+MedioPago = Literal["EFECTIVO", "TARJETA_DEBITO", "TARJETA_CREDITO"]  # HU-023 criterio 4
+
+
+class FacturaCrear(BaseModel):
+    """HU-023: el cajero cierra el pedido y registra cómo pagó el cliente.
+
+    `valor_recibido` solo aplica al efectivo: si llega, se calculan las vueltas
+    con el algoritmo voraz (algoritmo 5). Con tarjeta se cobra el total exacto.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    pedido_id: int
+    medio_pago: MedioPago = Field(examples=["EFECTIVO"])
+    valor_recibido: int | None = Field(default=None, gt=0, le=100_000_000, examples=[50000])
+
+    @model_validator(mode="after")
+    def recibido_solo_en_efectivo(self):
+        if self.valor_recibido is not None and self.medio_pago != "EFECTIVO":
+            raise ValueError("valor_recibido only applies to cash (EFECTIVO) payments.")
+        return self
+
+
+class FacturaLineaSalida(Base):
+    producto_id: int
+    codigo: str
+    nombre: str
+    cantidad: int
+    precio_unitario: Decimal
+    subtotal: Decimal
+
+
+class FacturaSalida(Base):
+    id: int
+    numero: int
+    numero_formateado: str
+    pedido_id: int
+    sede_id: int
+    sede: str
+    mesa_id: int
+    mesa_numero: int
+    mesero: str
+    cajero: str
+    medio_pago: MedioPago
+    total: Decimal
+    valor_recibido: Decimal | None
+    cambio: Decimal | None
+    piezas_cambio: list[dict] = Field(default_factory=list)
+    emitida_en: datetime
+    lineas: list[FacturaLineaSalida]
+
+
+# ------------------------------------------------------- Reportería (M6)
+class FilaReporte(BaseModel):
+    """HU-024 criterio 5: las columnas del reporte, en el orden del mockup."""
+
+    fecha: date
+    codigo: str
+    nombre: str
+    cantidad: int
+    valor_compra: Decimal
+    valor_venta: Decimal
+    ganancia: Decimal
+    sede_id: int
+    sede: str
+
+
+class TotalSede(BaseModel):
+    sede_id: int
+    sede: str
+    cantidad: int
+    ventas: Decimal
+    ganancia: Decimal
+
+
+class ReporteVentasSalida(BaseModel):
+    desde: date
+    hasta: date
+    sedes: list[int] | None  # None = todas (consolidado del administrador)
+    sede_fija: bool          # True para el cajero: no puede cambiar el filtro (c3)
+    orden: str
+    filas: list[FilaReporte]
+    totales_por_sede: list[TotalSede]
+    total_cantidad: int
+    total_ventas: Decimal
+    total_ganancia: Decimal

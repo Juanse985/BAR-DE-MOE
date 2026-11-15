@@ -261,3 +261,52 @@ def test_def10_sin_carpeta_de_frontend_el_gateway_igual_arranca(monkeypatch, tmp
     monkeypatch.setattr(main, "__file__", str(tmp_path / "a" / "b" / "main.py"))
     monkeypatch.setattr(main.config, "FRONTEND_DIR", "")
     assert main.carpeta_frontend() is None
+
+
+# ------------------------------------------- HU-023 c6 y HU-024 c7 · documentos
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+class ConDocumentos(ServiciosFalsos):
+    def __call__(self, peticion):
+        ruta = peticion.url.path
+        if ruta == "/reportes/ventas/excel":
+            self.recibidas.append(peticion)
+            return httpx.Response(200, content=b"PK\x03\x04excel", headers={
+                "Content-Type": XLSX, "Content-Disposition": 'attachment; filename="r.xlsx"',
+                "X-Total-Count": "3"})
+        if ruta == "/facturas/1/impresion":
+            return httpx.Response(200, text="<html>Factura</html>", headers={
+                "Content-Type": "text/html; charset=utf-8", "Content-Disposition": "inline"})
+        if ruta == "/facturas/2/impresion":  # HTML sin Content-Disposition: no es un documento
+            return httpx.Response(200, text="<html>raro</html>")
+        return super().__call__(peticion)
+
+
+def test_hu024_c7_el_excel_del_reporte_pasa_intacto_por_el_gateway():
+    servicios = ConDocumentos()
+    c = _cliente(servicios)
+    try:
+        respuesta = c.get("/api/parametrizacion/reportes/ventas/excel", headers=TOKEN,
+                          params={"desde": "2026-11-01", "sedes": "1,2"})
+    finally:
+        c.__exit__(None, None, None)
+    assert respuesta.status_code == 200
+    assert respuesta.content == b"PK\x03\x04excel"
+    assert respuesta.headers["content-type"].startswith(XLSX)
+    assert "attachment" in respuesta.headers["content-disposition"]
+    assert respuesta.headers["x-total-count"] == "3"
+    enviada = servicios.a("/reportes/ventas/excel")[0].url.params
+    assert enviada["desde"] == "2026-11-01" and enviada["sedes"] == "1,2"
+
+
+def test_hu023_c6_la_factura_imprimible_pasa_como_html():
+    c = _cliente(ConDocumentos())
+    try:
+        respuesta = c.get("/api/parametrizacion/facturas/1/impresion", headers=TOKEN)
+        sin_cabecera = c.get("/api/parametrizacion/facturas/2/impresion", headers=TOKEN)
+    finally:
+        c.__exit__(None, None, None)
+    assert respuesta.status_code == 200
+    assert "Factura" in respuesta.text
+    assert sin_cabecera.status_code == 502  # DEF-09 se mantiene

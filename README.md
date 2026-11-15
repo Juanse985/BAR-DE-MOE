@@ -47,7 +47,7 @@ bar-de-moe/
 ├── gateway/                       Punto de entrada único (:8000)
 ├── services/
 │   ├── auth-service/              M1 · seguridad y usuarios
-│   └── parametrizacion-service/   M2 · M3 · M4 · parametrización, inventario, pedidos y algoritmos
+│   └── parametrizacion-service/   M2 a M6 · parametrización, inventario, pedidos, facturas y reportes (ADR-08)
 ├── libs/common/                   Config, BD, JWT, cifrado, auditoría, middlewares
 ├── infra/postgres/init.sql        Una base de datos por microservicio
 ├── scripts/                       seed de datos e inicialización del repo
@@ -74,6 +74,10 @@ bar-de-moe/
 | [`docs/Algoritmos_Bar_de_Moe_v1.0.pdf`](docs/Algoritmos_Bar_de_Moe_v1.0.pdf) | Los 7 algoritmos en PDF, con su código, ejemplos paso a paso y pruebas |
 | [`docs/postman/`](docs/postman/) | Colecciones Postman de la API (Sprint 1 y Sprint 2) |
 | [`docs/evidencias/`](docs/evidencias/) | Evidencias del Sprint 2: pruebas, prueba de humo, RNF-02, algoritmos, capturas y Postman |
+| [`docs/11-sprint-3-4-david.md`](docs/11-sprint-3-4-david.md) | Sprints 3 y 4 · facturación (HU-023), reporte de ventas y ganancia con Excel (HU-024) y `auth-service` en inglés (David) |
+| [`docs/12-algoritmos-david.md`](docs/12-algoritmos-david.md) | Los algoritmos de la asignatura (mochila, voraz, iterativo/recursivo, ordenamientos, búsqueda binaria, Hanoi, backtracking) y su endpoint |
+| [`docs/postman/`](docs/postman/) | Colección Postman de la API del Sprint 1 |
+| [`docs/evidencias/`](docs/evidencias/) | Reporte de pruebas, prueba de humo y medición del RNF-02 para la Review |
 
 ## Pruebas
 

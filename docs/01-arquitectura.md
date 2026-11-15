@@ -87,39 +87,49 @@ verificar, no solo escritos:
 | RNF-10 · sesión única | `servicio.login` | `test_rnf10_no_se_permite_una_segunda_sesion` |
 | RNF-12 · trazabilidad | `auditoria.registrar` | Dos pruebas, una por servicio |
 
-> ADR-06 (el código habla el idioma del negocio) y ADR-07 (librería común para lo
-> transversal) están en el documento de arquitectura en PDF (`docs/arquitectura/`).
+## ADR-08 · Inventario, pedidos, facturas y reportes en el `parametrizacion-service`
 
-## ADR-08 · Inventario y pedidos viven en `parametrizacion-service` (Sprint 2)
+*(ADR-06 y ADR-07 están en el documento de arquitectura v1.1 en PDF.)*
+**Estado:** aceptada en el Sprint 2 · ampliada en los Sprints 3 y 4 · **Autor:** Juan David Tovío.
 
-**Decisión.** Las tablas `inventario_sede`, `movimientos_inventario`, `pedidos` y
-`pedido_lineas` se crearon en `parametrizacion_db`, y sus rutas (`/inventario`,
-`/pedidos`) en `parametrizacion-service`. **No** se crearon `inventario-service` ni
-`pedidos-service` con `inventario_db` y `pedidos_db`, como preveía ADR-01.
+**Contexto.** El ADR-01 y el documento v1.1 planean servicios propios para M3 a M6
+(`inventario_db`, `pedidos_db`, `facturacion_db`, `reportes_db`). Pero tres
+criterios del tablero exigen que varias tablas cambien **juntas o ninguna**:
 
-**Por qué.** CU-18 exige que registrar un producto en el pedido, verificar la
-existencia y descontarla ocurra **en una sola transacción**: o queda todo o no queda
-nada. Con dos servicios y dos bases eso pide una transacción distribuida (saga o
-patrón *outbox*) y compensaciones. Es mucho riesgo para un sprint de dos semanas y
-no lo necesita un bar con tres sedes. En una sola base, un `SELECT … FOR UPDATE`
-sobre la fila de inventario y un `CHECK existencia >= 0` lo garantizan.
+| Criterio | Qué cambia en una sola transacción |
+|---|---|
+| CU-18 · HU-022 | Verificar y descontar la existencia **y** registrar la línea del pedido |
+| HU-023 c3 y c5 | Tomar el consecutivo, crear la factura, cerrar el pedido **y** liberar la mesa |
+| HU-024 c6 | La ganancia usa el valor de compra **del momento de la venta** |
 
-**Costo que aceptamos.** `parametrizacion-service` deja de ser solo configuración y
-crece. Si en el futuro hay que escalar pedidos por separado, se parte el servicio:
-las rutas ya están agrupadas en sus propios `APIRouter` y los algoritmos en un módulo
-aparte. Las bases `inventario_db` y `pedidos_db` siguen creadas en `init.sql`, pero
-están vacías. Detalle en `docs/09-sprint-2-david.md` §1.
+Entre dos bases de datos eso exigiría una saga o un 2PC, que no caben en el
+alcance de la asignatura y que, sin un bróker, no garantizan la regla.
 
-## ADR-09 · Los algoritmos de la asignatura son funciones puras (Sprint 2)
+**Decisión.** M3, M4, M5 y M6 viven en el `parametrizacion-service`, en la misma
+base de datos, separados por routers (`/inventario`, `/pedidos`, `/facturas`,
+`/reportes`) y por módulos (`algoritmos.py`, `reportes.py`).
 
-**Decisión.** Los 7 algoritmos (mochila, MCD, existencia acumulada, vueltas, ruta
-voraz del mesero y cola de la barra) están en `app/algoritmos.py`. No importan nada
+**Consecuencias.**
+- (+) Las reglas de dinero e inventario se cumplen con una transacción y un
+  `SELECT … FOR UPDATE`; la base de datos las respalda con `CHECK`, `UNIQUE` y un
+  índice único parcial.
+- (+) El gateway no cambió: todo sigue en `/api/parametrizacion/*`.
+- (−) El servicio crece. Si el bar necesita escalar la reportería por separado,
+  `reportes.py` ya es lógica pura y se puede mover a un servicio de solo lectura
+  que consulte una réplica.
+- Las bases `inventario_db`, `pedidos_db`, etc. de `init.sql` quedan sin usar.
+
+## ADR-09 · Los algoritmos de la asignatura son funciones puras (Sprints 2 a 4)
+
+**Decisión.** Los 12 algoritmos (mochila, MCD, mochila voraz, existencia acumulada,
+vueltas, ruta voraz del mesero, cola de la barra, merge sort, ordenamientos, búsqueda
+binaria, Torres de Hanoi y backtracking) están en `app/algoritmos.py`. No importan nada
 de la base de datos ni de FastAPI. El endpoint consulta, les pasa listas simples y
-devuelve el resultado.
+devuelve el resultado. `GET /algoritmos` lista los 12 y dónde se usa cada uno.
 
 **Por qué.** Así se prueban solos, contra fuerza bruta y con los ejemplos de clase,
 y se explican en la sustentación sin tener que mostrar SQL. Detalle en
-`docs/11-algoritmos.md`.
+`docs/11-algoritmos.md` y `docs/12-algoritmos-david.md`.
 
 ## Lo que este esqueleto todavía NO tiene
 
@@ -132,8 +142,6 @@ Dicho de frente, para que nadie se lleve una sorpresa en la Review:
 - **No hay rate limiting** en el gateway.
 - **No hay HTTPS.** En desarrollo va HTTP plano; para producción hay que poner
   un reverse proxy con TLS delante.
-- **M3 y M4 (Sprint 2) quedaron dentro de `parametrizacion-service`** (ADR-08).
-  M5 y M6 (facturación y reportes) todavía no existen. Sus bases ya están creadas
-  en `init.sql`.
-- **No se puede cerrar un pedido todavía.** Llega con la facturación (HU-023,
-  Sprint 3). Al cerrarse, la mesa volverá a quedar libre.
+- **M3 a M6 no tienen servicio propio** (ver ADR-08): viven en el
+  `parametrizacion-service`. Las bases de datos de `init.sql` para esos
+  módulos quedaron creadas pero sin usar.
